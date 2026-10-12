@@ -1,0 +1,46 @@
+{
+  "name": "local-rag",
+  "description": "Local RAG: a CLI for searching Markdown and text documents and answering questions with local models.",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.18.1",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "cli": "node --env-file-if-exists=.env --import tsx src/cli.ts",
+    "setup": "yarn cli setup",
+    "check": "yarn cli check",
+    "ingest": "yarn cli ingest",
+    "search": "yarn cli search",
+    "ask": "yarn cli ask",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/cli.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:integration": "node --env-file-if-exists=.env --import tsx scripts/test-integration.ts",
+    "test:llm": "node --env-file-if-exists=.env --import tsx scripts/test-llm.ts",
+    "validate": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn build"
+  },
+  "dependencies": {
+    "@huggingface/tokenizers": "patch:@huggingface/tokenizers@npm%3A0.2.0#~/.yarn/patches/@huggingface-tokenizers-npm-0.2.0-b3cadeeb28.patch",
+    "ollama": "0.6.4",
+    "remark-parse": "11.0.0",
+    "sqlite-vec": "0.1.9",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.12.0",
+    "prettier": "3.9.10",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.1"
+  }
+}

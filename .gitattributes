@@ -1,0 +1,2 @@
+# Preserve the vendored Yarn executable byte for byte and suppress generated diffs.
+.yarn/releases/*.cjs binary

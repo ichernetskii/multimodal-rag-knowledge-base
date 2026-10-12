@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.yarn/
+.cache/
+data/
+.idea/
+yarn.lock
+.env

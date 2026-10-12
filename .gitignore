@@ -1,0 +1,34 @@
+# Installed dependencies and generated build/test output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local settings; keep the configuration example in Git
+.env
+.env.*
+!.env.example
+
+# Downloaded tokenizers and local indexes
+.cache/
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+
+# Yarn: keep the pinned executable and patches
+.yarn/*
+!.yarn/releases/
+!.yarn/patches/
+
+# Personal IDE settings, system files, and temporary files
+.idea/
+.DS_Store
+Thumbs.db
+*.log
+*.log.*
+*.tmp
+*.swp
+*.swo
+*~
