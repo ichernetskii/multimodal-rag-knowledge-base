@@ -1,14 +1,20 @@
 import { loadRuntimeConfig } from './runtime-config.js';
 import { checkApplication, createApplication, setupApplication } from './application.js';
 
-const help = `Local RAG: Markdown/TXT → embeddings → SQLite → LLM answer.
+const help = `Local RAG: Markdown/TXT → token IDs → local ONNX embeddings → SQLite → LLM answer.
 
-  yarn setup                     Prepare the tokenizer and EmbeddingGemma
-  yarn check [--storage-only]     Check components
+  yarn setup                     Download the pinned tokenizer and q8 ONNX EmbeddingGemma
+  yarn check                     Check local embeddings and the Ollama answer model
+  yarn check --embedding-only    Check ONNX embeddings without Ollama
+  yarn check --storage-only      Check SQLite without model files or Ollama
   yarn ingest <file.md|file.txt>   Ingest or update a document
   yarn search "question"          Show retrieved chunks
   yarn ask "question"             Get an answer with source references
 
+Ingest and search run locally without Ollama. Ask uses Ollama for answer generation.
+Generated answers follow the question's language.
+Empty search returns "The documents do not contain enough information." without calling Ollama.
+Run setup before indexing. An old Ollama embedding index must be rebuilt in a new database.
 Documentation: README.md (English), README.ru.md (Russian).`;
 
 const [command, ...args] = process.argv.slice(2);
@@ -20,13 +26,25 @@ try {
     const config = loadRuntimeConfig();
     switch (command) {
       case 'setup':
-        console.error('Preparing tokenizer files and the embedding model...');
+        console.error('Preparing the pinned tokenizer and ONNX model files...');
         console.log(await setupApplication(config));
         break;
       case 'check':
-        if (args.some((arg) => arg !== '--storage-only'))
-          throw new Error('Usage: yarn check [--storage-only]');
-        console.log(await checkApplication(config, args.includes('--storage-only')));
+        if (
+          args.length > 1 ||
+          args.some((arg) => !['--storage-only', '--embedding-only'].includes(arg))
+        )
+          throw new Error('Usage: yarn check [--storage-only | --embedding-only]');
+        console.log(
+          await checkApplication(
+            config,
+            args[0] === '--storage-only'
+              ? 'storage'
+              : args[0] === '--embedding-only'
+                ? 'embedding'
+                : 'all',
+          ),
+        );
         break;
       case 'ingest':
         if (args.length !== 1 || !args[0]) throw new Error('Usage: yarn ingest <file.md|file.txt>');
@@ -60,7 +78,7 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   console.error(`Error: ${message}`);
-  if (/fetch failed|ECONNREFUSED|connect/iu.test(message))
+  if (command !== 'setup' && /fetch failed|ECONNREFUSED|connect/iu.test(message))
     console.error('Check that Ollama is running and verify OLLAMA_URL.');
   process.exitCode = 1;
 } finally {

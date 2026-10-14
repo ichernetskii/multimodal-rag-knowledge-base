@@ -12,6 +12,10 @@ export class SourcesContextBuilder implements ContextBuilder {
     const sources: SourceReference[] = [];
     const userContent = (items: SourceReference[]) =>
       `Question: ${question}\n\nRetrieved sources:\n${JSON.stringify(items)}`;
+    if (this.config.systemPrompt.length + userContent([]).length > this.config.maxCharacters)
+      throw new Error(
+        'The question and instruction do not fit in the context. Shorten the question or increase CONTEXT_MAX_CHARACTERS.',
+      );
     for (const hit of hits) {
       const source = {
         id: sources.length + 1,

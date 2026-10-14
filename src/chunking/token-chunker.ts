@@ -1,17 +1,18 @@
 import type { AppConfig } from '../config.js';
 import type {
-  DocumentChunk,
+  PreparedDocumentChunk,
   DocumentChunker,
   DocumentSection,
   EmbeddingFormatter,
   LoadedDocument,
-  TokenCounter,
+  TextTokenizer,
+  TokenizedInput,
 } from '../core/contracts.js';
 
 /** Count the complete model input instead of adding individual word token counts. */
 export class TokenDocumentChunker implements DocumentChunker {
   constructor(
-    private readonly tokenizer: TokenCounter,
+    private readonly tokenizer: TextTokenizer,
     private readonly formatter: EmbeddingFormatter,
     private readonly config: AppConfig['chunking'],
     private readonly maxInputTokens: number,
@@ -20,12 +21,14 @@ export class TokenDocumentChunker implements DocumentChunker {
   async chunk(
     document: LoadedDocument,
     sections: readonly DocumentSection[],
-  ): Promise<DocumentChunk[]> {
-    const chunks: DocumentChunk[] = [];
+  ): Promise<PreparedDocumentChunk[]> {
+    const chunks: PreparedDocumentChunk[] = [];
     const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
     for (const section of sections) {
       if (
-        this.tokenizer.count(this.formatter.document(document.name, section.title, '')) + 8 >
+        this.tokenizer.encode(this.formatter.document(document.name, section.title, '')).tokenIds
+          .length +
+          8 >
         this.config.targetTokens
       ) {
         throw new Error(`The section title is too long: ${section.title}.`);
@@ -42,17 +45,21 @@ export class TokenDocumentChunker implements DocumentChunker {
       const body = (start: number, stop: number) => section.text.slice(offset(start), offset(stop));
       let start = 0;
       while (start < end) {
-        const counts = new Map<number, number>();
-        const fits = (stop: number) => {
-          let tokens = counts.get(stop);
+        const prepared = new Map<number, TokenizedInput>();
+        const encode = (stop: number) => {
+          let tokens = prepared.get(stop);
           if (tokens === undefined) {
-            tokens = this.tokenizer.count(
+            tokens = this.tokenizer.encode(
               this.formatter.document(document.name, section.title, body(start, stop)),
             );
-            counts.set(stop, tokens);
+            prepared.set(stop, tokens);
           }
+          return tokens;
+        };
+        const fits = (stop: number) => {
+          const tokens = encode(stop);
           return (
-            tokens <= Math.min(this.config.targetTokens, this.maxInputTokens) &&
+            tokens.tokenIds.length <= Math.min(this.config.targetTokens, this.maxInputTokens) &&
             offset(stop) - offset(start) <= this.config.maxCharacters
           );
         };
@@ -95,12 +102,14 @@ export class TokenDocumentChunker implements DocumentChunker {
         const text = body(start, best);
         if (text.trim()) {
           const embeddingInput = this.formatter.document(document.name, section.title, text);
+          const tokens = encode(best);
           chunks.push({
             index: chunks.length,
             section: section.title,
             body: text,
             embeddingInput,
-            tokenCount: this.tokenizer.count(embeddingInput),
+            tokenCount: tokens.tokenIds.length,
+            tokens,
             startLine: section.startLine,
             endLine: section.endLine,
           });
@@ -115,8 +124,8 @@ export class TokenDocumentChunker implements DocumentChunker {
           while (left <= right) {
             const middle = Math.floor((left + right) / 2);
             if (
-              this.tokenizer.count(body(middle, best), { includeSpecialTokens: false }) <=
-              this.config.overlapTokens
+              this.tokenizer.encode(body(middle, best), { includeSpecialTokens: false }).tokenIds
+                .length <= this.config.overlapTokens
             ) {
               next = middle;
               right = middle - 1;

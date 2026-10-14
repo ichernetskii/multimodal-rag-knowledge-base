@@ -39,9 +39,7 @@ export class RagService {
     const records: IndexedChunk[] = [];
     for (let offset = 0; offset < chunks.length; offset += this.batchSize) {
       const batch = chunks.slice(offset, offset + this.batchSize);
-      const { vectors } = await this.stages.embedder.embed(
-        batch.map((chunk) => chunk.embeddingInput),
-      );
+      const { vectors } = await this.stages.embedder.embed(batch.map((chunk) => chunk.tokens));
       if (vectors.length !== batch.length)
         throw new Error('The number of embeddings does not match the number of chunks.');
       batch.forEach((chunk, index) => {
@@ -78,6 +76,10 @@ export class RagService {
     };
   }
   async close(): Promise<void> {
-    await this.stages.store.close();
+    try {
+      await this.stages.store.close();
+    } finally {
+      await this.stages.embedder.close();
+    }
   }
 }

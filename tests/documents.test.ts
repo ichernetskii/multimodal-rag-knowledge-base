@@ -9,7 +9,7 @@ import { TokenDocumentChunker } from '../src/chunking/token-chunker.js';
 import { EmbeddingGemmaFormatter } from '../src/embeddings/formatter.js';
 import { loadConfig } from '../src/config.js';
 import { loadRuntimeConfig } from '../src/runtime-config.js';
-import { document, wordCounter } from './helpers.js';
+import { document, wordTokenizer } from './helpers.js';
 
 const parser = new TextDocumentParser();
 const formatter = new EmbeddingGemmaFormatter(loadRuntimeConfig({}).embedding);
@@ -47,7 +47,7 @@ void test('Chunking includes the prefix, preserves content, and keeps sections s
   const text = Array.from({ length: 100 }, (_, i) => `word${i}`).join(' ');
   const source = document(`# A\n\n## Leave\n\n${text}\n\n## IT\n\nitMarker`);
   const chunker = new TokenDocumentChunker(
-    wordCounter,
+    wordTokenizer,
     formatter,
     { targetTokens: 32, overlapTokens: 4, maxCharacters: 4096 },
     40,
@@ -66,7 +66,7 @@ void test('Chunking includes the prefix, preserves content, and keeps sections s
 
 void test('Empty documents and long titles produce clear errors', async () => {
   const chunker = new TokenDocumentChunker(
-    wordCounter,
+    wordTokenizer,
     formatter,
     { targetTokens: 32, overlapTokens: 4, maxCharacters: 4096 },
     40,

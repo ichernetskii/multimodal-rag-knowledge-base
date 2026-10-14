@@ -2,9 +2,9 @@
 
 English | [Russian](README.ru.md)
 
-Local RAG ingests Markdown and TXT documents, retrieves relevant chunks, and answers questions using those chunks. Computation runs on your computer: **Ollama + EmbeddingGemma** produces embeddings, **Tokenizers.js** counts tokens, **SQLite + sqlite-vec** stores the index, and a separate LLM in Ollama generates answers.
+Local RAG ingests Markdown and TXT, retrieves relevant chunks, and answers questions from those sources. **Transformers.js + ONNX Runtime** runs EmbeddingGemma locally inside Node.js. The tokenizer prepares token IDs, and the model receives those same IDs. **SQLite + sqlite-vec** stores and compares vectors. A separate **Qwen model in Ollama** generates answers.
 
-This is an educational TypeScript CLI project. Each stage has an interface so its implementation can be replaced. The package and project directory are named `local-rag`; the display name is **Local RAG**. CLI messages, sample documents, and generated answers use English by default.
+This is an educational TypeScript CLI project. Every stage has a technology-independent interface; one assembly function selects implementations. CLI messages and sample documents use English. Generated answers follow the language of the user's question. Empty retrieval returns a fixed English insufficient-information message without calling Ollama.
 
 ## Contents
 
@@ -14,7 +14,7 @@ This is an educational TypeScript CLI project. Each stage has an interface so it
 - [Stage interfaces](#stage-interfaces)
 - [Replacing a component](#replacing-a-component)
 - [Configuration](#configuration)
-- [Local data](#local-data)
+- [Local data and migration](#local-data-and-migration)
 - [Project structure](#project-structure)
 - [Development and validation](#development-and-validation)
 - [Dependencies and tools](#dependencies-and-tools)
@@ -23,27 +23,36 @@ This is an educational TypeScript CLI project. Each stage has an interface so it
 
 ## Quick start
 
-Install **Node.js 24+** and [Ollama](https://ollama.com/download). Open the Ollama application, or run `ollama serve` in a separate terminal.
-
-Run these commands from the `local-rag` project directory:
+Install **Node.js 24+**. Ollama is needed only for answer generation, not for setup, indexing, or vector search.
 
 ```bash
 yarn install --immutable
 cp .env.example .env
 yarn setup
-ollama pull qwen3.5:4b
-yarn check
+yarn check --embedding-only
 yarn ingest examples/company.md
 yarn ingest examples/it.txt
 yarn search "How far in advance must employees on probation request leave?"
-yarn ask "How far in advance must employees on probation request leave?"
 ```
 
-If `.env` already exists, edit it instead of overwriting it. The sample policies are fictional. The expected answer to this question is **21 calendar days**.
+If `.env` already exists, edit it instead of overwriting it. An index produced by the old Ollama embedding backend must be rebuilt; see [migration](#local-data-and-migration).
 
-`yarn setup` downloads two tokenizer files from a pinned Hugging Face revision and pulls EmbeddingGemma into Ollama if the model is missing. Download the answer model separately. Once preparation is complete, `ingest`, `search`, and `ask` use local files and the local service without internet access. Ollama must remain running.
+To generate answers, install [Ollama](https://ollama.com/download), open its application or run `ollama serve`, then:
 
-Yarn **4.18.1** is pinned, and its executable is included in `.yarn/releases`. You can use Corepack: `corepack yarn install --immutable`. If neither `yarn` nor Corepack is available, invoke the bundled executable:
+```bash
+ollama pull qwen3.5:4b
+yarn check
+yarn ask "How far in advance must employees on probation request leave?"
+yarn ask "За сколько календарных дней сотрудник на испытательном сроке должен запросить отпуск?"
+```
+
+The sample policies are fictional. The expected answer is **21 calendar days**, in the language of the question. Russian questions can use the same English documents; no separate index or translation is needed.
+
+`yarn setup` downloads five files from a pinned Hugging Face revision: configuration, two tokenizer files, a q8 ONNX graph, and its external weights. Together they occupy **330,940,405 bytes**, about **316 MiB**. Each file is verified by size and SHA-256. Verified files are reused; failed downloads are not published.
+
+Once prepared, `ingest` and `search` need neither internet nor Ollama. `ask` also computes embeddings locally, then calls the configured Ollama service for generation. Working commands never download missing model files.
+
+Yarn **4.18.1** is pinned in `.yarn/releases`. You can use Corepack, or invoke the bundled executable:
 
 ```bash
 node .yarn/releases/yarn-4.18.1.cjs install --immutable
@@ -52,284 +61,261 @@ node .yarn/releases/yarn-4.18.1.cjs setup
 
 ## Commands
 
-| Command                           | Purpose                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------- |
-| `yarn setup`                      | Prepare the tokenizer and EmbeddingGemma; may download files                          |
-| `yarn check`                      | Check SQLite in memory, tokenizer files, both models, and an actual embedding request |
-| `yarn check --storage-only`       | Check SQLite and its extension without Ollama                                         |
-| `yarn ingest "path/document.md"`  | Ingest or completely replace one document in the index                                |
-| `yarn ingest "path/document.txt"` | Do the same for plain text                                                            |
-| `yarn search "question"`          | Show the nearest chunks and similarity scores                                         |
-| `yarn ask "question"`             | Retrieve chunks and generate an answer with source references                         |
-| `yarn cli --help`                 | Show command help                                                                     |
+| Command                           | Purpose                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| `yarn setup`                      | Prepare and verify the pinned tokenizer and q8 ONNX EmbeddingGemma; may download files |
+| `yarn check`                      | Check SQLite, run a real local embedding, and check the Ollama answer model            |
+| `yarn check --embedding-only`     | Check SQLite and ONNX embeddings without Ollama                                        |
+| `yarn check --storage-only`       | Check SQLite and sqlite-vec without model files or Ollama                              |
+| `yarn ingest "path/document.md"`  | Ingest or completely replace one document                                              |
+| `yarn ingest "path/document.txt"` | Ingest plain text                                                                      |
+| `yarn search "question"`          | Show nearest chunks and similarity scores                                              |
+| `yarn ask "question"`             | Retrieve chunks and generate an answer with references                                 |
+| `yarn cli --help`                 | Show command help                                                                      |
 
-`check` does not index documents or assess LLM answer quality. It uses a temporary in-memory SQLite database. Compatibility of the working index is checked when running `ingest`, `search`, or `ask`.
+Check modes are mutually exclusive. Checks use an in-memory database and do not change the working index. Model availability and embedding inference are checked; LLM answer quality is assessed separately.
 
 ## How RAG works
 
-RAG has two processes: **document indexing** and **answering a question**. Indexing prepares documents in advance. When a question arrives, the application retrieves relevant text and passes it to the generative model.
+### Preparation
+
+`HuggingFaceModelRepository` implements `ModelArtifactRepository`. Its `prepare()` is the only model-provisioning operation that can access the internet. It streams downloads, verifies pinned size and SHA-256, and atomically renames completed files. Repeating setup repairs missing or damaged files.
+
+`load()` verifies the local bundle without fetching anything. `AutoTokenizer` and `AutoModel` load its directory with `local_files_only: true`. SDK initialization is lazy, so help and fast tests do not initialize ONNX.
+
+The profile selects [onnx-community/embeddinggemma-300m-ONNX](https://huggingface.co/onnx-community/embeddinggemma-300m-ONNX), revision `5090578d9565bb06545b4552f76e6bc2c93e4a66`, dtype `q8`. This export includes a ready `sentence_embedding` output.
 
 ### Indexing
 
 ```mermaid
 flowchart TD
-  F["MD or TXT file"] --> L["DocumentLoader: read file"]
-  L --> D["LoadedDocument"]
-  D --> P["DocumentParser: sections"]
-  P --> C["DocumentChunker: chunks"]
-  T["TokenCounter: input size"] --> C
+  F["MD or TXT file"] --> L["DocumentLoader"]
+  L --> P["DocumentParser: sections"]
+  P --> C["DocumentChunker: choose boundaries"]
   M["EmbeddingFormatter: title and prefix"] --> C
-  C --> B["EmbeddingProvider: text batches"]
-  B --> O["Ollama / EmbeddingGemma"]
-  O --> V["Vectors"]
-  C --> S["VectorStore: atomic document replacement"]
-  V --> S
+  T["TextTokenizer: token IDs"] --> C
+  C --> D["PreparedDocumentChunk: text + retained IDs"]
+  D --> E["EmbeddingProvider: validate prepared inputs"]
+  E --> R["TokenEmbeddingModel: padding + attention mask"]
+  R --> O["ONNX / EmbeddingGemma: sentence vectors"]
+  D --> S["VectorStore: atomic replacement"]
+  O --> S
   S --> DB["SQLite + sqlite-vec"]
 ```
 
-#### 1. Loading a file
+#### 1. Loading and parsing
 
-`FileDocumentLoader` in `src/documents/file-loader.ts` accepts a path, checks the extension and size, reads UTF-8, and normalizes line endings. Supported extensions are `.md`, `.markdown`, and `.txt`.
+`FileDocumentLoader` resolves a physical path, checks extension and the 5 MiB size limit, reads UTF-8, and normalizes line endings. Supported extensions are `.md`, `.markdown`, and `.txt`. `LoadedDocument` contains the path, name, format, text, content hash, and an ID derived from the physical path.
 
-It returns a `LoadedDocument` containing the identifier, physical path, name, format, text, and content hash. The identifier is a hash of the physical path, so reingestion updates the same document. Moving or renaming the file creates a different document identifier.
+`TextDocumentParser` uses a Markdown AST from remark. It preserves heading hierarchy and introductions, ignores headings inside code blocks, and retains reference definitions. TXT is one plain-text section. The output is `DocumentSection[]`.
 
-#### 2. Parsing sections
+#### 2. Formatting model inputs
 
-`TextDocumentParser` in `src/documents/parser.ts` uses a Markdown AST from remark. It preserves heading hierarchy, ignores `#` headings inside code blocks, and keeps introductory text without a heading. TXT is treated as a single plain-text section.
-
-Reference definitions are preserved: required definitions are appended to sections that use them, while unused definitions are stored in a `References` section.
-
-The result is a `DocumentSection[]` containing each section's title, text, and source line range. This stage does not generate vectors or call Ollama.
-
-#### 3. Tokenization and chunking
-
-A token is a unit of text processed by a model: a word, part of a word, punctuation, or another segment. Character counts and token counts are different.
-
-`HuggingFaceTokenCounter` in `src/tokenization/huggingface-tokenizer.ts` uses **@huggingface/tokenizers** and EmbeddingGemma tokenizer files. Counting runs locally without embedding weights or ONNX Runtime. `count(text)` returns the number of tokens, including special tokens defined by the tokenizer configuration.
-
-`TokenDocumentChunker` in `src/chunking/token-chunker.ts` implements splitting directly. Sections stay separate. The module fits chunks against the token count of the complete formatted model input, prefers paragraph, line, or whitespace boundaries, and preserves Unicode graphemes using `Intl.Segmenter`. Individual word lengths are not added together because token counts can depend on surrounding text. Chunk text is also bounded by a character limit.
-
-Each `DocumentChunk` contains the original chunk body, section title, section line range, prepared `embeddingInput`, token count, and position. EmbeddingGemma input is limited to 2048 tokens. The application reserves a small safety margin and uses `truncate: false` to prevent silent truncation.
-
-Overlap preserves context across chunk boundaries but increases the number of vectors. It is bounded by the configured token count and half the previous chunk, so splitting always makes progress. Large tables and code blocks may benefit from a different chunking implementation.
-
-The application tokenizer counts input for chunk sizing; it does not produce vectors. Ollama tokenizes the input again before embedding, and the provider compares Ollama's reported token count with the local count. Ollama uses the answer model's own tokenizer during generation.
-
-#### 4. Formatting embedding inputs
-
-`EmbeddingGemmaFormatter` in `src/embeddings/formatter.ts` prepares different inputs for documents and questions:
+`EmbeddingGemmaFormatter` prepares model-specific inputs:
 
 ```text
 Document: title: company.md — Company policy → Leave | text: Chunk text...
 Question: task: search result | query: Who approves leave?
 ```
 
-This is the [retrieval format recommended by Google](https://ai.google.dev/gemma/docs/embeddinggemma/model_card#prompt-instructions). The title and prefix count toward the token budget. The original `body` is stored separately and is passed to the answer model without the embedding prefix.
+Title, prefix, and special tokens count toward the token budget. Original chunk text remains separate for display and LLM context. The formatter signature is part of the index identity.
 
-Formatting has a separate interface because another model may require different prefixes. Its `signature` is included in the index fingerprint. An implementation that changes input preparation must report a different signature.
+#### 3. Tokenization and chunking
 
-#### 5. Embeddings
+`TransformersTextTokenizer` implements `TextTokenizer` using `AutoTokenizer`. `encode(text)` returns immutable numerical IDs and a signature identifying the verified model bundle. Special tokens are included by default; overlap measurement can exclude them.
 
-`OllamaEmbeddingProvider` in `src/embeddings/ollama-embedder.ts` calls the official client's `embed()` method. The client communicates over HTTP with the running local Ollama service.
+`TokenDocumentChunker` measures complete formatted candidates, preserves sections and Unicode graphemes, prefers paragraph/line/whitespace boundaries, and bounds both tokens and characters. It does not add individual word counts, which would be inaccurate for subword tokenization.
 
-By default, EmbeddingGemma converts each prepared input into a vector of 768 numbers. Documents and questions use the same embedding model with different input formats. The provider checks input limits, result count, dimensions, finite values, and nonzero vectors. It verifies the model family and embedding capability, compares batch token counts with Ollama, and checks the model digest before and after each request. A detected model change fails the operation before the document is written.
+Several candidate boundaries may require tokenization. **The selected candidate IDs are retained in `PreparedDocumentChunk.tokens` and passed unchanged to the embedding provider.** `tokenCount` equals their length. Inference does not decode them back to text or tokenize them again.
 
-Chunks are sent in configurable batches. All vectors for a document are computed before the SQLite write begins. If embedding fails, the previous document remains in the database.
+The target is 256 tokens with up to 32-token overlap by default. Overlap is also capped at half the previous chunk so splitting advances. EmbeddingGemma accepts at most 2048 tokens; the profile reserves 8 additional tokens. Oversized questions and chunks fail before inference, without silent truncation.
 
-#### 6. Storage
+#### 4. Embedding inference
 
-`SqliteVectorStore` in `src/storage/sqlite-store.ts` implements `VectorStore` and stores:
+`TransformersEmbeddingProvider` validates tokenizer identity, IDs, input limits, vector count, dimensions, finite values, and nonzero vectors. It depends on `TokenEmbeddingModel`, not SDK tensor types.
 
-| Table           | Data                                                      |
-| --------------- | --------------------------------------------------------- |
-| `documents`     | Document identifier, path, name, and version              |
-| `chunks`        | Original bodies, embedding inputs, sections, and metadata |
-| `chunk_vectors` | Float32 vectors searched by cosine distance               |
-| `rag_meta`      | Embedding configuration fingerprint and dimensions        |
+`loadTransformersModel` provides that interface. It builds `input_ids` and `attention_mask` tensors from prepared IDs, right-pads batches, and calls `AutoModel.forward()`. **The runner accepts no text and has no tokenizer.** It reads `sentence_embedding`, rather than arbitrary token hidden states.
 
-Old chunks are removed and new chunks inserted in one transaction. SQL errors trigger rollback. Reingestion does not accumulate duplicates. Unrelated SQLite databases are rejected without modification, including their journal mode. Search opens the working index read-only; reading an existing empty file does not initialize it.
+One fragment produces one vector. The default dimension is 768. Matryoshka dimensions 128, 256, and 512 are supported by truncating the full vector and normalizing it again. Input token counts exclude batch padding.
 
-The index fingerprint includes the Ollama model name and digest, vector dimensions, tokenizer revision and file hashes, input format, and model input limit. Incompatible indexes are rejected when a command starts. Changing the answer LLM does not require rebuilding the embedding index.
+The pinned implementation uses **Transformers.js 3.8.1, ONNX Runtime Node 1.21, and CPU inference**, with four intra-operation threads by default. This combination includes a native module for macOS x64; ONNX Runtime 1.30 in newer Transformers.js releases does not ship that module. GPU execution is not configured or verified. This model profile uses q8, not fp16.
 
-### Retrieval and answering
+The session remains loaded within a command and is disposed on completion. A new CLI process loads it again; it is not a persistent embedding server.
+
+#### 5. Storage
+
+`SqliteVectorStore` implements `VectorStore`:
+
+| Table           | Data                                                                |
+| --------------- | ------------------------------------------------------------------- |
+| `documents`     | Document ID, path, name, generation                                 |
+| `chunks`        | Original text, formatted input, section, token count, line metadata |
+| `chunk_vectors` | float32 vectors for cosine-distance search                          |
+| `rag_meta`      | Embedding signature and dimensions                                  |
+
+IDs are transient and are not saved in SQLite. `RagService` computes all vectors before storage. Replacement deletes old chunks and vectors and inserts new records in one transaction. Inference or SQL failure preserves the previously indexed document.
+
+The index identity includes the verified bundle, inference implementation and Transformers.js version, tokenizer identity, dimensions, formatting, and input limit. Incompatible indexes are rejected. Search opens the index read-only. Unrelated SQLite databases are not initialized or modified.
+
+### Retrieval and answers
 
 ```mermaid
 flowchart TD
-  Q["Question"] --> F["EmbeddingFormatter: question prefix"]
-  F --> E["EmbeddingProvider: question vector"]
-  E --> R["Retriever: SQLite search"]
-  R --> H["SearchHit: chunks and scores"]
-  H --> C["ContextBuilder: numbered sources"]
+  Q["Question"] --> F["EmbeddingFormatter"]
+  F --> T["TextTokenizer: prepared IDs"]
+  T --> E["EmbeddingProvider / ONNX: question vector"]
+  E --> R["Retriever / sqlite-vec"]
+  R --> H["SearchHit[]"]
+  H --> C["ContextBuilder: numbered text sources"]
   Q --> C
-  C --> G["AnswerGenerator: LLM messages"]
-  G --> O["Ollama / generative model"]
-  O --> A["RagAnswer: answer and sources"]
+  C --> G["AnswerGenerator"]
+  G --> O["Ollama / Qwen"]
+  O --> A["RagAnswer"]
 ```
 
-#### 7. Retrieval
+`VectorRetriever` tokenizes the formatted question once and embeds those IDs with the document model. sqlite-vec compares its vector with stored vectors. `score = 1 - cosine_distance`: higher is more similar, not more certain. `TOP_K` limits results; optional `SCORE_THRESHOLD` filters them. Without a threshold, nearest chunks can be returned even when they lack an answer.
 
-`VectorRetriever` in `src/retrieval/vector-retriever.ts` formats the question, obtains its embedding vector, and searches the store. It returns `SearchHit[]` containing text, document metadata, sections, distance, and score.
+`SourcesContextBuilder` numbers whole chunks as `[1]`, `[2]` and builds an instruction and a question with JSON sources. Source content is data. Its character budget includes the instruction, question, and sources. Oversized chunks are skipped; an error is reported if none fit, or if the question and instruction alone exceed the budget. Empty retrieval bypasses context building and answer generation. This is not an exact Qwen token budget.
 
-`score = 1 - cosine_distance`. Higher scores indicate more similar vectors; they are not probabilities of a correct answer. `TOP_K` limits the result count, and optional `SCORE_THRESHOLD` filters distant chunks. Without a threshold, search returns the nearest chunks even when they do not contain an answer.
+`OllamaAnswerGenerator` calls `client.chat()` with Qwen `qwen3.5:4b`. It rejects empty answers, unknown references, and length-truncated responses. These checks do not establish factual correctness. Qwen has its own tokenizer and is separate from EmbeddingGemma.
 
-The `Retriever` interface allows hybrid search or a reranker to be added later while preserving the RAG service interface.
+The system instruction asks Qwen to answer in the question's language even when sources use another language. For mixed-language questions, it asks for the main language of the question. If retrieved sources lack sufficient evidence, the model returns only a brief insufficient-information message in the same language, without citations. For example: “The documents do not contain enough information.” or “В документах недостаточно информации.” The exact wording can vary. Language selection belongs to the answer-generation stage; there is no separate language detector or translation dependency.
 
-#### 8. Building context
-
-`SourcesContextBuilder` in `src/generation/context-builder.ts` numbers chunks as `[1]`, `[2]`, and prepares two messages: an instruction and a question with JSON sources. Source material is identified as data rather than instructions.
-
-The character budget includes the instruction, question, and sources. Chunks are included whole; an oversized chunk is skipped. If none fit, the application reports an error suggesting smaller chunks or a larger context budget.
-
-This is a character limit, not an exact token budget for the generative model. The LLM has its own tokenizer. To enforce an exact input token limit, replace `ContextBuilder` with an implementation using the appropriate token counter.
-
-#### 9. Generating an answer
-
-`OllamaAnswerGenerator` in `src/generation/ollama-generator.ts` calls `client.chat()`. The default model is Qwen `qwen3.5:4b`. EmbeddingGemma is used only for vectors.
-
-The answer must use the supplied sources. Empty answers, references to unknown source numbers, and responses with `done_reason=length` are rejected. The latter means generation stopped at a length limit. These checks do not prove factual correctness. If retrieval is empty, `RagService` reports insufficient information without calling the LLM.
+If no chunks are found, `RagService` immediately returns **“The documents do not contain enough information.”** in English for every question language, with empty sources and hits. It makes no Ollama request. This covers both an empty index and results filtered out by `SCORE_THRESHOLD`. Question embedding and vector search still run locally; Ollama is required only when chunks are retrieved and an answer must be generated.
 
 ## Stage interfaces
 
-Full definitions are in `src/core/contracts.ts`.
+Definitions are in `src/core/contracts.ts`.
 
-| Interface            | Input → output                                                   | Current implementation    |
-| -------------------- | ---------------------------------------------------------------- | ------------------------- |
-| `DocumentLoader`     | Path → `Promise<LoadedDocument>`                                 | `FileDocumentLoader`      |
-| `DocumentParser`     | `LoadedDocument` → `DocumentSection[]`                           | `TextDocumentParser`      |
-| `TokenCounter`       | Text → token count                                               | `HuggingFaceTokenCounter` |
-| `EmbeddingFormatter` | Document/question → prepared text; format signature              | `EmbeddingGemmaFormatter` |
-| `DocumentChunker`    | Document and sections → `Promise<DocumentChunk[]>`               | `TokenDocumentChunker`    |
-| `EmbeddingProvider`  | Input array → `Promise<EmbeddingBatch>`; model description       | `OllamaEmbeddingProvider` |
-| `VectorStore`        | Document and vectors → stored records; vector → retrieved chunks | `SqliteVectorStore`       |
-| `Retriever`          | Question → `Promise<SearchHit[]>`                                | `VectorRetriever`         |
-| `ContextBuilder`     | Question and chunks → `AnswerContext`                            | `SourcesContextBuilder`   |
-| `AnswerGenerator`    | `AnswerContext` → `Promise<string>`                              | `OllamaAnswerGenerator`   |
+| Interface                 | Input → output                                    | Implementation                  |
+| ------------------------- | ------------------------------------------------- | ------------------------------- |
+| `ModelArtifactRepository` | Preparation/local verification → `ModelArtifacts` | `HuggingFaceModelRepository`    |
+| `DocumentLoader`          | Path → document                                   | `FileDocumentLoader`            |
+| `DocumentParser`          | Document → sections                               | `TextDocumentParser`            |
+| `EmbeddingFormatter`      | Document/question → formatted text                | `EmbeddingGemmaFormatter`       |
+| `TextTokenizer`           | Text → IDs and tokenizer identity                 | `TransformersTextTokenizer`     |
+| `DocumentChunker`         | Document and sections → `PreparedDocumentChunk[]` | `TokenDocumentChunker`          |
+| `TokenEmbeddingModel`     | ID sequences → full sentence vectors              | `loadTransformersModel` adapter |
+| `EmbeddingProvider`       | Prepared inputs → validated vectors               | `TransformersEmbeddingProvider` |
+| `VectorStore`             | Indexed chunks → storage; vector → hits           | `SqliteVectorStore`             |
+| `Retriever`               | Question → hits                                   | `VectorRetriever`               |
+| `ContextBuilder`          | Question and hits → context                       | `SourcesContextBuilder`         |
+| `AnswerGenerator`         | Context → answer                                  | `OllamaAnswerGenerator`         |
 
-`RagService` in `src/core/rag-service.ts` controls the sequence of operations. It receives implementations through `RagStages` and does not import Ollama, Tokenizers.js, or SQLite. `VectorStore.stats()` exposes general counters; SQLite diagnostics remain in the adapter. Storage cleanup can be asynchronous and is awaited by the service.
+Prepared input has no SDK tensors:
 
-`src/application.ts` is the single assembly point. A regular function connects the selected implementations so the complete composition is visible in one place.
+```ts
+interface TokenizedInput {
+  readonly tokenIds: readonly number[];
+  readonly tokenizerSignature: string;
+}
+```
+
+`RagService` orchestrates interfaces without importing Transformers.js, Ollama, or SQLite. `application.ts` selects adapters and cleans up partial assembly failures. `RagService.close()` awaits storage and model disposal, including model cleanup if storage cleanup fails.
 
 ## Replacing a component
 
-1. Implement the corresponding interface from `contracts.ts`.
-2. Select the implementation in `application.ts`.
-3. Put general RAG settings in `config.ts`, technology settings in `runtime-config.ts` or the adapter, and model-specific settings in its profile.
-4. Test the contract: inputs, outputs, and error propagation.
-5. When changing the embedding model, tokenizer, or input format, use a new database and reingest the documents.
+1. Implement its interface and select it in `application.ts`.
+2. Keep general settings in `config.ts`, adapter settings in `runtime-config.ts`, and model assumptions in its profile.
+3. Test input/output identity, limits, error propagation, and resource cleanup.
+4. Rebuild the index when weights, tokenizer, backend signature, dimensions, or formatting change.
 
-For example, an embedding provider must return one vector per input string and describe its model identity through `describe()`. A replacement store must support search and atomic document replacement. Another parser returns the same `DocumentSection[]`, so later stages do not need to know which parsing library it uses.
-
-### Why these components were chosen
-
-Ollama was already used in the project, so one local service manages both models. The tokenizer remains in Node.js for chunking. SQLite avoids requiring a separate database server. TypeScript interfaces separate stages, while a regular assembly function keeps the project easy to follow.
-
-Transformers.js previously allowed indexing without a running Ollama service but added an ONNX engine. Using node-llama-cpp would require managing a GGUF model inside Node.js. Either approach could be introduced through an adapter. The current implementation requires Ollama for indexing, retrieval, and answering.
+A new chunker returns original text and prepared IDs. A new inference runner consumes IDs and returns full sentence vectors. A parser still returns sections; a store must support atomic document replacement. A different vocabulary requires changing tokenizer and model together. Answer generation can be replaced independently.
 
 ## Configuration
 
-Configuration is grouped by responsibility. **`src/config.ts`** contains general RAG settings without SDKs, model names, or repository identifiers. **`src/runtime-config.ts`** assembles settings for the selected adapters. **`src/model-profiles/embeddinggemma.ts`** contains model-specific input formats and verified tokenizer assets.
+CLI commands load `.env` before startup. `.env.example` contains the main defaults.
 
-`.env.example` lists example overrides; `.env` holds local values. CLI scripts load `.env` through Node.js's built-in environment file support before the application starts. Each stage receives only the configuration it needs through arguments.
+| Variable                    | Default                  | Purpose                                    |
+| --------------------------- | ------------------------ | ------------------------------------------ |
+| `SQLITE_PATH`               | `data/rag.sqlite`        | Working index                              |
+| `EMBEDDING_CACHE`           | `.cache/models`          | Verified model/tokenizer bundles           |
+| `EMBEDDING_THREADS`         | `4`                      | CPU threads, 1–64                          |
+| `EMBEDDING_DIMENSIONS`      | `768`                    | 128, 256, 512, or 768                      |
+| `EMBEDDING_MAX_TOKENS`      | `2048`                   | Model input cap                            |
+| `EMBEDDING_BATCH_SIZE`      | `16`                     | Fragments per batch                        |
+| `MODEL_DOWNLOAD_TIMEOUT_MS` | `600000`                 | Timeout per model file                     |
+| `CHUNK_TOKENS`              | `256`                    | Target including formatting/special tokens |
+| `CHUNK_OVERLAP`             | `32`                     | Maximum overlap                            |
+| `CHUNK_MAX_CHARACTERS`      | `4096`                   | Additional size cap                        |
+| `TOP_K`                     | `5`                      | Maximum retrieved chunks                   |
+| `SCORE_THRESHOLD`           | unset                    | Optional similarity threshold              |
+| `CONTEXT_MAX_CHARACTERS`    | `12000`                  | Instruction, question, sources             |
+| `OLLAMA_URL`                | `http://127.0.0.1:11434` | Answer-generation service                  |
+| `OLLAMA_MODEL`              | `qwen3.5:4b`             | Answer model                               |
+| `OLLAMA_TIMEOUT_MS`         | `300000`                 | Ollama request timeout                     |
+| `OLLAMA_KEEP_ALIVE`         | `5m`                     | Answer-model residence time                |
+| `LLM_CONTEXT_TOKENS`        | `8192`                   | Qwen context window                        |
+| `LLM_MAX_OUTPUT_TOKENS`     | `512`                    | Answer limit                               |
 
-| Variable                        | Default                                    | Purpose                                                |
-| ------------------------------- | ------------------------------------------ | ------------------------------------------------------ |
-| `SQLITE_PATH`                   | `data/rag.sqlite`                          | Embedding index file                                   |
-| `OLLAMA_URL`                    | `http://127.0.0.1:11434`                   | Shared Ollama endpoint for embeddings and the LLM      |
-| `OLLAMA_EMBEDDING_MODEL`        | `embeddinggemma`                           | Embedding model                                        |
-| `OLLAMA_MODEL`                  | `qwen3.5:4b`                               | Answer model                                           |
-| `EMBEDDING_DIMENSIONS`          | `768`                                      | Number of vector coordinates                           |
-| `EMBEDDING_MAX_TOKENS`          | `2048`                                     | Maximum complete embedding input length                |
-| `EMBEDDING_BATCH_SIZE`          | `16`                                       | Number of chunks in one embedding request              |
-| `TOKENIZER_CACHE`               | `.cache/tokenizers`                        | Tokenizer cache root                                   |
-| Tokenizer source in the profile | `onnx-community/embeddinggemma-300m-ONNX`  | Repository containing tokenizer files                  |
-| Source revision in the profile  | `5090578d9565bb06545b4552f76e6bc2c93e4a66` | Pinned tokenizer asset revision                        |
-| `CHUNK_TOKENS`                  | `256`                                      | Target maximum chunk input including title and prefix  |
-| `CHUNK_MAX_CHARACTERS`          | `4096`                                     | Maximum chunk body length in characters                |
-| `CHUNK_OVERLAP`                 | `32`                                       | Maximum overlap tokens, also bounded by half the chunk |
-| `TOP_K`                         | `5`                                        | Maximum retrieved chunk count                          |
-| `SCORE_THRESHOLD`               | Unset                                      | Minimum cosine similarity, from -1 to 1                |
-| `CONTEXT_MAX_CHARACTERS`        | `12000`                                    | Maximum character count of LLM messages with sources   |
-| `LLM_CONTEXT_TOKENS`            | `8192`                                     | LLM context window requested from Ollama               |
-| `LLM_MAX_OUTPUT_TOKENS`         | `512`                                      | Maximum answer length in tokens                        |
-| `OLLAMA_TIMEOUT_MS`             | `300000`                                   | Timeout for one Ollama request                         |
-| `OLLAMA_KEEP_ALIVE`             | `5m`                                       | Time to keep models loaded after a request             |
+The repository, revision, dtype, vocabulary, padding ID, and hashes are fixed in `model-profiles/embeddinggemma.ts`. A different model needs a coherent profile. The system prompt, including the question-language rule, and document size cap are in `config.ts`. Changing the answer-language rule does not require rebuilding the index.
 
-Relative paths are resolved from the working directory. Run commands from the project root. The cache is separated by repository and revision so different tokenizer files are kept separate.
+## Local data and migration
 
-The file size limit and answer instruction belong to general configuration. EmbeddingGemma prefixes, its 8-token safety margin, the source commit, and JSON checksums belong to the model profile. Temperature, thinking, the Ollama endpoint, and the SQLite path are adapter settings. Tokenizer source and revision are not independent `.env` overrides: another model needs a consistent profile.
+The cache is still required:
 
-Configuration rejects values above the profile limits: 2048 input tokens and at most 768 dimensions for EmbeddingGemma. Keep `EMBEDDING_MAX_TOKENS` within the model's actual limit. Other embedding models may not support configurable dimensions. When selecting another model, align its tokenizer and `EmbeddingFormatter` as well.
-
-### Tokenizer files and the source SHA
-
-`5090578d9565bb06545b4552f76e6bc2c93e4a66` is a Git commit SHA identifying the tokenizer asset revision. Pinning it makes downloads reproducible instead of following a changing `main` branch. Each JSON asset also has a pinned byte size and SHA-256 content hash. Both are checked during download and loading. Invalid cache files are rejected, and `yarn setup` restores them.
-
-`onnx-community/...-ONNX` is the name of the public export repository. Only `tokenizer.json` and `tokenizer_config.json` are used; `.onnx` weights are not downloaded. The original Google repository requires accepting access terms, so the public export was chosen to prepare tokenizer assets without an HF access token. The repository name describes the asset source and does not select the inference engine.
-
-## Local data
-
-The default database is `data/rag.sqlite`, and the tokenizer cache is `.cache/tokenizers/`. These directories are created automatically and excluded from Git. An old MiniLM index is incompatible with EmbeddingGemma and must be rebuilt from the documents.
-
-### Downloaded components
-
-| Component                                 | Location                      | Consumer                         |
-| ----------------------------------------- | ----------------------------- | -------------------------------- |
-| EmbeddingGemma                            | Ollama model storage          | Ollama service through `embed()` |
-| Generative model                          | Ollama model storage          | Ollama service through `chat()`  |
-| `tokenizer.json`, `tokenizer_config.json` | Project cache                 | Tokenizers.js inside Node.js     |
-| npm dependencies                          | `node_modules` and Yarn cache | TypeScript application           |
-
-The project does not use Transformers.js or ONNX Runtime. After preparation, regular local commands do not automatically download missing models or tokenizer files; downloads are performed by `setup`.
-
-### Rebuilding the index
-
-| Change                                                          | Required action                                    |
-| --------------------------------------------------------------- | -------------------------------------------------- |
-| Document text                                                   | Reingest that file                                 |
-| Chunk size, overlap, or parser                                  | Reingest the affected files                        |
-| Embedding model, digest, dimensions, tokenizer, or input format | Set a new `SQLITE_PATH` and reingest all documents |
-| Answer LLM, temperature, context window, or output limit        | No embedding index rebuild                         |
-| `TOP_K`, similarity threshold, or context builder               | No rebuild                                         |
-
-To create a new index:
-
-```bash
-SQLITE_PATH=./data/new-index.sqlite yarn ingest examples/company.md
-SQLITE_PATH=./data/new-index.sqlite yarn search "Who approves leave?"
+```text
+.cache/models/
+  onnx-community--embeddinggemma-300m-ONNX/
+    5090578d9565bb06545b4552f76e6bc2c93e4a66/
+      config.json
+      tokenizer.json
+      tokenizer_config.json
+      onnx/
+        model_quantized.onnx
+        model_quantized.onnx_data
 ```
 
-Then save the chosen path in `.env`. A fingerprint mismatch never overwrites the old database. Document identifiers depend on physical paths, so moving the project directory requires rebuilding the sample index to avoid retaining entries for old paths.
+EmbeddingGemma files stay in this cache; Qwen stays in Ollama model storage. `setup` does not pull Qwen or an Ollama copy of EmbeddingGemma.
 
-### Backups
+For an existing installation:
 
-SQLite WAL mode may create adjacent `-wal` and `-shm` files. For a simple backup, stop commands using the database and copy the closed database file. A backup made while writes are active must use a consistent SQLite backup procedure.
+1. Remove `OLLAMA_EMBEDDING_MODEL` and `TOKENIZER_CACHE` from `.env`; add `EMBEDDING_CACHE` and optionally `EMBEDDING_THREADS`.
+2. Run `yarn install --immutable`, `yarn setup`, and `yarn check --embedding-only`.
+3. Build a new index from the original documents:
+
+```bash
+SQLITE_PATH=./data/rag-onnx.sqlite yarn ingest examples/company.md
+SQLITE_PATH=./data/rag-onnx.sqlite yarn ingest examples/it.txt
+SQLITE_PATH=./data/rag-onnx.sqlite yarn search "Who approves leave?"
+```
+
+4. Set `SQLITE_PATH=./data/rag-onnx.sqlite` in `.env`.
+5. After the new bundle and index work, remove the obsolete project `.cache/tokenizers` directory.
+
+A signature mismatch does not overwrite the old index. Equal dimensions alone do not make the two backends interchangeable.
+
+| Change                                                       | Action                         |
+| ------------------------------------------------------------ | ------------------------------ |
+| Document text, parser, chunk size/overlap                    | Reingest affected documents    |
+| Bundle, tokenizer, backend signature, dimensions, formatting | New index and full reingestion |
+| Answer model/settings, retrieval limit, similarity threshold | No embedding rebuild           |
+
+SQLite may create `-wal` and `-shm` files. Back up a closed database or use its consistent backup API. Physical-path IDs mean renaming or moving a source creates a new entry; automatic removal of the previous entry is not implemented.
 
 ## Project structure
 
 ```text
 src/
-  cli.ts                 commands and terminal output
+  cli.ts                 commands and help
   config.ts              general RAG settings
-  runtime-config.ts      settings for selected adapters
-  model-profiles/        model inputs and verified tokenizer assets
-  application.ts         application assembly
-  core/                  interfaces, data types, and stage orchestration
-  documents/             MD/TXT loading and section parsing
-  tokenization/          asset preparation and local token counting
-  chunking/              section splitting
-  embeddings/            input formatting and embedding model calls
-  storage/               SQLite storage and vector search
-  retrieval/             question → vector → retrieved chunks
-  generation/            context building and LLM calls
-  ollama/                shared Ollama client
-examples/                sample documents
-tests/                   fast tests without Ollama
-scripts/                 checks using actual models
-README.md                English documentation
-README.ru.md             Russian documentation
-.env.example             example local settings
-.yarn/releases/          pinned Yarn executable
-.yarn/patches/            dependency type declaration fixes
+  runtime-config.ts      adapter settings
+  application.ts         assembly and lifecycle
+  core/                  interfaces and orchestration
+  model-profiles/        pinned bundle and formatting
+  models/                preparation and integrity checks
+  documents/             file loading and section parsing
+  tokenization/          text → immutable IDs
+  chunking/              boundaries and retained tokens
+  embeddings/            formatting, validation, ONNX inference
+  storage/               SQLite and vector search
+  retrieval/             question → IDs → vector → hits
+  generation/            context and answer generation
+  ollama/                answer-model client
+examples/                fictional documents
+tests/                   fast tests without model weights or Ollama
+scripts/                 checks using real models
+.yarn/releases/          pinned Yarn
 ```
 
 ## Development and validation
@@ -340,65 +326,44 @@ yarn test:integration
 yarn test:llm
 ```
 
-`validate` runs type checking, ESLint, Prettier, fast tests, and a build. It requires neither internet access nor Ollama. The two actual-model checks require prepared tokenizer files, downloaded models, and a running Ollama service. An unavailable service causes a failure.
+`validate` runs TypeScript, ESLint, Prettier, fast tests, and a build. Fast tests use fake stage implementations and small temporary assets; they need neither model weights nor internet nor Ollama.
 
-Individual commands are `yarn typecheck`, `yarn lint`, `yarn lint:fix`, `yarn format`, `yarn format:check`, `yarn test`, and `yarn build`.
+`test:integration` requires `setup` but no Ollama. It checks the fixed English empty-retrieval response for English and Russian questions with network requests blocked, real vectors, single versus padded-batch inference, limits, English/Unicode inputs, retrieval, TXT, duplicate prevention, and document replacement. `test:llm` also requires running Ollama and Qwen; it checks English and Russian answers against English documents, source citations, the fixed English empty-retrieval response, and insufficient-information messages in the question's language when retrieved sources lack an answer.
 
-After building, run the generated JavaScript:
+Individual commands: `typecheck`, `lint`, `lint:fix`, `format`, `format:check`, `test`, `build`. After building:
 
 ```bash
-yarn build
 yarn start search "Who approves leave?"
 ```
 
 ## Dependencies and tools
 
-Every direct dependency is used by the application or development tools.
+| Dependency                                              | Purpose                                        |
+| ------------------------------------------------------- | ---------------------------------------------- |
+| `@huggingface/transformers` 3.8.1                       | AutoTokenizer and AutoModel                    |
+| `ollama`                                                | Answer generation through `chat()`             |
+| `unified`, `remark-parse`                               | Markdown AST                                   |
+| `sqlite-vec`                                            | Vector storage/search; SQLite is `node:sqlite` |
+| `typescript`, `@types/node`, `tsx`                      | Types, build, TypeScript execution             |
+| `eslint`, `@eslint/js`, `typescript-eslint`, `prettier` | Lint and formatting                            |
 
-| Dependency                                  | Purpose                                                          |
-| ------------------------------------------- | ---------------------------------------------------------------- |
-| `@huggingface/tokenizers`                   | Local EmbeddingGemma token counting                              |
-| `ollama`                                    | Official client with `embed()` and `chat()`                      |
-| `unified`, `remark-parse`                   | Markdown parsing into an AST for section extraction              |
-| `sqlite-vec`                                | SQLite vector search; SQLite itself is provided by `node:sqlite` |
-| `typescript`, `@types/node`                 | Type checking and compilation with Node.js types                 |
-| `tsx`                                       | Run the TypeScript CLI and tests without a separate build        |
-| `eslint`, `@eslint/js`, `typescript-eslint` | JavaScript/TypeScript checks configured in `eslint.config.mjs`   |
-| `prettier`                                  | Formatting configured in `.prettierrc.json`                      |
+ONNX Runtime is a transitive dependency. The direct `@huggingface/tokenizers` dependency and its declaration patch were removed. Direct versions are pinned; transitive versions are locked in `yarn.lock`.
 
-### Versions and reproducibility
+ONNX Runtime and sqlite-vec contain native components. Install them for the Node.js architecture used to run the project. The pinned inference combination supports the current macOS x64 runtime; dependency changes require real-model validation.
 
-Direct versions are pinned in `package.json`, and transitive versions are locked in `yarn.lock`. Yarn 4.18.1 is included in `.yarn/releases`. `.gitattributes` marks its bundled executable as binary to preserve the original bytes and summarize generated diffs. `npmMinimalAgeGate: 1440` retains a 24-hour waiting period for newly published npm packages during dependency updates.
-
-TypeScript 6.0.3 was selected for compatibility with the pinned typescript-eslint 8.71.1. Before updating, check the ESLint parser's support for the selected TypeScript version and run `yarn validate`.
-
-`.yarnrc.yml` configures Yarn 4. `.yarnrc` redirects an installed Yarn 1 executable to the bundled Yarn 4. Both files support launching the same pinned version from different existing Yarn installations.
-
-Tokenizers.js 0.2.0 has a patch in `.yarn/patches` that adds `.js` extensions to relative ESM imports in `.d.ts` declarations. It restores type resolution under NodeNext without changing executable code or tokenization. `skipLibCheck` alone can hide unresolved declarations and weaken type checking. Commit the patch together with `package.json` and `yarn.lock`. When updating the library, check whether its declarations have been fixed and remove the patch when it is no longer needed.
+Yarn 4.18.1 is bundled; `.yarnrc` redirects Yarn 1 to it. The 24-hour `npmMinimalAgeGate` remains configured. TypeScript 6.0.3 and typescript-eslint 8.71.1 are pinned; check their compatibility before upgrading.
 
 ## Files stored in Git
 
-The repository contains source code, tests, samples, both README versions, tool configuration, `.env.example`, `package.json`, `yarn.lock`, the pinned Yarn executable, and the Tokenizers.js patch.
-
-`.gitignore` excludes local state and reproducible generated files:
-
-| Files and directories                                                         | Reason                                                                                 |
-| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `node_modules/`, `.yarn/` except `releases/` and `patches/`                   | Dependencies, cache, and installation state are restored by `yarn install --immutable` |
-| `dist/`, `coverage/`, `*.tsbuildinfo`                                         | Build output, test coverage, and TypeScript cache                                      |
-| `.env`, `.env.*` except `.env.example`                                        | Local endpoints, paths, and possible secrets                                           |
-| `.cache/`, `data/`, `*.sqlite`, and SQLite journals                           | Locally prepared tokenizer files and working indexes                                   |
-| `.idea/`                                                                      | Personal WebStorm settings                                                             |
-| `.DS_Store`, `Thumbs.db`, `*.log`, `*.log.*`, `*.tmp`, `*.swp`, `*.swo`, `*~` | System files, logs, and temporary files                                                |
-
-The working database, `.env`, and caches stay on your computer. To move the database, use a backup. On another computer, install dependencies and run `yarn setup`. Files in `examples/` are sample input data for learning and validation.
+Git contains source, tests, samples, both README versions, configuration, `.env.example`, manifests, and pinned Yarn. `.gitignore` excludes installed dependencies/caches, model bundles, indexes/journals, local `.env`, build output, IDE settings, logs, and temporary files. On another computer run `yarn install --immutable` and `yarn setup` rather than committing weights.
 
 ## Limitations and troubleshooting
 
-Reingesting a physical path replaces its chunks and vectors in a transaction. Removed content disappears, and other documents remain unchanged. Renaming a file creates a new document identifier; automatic deletion of the old entry is not implemented.
-
-Documents are limited to 5 MiB. PDF/OCR, hybrid search, and reranking are not implemented. Tables and code blocks can be split internally. Line ranges refer to the original section, not the exact position of each chunk.
-
-Vector similarity is not the probability of a correct answer. The LLM can make mistakes even when relevant sources are available. The application bounds LLM context by characters and does not yet count its exact input tokens.
-
-For connection errors, check that Ollama is running and verify `OLLAMA_URL`. For missing models, run `ollama pull <name>`. For missing or damaged tokenizer files, run `yarn setup`. For an incompatible index, set a new `SQLITE_PATH` and reingest the documents.
+- Only MD/Markdown/TXT up to 5 MiB are supported. PDF/OCR and external source connectors are not implemented.
+- Large tables/code may split internally; line ranges refer to sections.
+- Similarity is not confidence. LLM context uses a character budget.
+- CPU/q8 is configured. Each CLI invocation loads the model; GPU and a persistent server are future adapters.
+- Missing/damaged model or tokenizer files: `yarn setup`. Working commands never download replacements.
+- Incompatible index: new `SQLITE_PATH` and reingestion.
+- Ollama errors affect `ask`, full `check`, and `test:llm`: check the service and `ollama pull qwen3.5:4b`.
+- Missing native ONNX module: verify Node.js architecture and the pinned installation.

@@ -9,9 +9,19 @@ const directory = await mkdtemp(join(tmpdir(), 'rag-embeddinggemma-'));
 const config = loadRuntimeConfig();
 config.storage.path = join(directory, 'index.sqlite');
 let application: Awaited<ReturnType<typeof createApplication>> | undefined;
+const originalFetch = globalThis.fetch;
+globalThis.fetch = async () => {
+  throw new Error('Embedding integration must run without network or Ollama requests.');
+};
 try {
   application = await createApplication(config);
-  const { rag, tokenizer, formatter, stages, client } = application;
+  const { rag, tokenizer, formatter, stages } = application;
+  for (const question of ['Who approves leave?', 'Кто согласует отпуск?']) {
+    const empty = await rag.ask(question);
+    assert.equal(empty.answer, 'The documents do not contain enough information.');
+    assert.deepEqual(empty.hits, []);
+    assert.deepEqual(empty.sources, []);
+  }
   const samples = [
     formatter.query('How far in advance must employees request leave?'),
     formatter.document('company.md', 'Leave', 'The manager approves the request.'),
@@ -19,22 +29,26 @@ try {
   ];
   const tokenCounts = [];
   for (const input of samples) {
-    const response = await stages.embedder.embed([input]);
-    const local = tokenizer.count(input);
-    tokenCounts.push({ local, ollama: response.inputTokens });
-    assert.equal(local, response.inputTokens, 'The application tokenizer must match Ollama');
+    const prepared = tokenizer.encode(input);
+    const response = await stages.embedder.embed([prepared]);
+    const local = prepared.tokenIds.length;
+    tokenCounts.push({ prepared: local, processed: response.inputTokens });
+    assert.equal(local, response.inputTokens, 'The model must receive every prepared token');
     assert.equal(response.vectors[0]?.length, config.embedding.dimensions);
     assert.ok(Math.abs(Math.hypot(...(response.vectors[0] ?? [])) - 1) < 0.001);
   }
-  await assert.rejects(stages.embedder.embed([formatter.query('word '.repeat(3000))]), /Shorten/u);
+  const batchInputs = samples.map((input) => tokenizer.encode(input));
+  const batch = await stages.embedder.embed(batchInputs);
+  for (const [index, input] of batchInputs.entries()) {
+    const single = (await stages.embedder.embed([input])).vectors[0];
+    const combined = batch.vectors[index];
+    assert.ok(single && combined);
+    const cosine = single.reduce((sum, value, axis) => sum + value * (combined[axis] ?? 0), 0);
+    assert.ok(cosine > 0.995, 'Padding or batching changed a sentence embedding');
+  }
   await assert.rejects(
-    client.embed({
-      model: config.embedding.model,
-      input: 'word '.repeat(3000),
-      truncate: false,
-      options: { num_ctx: config.embedding.maxTokens },
-    }),
-    /context|length|large|limit/iu,
+    stages.embedder.embed([tokenizer.encode(formatter.query('word '.repeat(3000)))]),
+    /Shorten/u,
   );
   const file = join(directory, 'company.md');
   await writeFile(file, await readFile(new URL('../examples/company.md', import.meta.url), 'utf8'));
@@ -89,7 +103,11 @@ try {
       2,
     ),
   );
+} catch (error) {
+  console.error(error);
+  process.exitCode = 1;
 } finally {
+  globalThis.fetch = originalFetch;
   await application?.rag.close();
   await rm(directory, { recursive: true, force: true });
 }

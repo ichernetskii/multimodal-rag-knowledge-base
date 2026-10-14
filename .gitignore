@@ -9,7 +9,7 @@ coverage/
 .env.*
 !.env.example
 
-# Downloaded tokenizers and local indexes
+# Downloaded tokenizer/ONNX model bundles and local indexes
 .cache/
 data/
 *.sqlite
@@ -17,10 +17,9 @@ data/
 *.sqlite-shm
 *.sqlite-journal
 
-# Yarn: keep the pinned executable and patches
+# Yarn: keep the pinned executable
 .yarn/*
 !.yarn/releases/
-!.yarn/patches/
 
 # Personal IDE settings, system files, and temporary files
 .idea/

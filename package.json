@@ -1,7 +1,7 @@
 {
   "name": "local-rag",
   "description": "Local RAG: a CLI for searching Markdown and text documents and answering questions with local models.",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
   "type": "module",
   "packageManager": "yarn@4.18.1",
@@ -28,7 +28,7 @@
     "validate": "yarn typecheck && yarn lint && yarn format:check && yarn test && yarn build"
   },
   "dependencies": {
-    "@huggingface/tokenizers": "patch:@huggingface/tokenizers@npm%3A0.2.0#~/.yarn/patches/@huggingface-tokenizers-npm-0.2.0-b3cadeeb28.patch",
+    "@huggingface/transformers": "3.8.1",
     "ollama": "0.6.4",
     "remark-parse": "11.0.0",
     "sqlite-vec": "0.1.9",

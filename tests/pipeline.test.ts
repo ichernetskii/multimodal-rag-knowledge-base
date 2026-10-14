@@ -7,9 +7,8 @@ import { RagService } from '../src/core/rag-service.js';
 import type { RagStages } from '../src/core/rag-service.js';
 import { SourcesContextBuilder } from '../src/generation/context-builder.js';
 import { OllamaAnswerGenerator } from '../src/generation/ollama-generator.js';
-import { OllamaEmbeddingProvider } from '../src/embeddings/ollama-embedder.js';
 import type { VectorStore } from '../src/core/contracts.js';
-import { chunk, document, hit, wordCounter } from './helpers.js';
+import { chunk, document, hit } from './helpers.js';
 
 function stages(store: VectorStore): RagStages {
   return {
@@ -19,6 +18,7 @@ function stages(store: VectorStore): RagStages {
     embedder: {
       describe: async () => ({ model: 'test', digest: 'test', dimensions: 3 }),
       embed: async (inputs) => ({ vectors: inputs.map(() => [1, 0, 0]) }),
+      close: () => {},
     },
     store,
     retriever: { retrieve: async () => [] },
@@ -54,7 +54,7 @@ void test('An embedding failure prevents partial document writes', async () => {
   assert.equal(writes, 0);
 });
 
-void test('The LLM is not called when retrieval is empty', async () => {
+void test('Empty retrieval returns a fixed English message without context building or generation', async () => {
   const store: VectorStore = {
     replaceDocument: async () => {},
     search: async () => [],
@@ -68,13 +68,39 @@ void test('The LLM is not called when retrieval is empty', async () => {
     }),
     close: () => {},
   };
-  const implementations = stages(store);
-  implementations.generator.generate = async () => {
-    throw new Error('The LLM must not be called');
-  };
-  const result = await new RagService(implementations, 16).ask('Question');
-  assert.match(result.answer, /do not contain enough/u);
-  assert.deepEqual(result.sources, []);
+  for (const question of ['What is the bonus?', 'Какой размер премии?', 'API?']) {
+    const implementations = stages(store);
+    implementations.contextBuilder.build = () => {
+      throw new Error('The context builder must not be called');
+    };
+    implementations.generator.generate = async () => {
+      throw new Error('The LLM must not be called');
+    };
+    const result = await new RagService(implementations, 16).ask(question);
+    assert.equal(result.answer, 'The documents do not contain enough information.');
+    assert.deepEqual(result.sources, []);
+    assert.deepEqual(result.hits, []);
+  }
+});
+
+void test('A Russian question keeps its language instruction with English source text', () => {
+  const context = new SourcesContextBuilder(loadConfig({}).context).build('Кто согласует отпуск?', [
+    hit('The direct manager approves leave.'),
+  ]);
+  assert.match(context.messages[0]?.content ?? '', /language of the user's question/u);
+  assert.match(context.messages[0]?.content ?? '', /question's language, without citations/u);
+  assert.ok(context.messages[1]?.content.includes('Кто согласует отпуск?'));
+  assert.equal(context.sources[0]?.text, 'The direct manager approves leave.');
+});
+
+void test('The context builder rejects over-budget questions and missing usable sources', () => {
+  const builder = new SourcesContextBuilder({ ...loadConfig({}).context, maxCharacters: 1000 });
+  assert.throws(
+    () => builder.build('x'.repeat(1000), [hit('Short text')]),
+    /question and instruction/u,
+  );
+  assert.throws(() => builder.build('Question?', []), /chunks do not fit/u);
+  assert.throws(() => builder.build('Question?', [hit('x'.repeat(2000))]), /chunks do not fit/u);
 });
 
 void test('The context budget includes whole chunks, the question, and the instruction', () => {
@@ -88,59 +114,6 @@ void test('The context budget includes whole chunks, the question, and the instr
   assert.equal(context.sources[0]?.text, 'Short text');
   assert.ok(context.messages.reduce((sum, item) => sum + item.content.length, 0) <= 1500);
   assert.match(context.messages[0]?.content ?? '', /data, not instructions/u);
-});
-
-void test('The Ollama adapter sends truncate=false and validates the response', async () => {
-  const config = loadRuntimeConfig({ EMBEDDING_DIMENSIONS: '3' });
-  let request: Record<string, unknown> = {};
-  let vectors = [[1, 0, 0]];
-  const client = new Ollama({
-    fetch: async (input, init) => {
-      if (
-        (typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url
-        ).endsWith('/api/tags')
-      )
-        return new Response(
-          JSON.stringify({
-            models: [
-              { name: 'embeddinggemma:latest', model: 'embeddinggemma:latest', digest: 'test' },
-            ],
-          }),
-        );
-      if (
-        (typeof input === 'string'
-          ? input
-          : input instanceof URL
-            ? input.href
-            : input.url
-        ).endsWith('/api/show')
-      )
-        return new Response(
-          JSON.stringify({ capabilities: ['embedding'], details: { family: 'gemma3' } }),
-        );
-      assert.ok(typeof init?.body === 'string');
-      request = JSON.parse(init.body) as Record<string, unknown>;
-      return new Response(JSON.stringify({ embeddings: vectors, prompt_eval_count: 2 }), {
-        headers: { 'Content-Type': 'application/json' },
-      });
-    },
-  });
-  const embedder = new OllamaEmbeddingProvider(
-    client,
-    config.embedding,
-    config.ollama,
-    wordCounter,
-  );
-  assert.deepEqual((await embedder.embed(['Text'])).vectors, [[1, 0, 0]]);
-  assert.equal(request.truncate, false);
-  assert.equal(request.dimensions, 3);
-  vectors = [[1, 0]];
-  await assert.rejects(embedder.embed(['Text']), /invalid/u);
-  await assert.rejects(embedder.embed(['word '.repeat(3000)]), /Shorten/u);
 });
 
 void test('Ollama errors and unknown source references are not accepted as successful answers', async () => {
