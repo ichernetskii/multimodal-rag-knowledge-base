@@ -1,0 +1,107 @@
+dialog {
+  padding: 0;
+  border: 1px solid #d2dfe5;
+  border-radius: 16px;
+  background: #fff;
+  color: var(--ink);
+  width: min(820px, calc(100vw - 40px));
+  max-height: calc(100dvh - 48px);
+  box-shadow: 0 24px 100px #102c4840;
+  overflow: auto;
+}
+dialog::backdrop {
+  background: #12253680;
+  backdrop-filter: blur(3px);
+}
+#dialog-content {
+  padding: 32px;
+}
+dialog h2 {
+  font-size: 23px;
+  letter-spacing: -0.035em;
+  margin-right: 25px;
+  margin-bottom: 16px;
+}
+dialog h3 {
+  font-size: 15px;
+}
+dialog .table-wrap {
+  margin: 18px -32px 0;
+  max-width: calc(100% + 64px);
+}
+dialog .table-wrap th:first-child,
+dialog .table-wrap td:first-child {
+  padding-left: 32px;
+}
+dialog .table-wrap th:last-child,
+dialog .table-wrap td:last-child {
+  padding-right: 32px;
+}
+dialog .table-wrap td {
+  font-size: 12px;
+}
+dialog .form-footer {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+dialog .form-footer button {
+  min-width: 160px;
+}
+.modal-close {
+  position: sticky;
+  top: 14px;
+  float: right;
+  margin: 14px 14px -50px 0;
+  z-index: 3;
+  font-size: 23px;
+  color: #768c9b;
+  background: #f4f7f9;
+  border-color: transparent;
+  min-height: 32px;
+  min-width: 32px;
+  line-height: 1;
+  padding: 0;
+}
+.modal-close:hover {
+  color: #233d4e;
+  background: #e8eef2;
+}
+#notice {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translate(-50%, 18px);
+  max-width: min(700px, calc(100vw - 32px));
+  padding: 14px 18px;
+  border-radius: 10px;
+  color: #fff;
+  background: #193c38;
+  box-shadow: 0 5px 30px #12352f25;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.18s,
+    transform 0.18s;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 12px;
+}
+#notice.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+#notice button {
+  background: transparent;
+  color: #b9d8d2;
+  border: 0;
+  min-width: 25px;
+  min-height: 25px;
+  padding: 0;
+  font-size: 20px;
+}
+#dialog-content #notice {
+  z-index: 100;
+}

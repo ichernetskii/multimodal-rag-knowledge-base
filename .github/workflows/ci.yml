@@ -1,0 +1,41 @@
+name: Validate
+on:
+  push:
+  pull_request:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node .yarn/releases/yarn-4.18.1.cjs install --immutable
+      - run: node .yarn/releases/yarn-4.18.1.cjs validate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-build
+          path: |
+            client/dist
+            server/dist
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: server/deploy/Dockerfile
+          push: false
+          load: true
+          tags: local-rag-server:ci
+      - run: docker run --rm --entrypoint node local-rag-server:ci server/dist/interfaces/cli/main.js --help
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: client/deploy/Dockerfile
+          push: false
+          load: true
+          tags: local-rag-client:ci
+      - run: docker run --rm --entrypoint nginx local-rag-client:ci -t

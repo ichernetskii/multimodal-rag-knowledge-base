@@ -1,0 +1,21 @@
+[Unit]
+Description=Local RAG client gateway
+After=network.target
+
+[Service]
+Type=simple
+User=local-rag
+Group=local-rag
+WorkingDirectory=/opt/local-rag/client
+ExecStart=/usr/bin/node --env-file-if-exists=/opt/local-rag/client/.env /opt/local-rag/client/scripts/serve.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+MemoryMax=256M
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

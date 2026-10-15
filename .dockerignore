@@ -1,0 +1,16 @@
+.git
+**/.cache
+**/.venv
+.yarn/cache
+.yarn/install-state.gz
+**/node_modules
+**/dist
+**/data
+**/backups
+**/.env
+compose.env
+**/.env.*
+!**/.env.example
+coverage
+.idea
+docs

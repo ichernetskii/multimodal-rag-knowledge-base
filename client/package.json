@@ -1,0 +1,34 @@
+{
+  "name": "@local-rag/client",
+  "version": "6.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/precompress.ts",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node --env-file-if-exists=.env scripts/serve.ts"
+  },
+  "dependencies": {
+    "mobx": "7.0.6",
+    "mobx-react-lite": "5.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "remark-gfm": "4.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "6.0.3",
+    "vite": "8.3.4",
+    "vitest": "5.0.4"
+  },
+  "engines": {
+    "node": ">=24.19.0"
+  }
+}

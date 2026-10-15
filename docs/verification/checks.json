@@ -1,0 +1,58 @@
+{
+  "checked": "2026-10-15T08:06:07.957Z",
+  "node": "v24.19.0",
+  "immutableInstall": true,
+  "immutableCache": true,
+  "contracts": true,
+  "typecheck": true,
+  "eslint": true,
+  "prettier": true,
+  "serverTests": {
+    "passed": 75,
+    "failed": 0
+  },
+  "clientTests": {
+    "passed": 20,
+    "failed": 0
+  },
+  "build": {
+    "server": true,
+    "client": true
+  },
+  "gitWhitespace": true,
+  "cleanup": {
+    "removedTemporaryArtifacts": 322,
+    "removedBytes": 12561576,
+    "sourceGraphFiles": 146,
+    "unreachableSources": 0,
+    "applicationJavaScriptSources": 0,
+    "pdfFixturesExtracted": 4,
+    "benchmarkFreshDirectory": true,
+    "developmentClientStatus": 200,
+    "developmentServerStatus": 200,
+    "databaseIntegrity": "ok",
+    "checked": "2026-10-15T06:50:02.000Z"
+  },
+  "liveScenario": "live.json",
+  "nativeProduction": "native-production.json",
+  "browser": "ui.json",
+  "performance": "performance.json",
+  "limitations": [
+    "Container build and nginx/system services were not executed on this host."
+  ],
+  "documentation": {
+    "markdownFiles": 17,
+    "apiActions": 57,
+    "projectScripts": 25,
+    "exampleEnvironmentVariables": 42,
+    "validationCasesPassed": 8,
+    "sourceGraphFiles": 147,
+    "unreachableSources": 0,
+    "ownedFilesInventoried": 223,
+    "historicalEvidenceAndImageBytesPreserved": true,
+    "compiledCliHelp": true,
+    "developmentClientStatus": 200,
+    "developmentServerStatus": 200,
+    "databaseIntegrity": "ok"
+  }
+}

@@ -9,10 +9,18 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "allowImportingTsExtensions": true,
     "skipLibCheck": true,
-    "types": ["node"],
-    "rootDir": ".",
-    "noEmit": true
+    "noEmit": true,
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"]
+  "include": [
+    "eslint.config.ts",
+    "tooling/**/*.ts",
+    "client/scripts/**/*.ts",
+    "server/scripts/run.ts",
+    "server/scripts/clean-build.ts",
+    "server/scripts/prepare-pdf.ts"
+  ]
 }

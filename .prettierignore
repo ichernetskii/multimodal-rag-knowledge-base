@@ -1,8 +1,11 @@
 node_modules/
+.venv/
 dist/
 .yarn/
 .cache/
 data/
 .idea/
+# Generated machine-readable verification evidence uses JSON.stringify formatting.
+docs/verification/*.json
 yarn.lock
 .env

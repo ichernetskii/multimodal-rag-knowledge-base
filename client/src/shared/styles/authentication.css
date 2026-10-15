@@ -1,0 +1,55 @@
+.auth {
+  width: min(610px, calc(100% - 40px));
+  margin: 7vh auto;
+  padding: 34px 38px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 12px 60px #1b354d08;
+}
+.auth h1 {
+  font-size: 27px;
+}
+.auth > p {
+  font-size: 13px;
+}
+.auth form {
+  margin-top: 24px;
+}
+.auth label {
+  font-size: 12px;
+}
+.auth input {
+  font-size: 14px;
+}
+.auth .form-footer button {
+  width: 100%;
+}
+.auth-mark {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 25px;
+}
+.auth .setup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 18px;
+}
+.auth-step {
+  background: #edf6f2;
+  color: #3b7664;
+  font-size: 12px;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+.auth-footer {
+  text-align: center;
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 24px;
+}

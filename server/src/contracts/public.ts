@@ -1,0 +1,620 @@
+export type Role = 'user' | 'editor' | 'admin';
+export interface User {
+  id: string;
+  login: string;
+  role: Role;
+  blocked: boolean;
+  groups: string[];
+  revision: number;
+}
+export interface Principal {
+  id: string;
+  login: string;
+  role: Role;
+  groups: string[];
+}
+export interface Collection {
+  id: string;
+  name: string;
+  revision: number;
+  grants: { subject: string; access: 'read' | 'edit' }[];
+}
+export interface CollectionSummary extends Collection {
+  documentCount: number;
+}
+export interface Page {
+  number: number;
+  text: string;
+  method: 'text' | 'ocr';
+  warnings: string[];
+  sections: { title: string; text: string }[];
+}
+export interface DocumentRecord {
+  id: string;
+  name: string;
+  collection: string;
+  conversation: string;
+  owner: string;
+  revision: number;
+  activeVersion: string;
+  state: 'published' | 'excluded' | 'archived' | 'draft';
+}
+export interface Version {
+  id: string;
+  document: string;
+  name: string;
+  hash: string;
+  created: number;
+  pages: Page[];
+  state: 'pending' | 'review' | 'ready';
+  acknowledged: boolean;
+  signature: string;
+}
+export interface Conversation {
+  id: string;
+  owner: string;
+  title: string;
+  draft: string;
+  selected: string;
+  revision: number;
+  updated: number;
+}
+export interface SearchScope {
+  collection?: string;
+  conversation?: string;
+}
+export interface Source {
+  id: number;
+  chunk: string;
+  document: string;
+  version: string;
+  name: string;
+  page: number;
+  section: string;
+  text: string;
+}
+export type JobStatus =
+  | 'queued'
+  | 'extracting'
+  | 'ocr'
+  | 'indexing'
+  | 'searching'
+  | 'generating'
+  | 'complete'
+  | 'no_info'
+  | 'clarification'
+  | 'cancelled'
+  | 'interrupted'
+  | 'failed';
+export interface Job {
+  id: string;
+  owner: string;
+  kind: 'answer' | 'document' | 'evaluation';
+  status: JobStatus;
+  created: number;
+  updated: number;
+  payload: Record<string, unknown>;
+  result: Record<string, unknown>;
+  error: string;
+  diagnostic: string;
+  settings: string;
+}
+export interface Turn {
+  id: string;
+  conversation: string;
+  parent: string;
+  replaces: string;
+  question: string;
+  answer: string;
+  sources: Source[];
+  accessSources?: Pick<Source, 'document' | 'version' | 'chunk'>[];
+  status: JobStatus;
+  job: string;
+  created: number;
+  scope: SearchScope;
+}
+export interface Feedback {
+  id: string;
+  owner: string;
+  turn: string;
+  rating: number;
+  reason: string;
+  detail: string;
+  created: number;
+  sources: Source[];
+  settings: string;
+}
+export interface CheckQuestion {
+  id: string;
+  revision: number;
+  question: string;
+  scope: SearchScope;
+  documents: string[];
+  facts: string[];
+  refuse: boolean;
+}
+export interface SyncFolder {
+  id: string;
+  path: string;
+  collection: string;
+  owner: string;
+  policy: 'keep' | 'exclude' | 'delete';
+  intervalMinutes: number;
+  nextRun: number;
+  mapping: Record<string, { document: string; hash: string }>;
+  revision: number;
+}
+export interface Settings {
+  dataDir: string;
+  backupDir: string;
+  maxBytes: number;
+  maxPages: number;
+  maxTextCharacters: number;
+  maxChunks: number;
+  maxDocuments: number;
+  maxQueue: number;
+  minFreeBytes: number;
+  sessionHours: number;
+  historyDays: number;
+  jobDays: number;
+  tempHours: number;
+  logDays: number;
+  eventLimit: number;
+  backupDays: number;
+  backupIntervalHours: number;
+  nextBackup: number;
+  pauseIndexing: boolean;
+  pauseQueue: boolean;
+  pauseIntake: boolean;
+  topK: number;
+  revision: number;
+  model: string;
+  prompt: string;
+  ocrLanguage: string;
+  ocrTimeoutSeconds: number;
+  ocrMemoryMB: number;
+}
+export const terminal = new Set<JobStatus>([
+  'complete',
+  'no_info',
+  'clarification',
+  'cancelled',
+  'interrupted',
+  'failed',
+]);
+
+export const actionFields = {
+  'answers.create': ['conversation', 'revision', 'question', 'replaces', 'scope'],
+  'backup.create': [],
+  'backup.list': [],
+  'backup.restore': ['id'],
+  'backup.verify': ['id'],
+  cleanup: [],
+  'collections.list': [],
+  'collections.rename': ['id', 'revision', 'name'],
+  'collections.save': ['id', 'revision', 'name', 'grants'],
+  'conversations.create': ['title'],
+  'conversations.delete': ['id', 'revision'],
+  'conversations.list': ['query', 'page', 'pageSize'],
+  'conversations.read': ['id', 'before', 'pageSize'],
+  'conversations.variants': ['id', 'parent', 'page', 'pageSize'],
+  'conversations.save': ['id', 'revision', 'title', 'draft', 'selected'],
+  diagnostics: [],
+  'documents.bulk': ['ids', 'revisions', 'operation'],
+  'documents.compare': ['id', 'left', 'right'],
+  'documents.delete': ['id', 'revision'],
+  'documents.limits': [],
+  'documents.list': ['query', 'sort', 'state', 'scope', 'page', 'pageSize'],
+  'documents.preview': ['collection', 'conversation', 'files'],
+  'documents.publish': ['id', 'revision', 'version', 'acknowledge', 'activate'],
+  'documents.read': ['id', 'version'],
+  'documents.restore': ['id', 'revision', 'version'],
+  'documents.update': ['id', 'revision', 'name', 'state'],
+  'documents.upload': ['collection', 'conversation', 'name', 'base64', 'document', 'revision'],
+  'feedback.create': ['turn', 'rating', 'reason', 'detail'],
+  'groups.list': [],
+  'groups.save': ['id', 'revision', 'name'],
+  'jobs.cancel': ['id'],
+  'jobs.read': ['id'],
+  me: [],
+  operations: [],
+  'password.change': ['oldPassword', 'password'],
+  'quality.results': ['job', 'page', 'pageSize'],
+  'quality.list': ['page', 'pageSize'],
+  'quality.delete': ['id', 'revision'],
+  'quality.run': [],
+  'quality.save': ['id', 'revision', 'question', 'scope', 'documents', 'facts', 'refuse'],
+  search: ['question', 'scope'],
+  'sources.read': ['chunk'],
+  'sessions.list': [],
+  'sessions.revoke': ['id'],
+  'settings.read': [],
+  'settings.save': ['revision', 'settings'],
+  'setup.create': ['login', 'password', 'settings'],
+  'setup.status': [],
+  'sync.delete': ['id', 'revision'],
+  'sync.list': [],
+  'sync.preview': ['id'],
+  'sync.run': ['id'],
+  'sync.save': ['id', 'revision', 'collection', 'path', 'policy', 'intervalMinutes'],
+  'users.create': ['login', 'password', 'role', 'groups', 'blocked'],
+  'users.list': ['query', 'role', 'state', 'ids', 'page', 'pageSize'],
+  'users.revoke': ['id'],
+  'users.update': ['id', 'revision', 'role', 'blocked', 'password', 'groups'],
+} as const;
+export type ActionName = keyof typeof actionFields;
+
+export interface Group {
+  id: string;
+  name: string;
+  revision: number;
+}
+export interface BackupRecord {
+  id: string;
+  bytes: number;
+  created: number;
+  verified: boolean;
+}
+export interface VersionSummary {
+  id: string;
+  created: number;
+  state: Version['state'];
+  hash: string;
+}
+export interface DocumentDetails {
+  document: DocumentRecord;
+  version: Version;
+  versions: VersionSummary[];
+}
+export interface DocumentPreview {
+  name: string;
+  status: 'new' | 'update' | 'duplicate' | 'unsupported' | 'limit';
+  document?: string;
+  revision?: number;
+}
+export interface DocumentListItem extends DocumentRecord {
+  versionCount: number;
+  updated: number;
+  processing?: {
+    id: string;
+    status: JobStatus;
+    paused?: boolean;
+    reviewRequired?: boolean;
+    error?: string;
+    diagnostic?: string;
+  } | null;
+}
+export interface SourceDetails {
+  document: DocumentRecord;
+  version: VersionSummary & { name: string };
+  page: Page;
+  source: Source;
+}
+export interface TurnVariant {
+  id: string;
+  parent: string;
+  question: string;
+  status: JobStatus;
+  created: number;
+}
+export interface ConversationDetails {
+  conversation: Conversation;
+  turns: (Turn & { redacted?: boolean })[];
+  jobs: Job[];
+  history: { before: string; hasMore: boolean };
+  variantCounts: Record<string, number>;
+}
+
+export interface ListPage<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+export interface PageQuery {
+  page?: number;
+  pageSize?: number;
+  query?: string;
+}
+export interface ModelHealth {
+  embedding: boolean;
+  generation: boolean;
+  indexSignature: string;
+  models: string[];
+}
+export interface Diagnostics {
+  extraction: {
+    pdf: boolean;
+    ocr: boolean;
+    backend: 'apple-vision' | 'tesseract' | 'unavailable';
+    languages: string[];
+  };
+  dependencies: ModelHealth;
+  indexCompatible: boolean;
+  directoryWritable: boolean;
+  freeBytes: number;
+  sqliteIntegrity: string;
+  ready: boolean;
+  hardware: { cpu: string; cores: number; totalMemory: number; freeMemory: number };
+  dataDir: string;
+}
+export interface Operations {
+  sse: { streams: number; peakBuffered: number; slowDisconnects: number };
+  cpu: { load: number[]; cores: number; process: { user: number; system: number } };
+  memory: {
+    total: number;
+    free: number;
+    process: {
+      rss: number;
+      heapTotal: number;
+      heapUsed: number;
+      external: number;
+      arrayBuffers: number;
+    };
+  };
+  freeBytes: number;
+  queue: {
+    length: number;
+    oldestAgeMs: number;
+    lanes: { kind: string; length: number; oldestAgeMs: number }[];
+  };
+  counts: { users: number; documents: number; conversations: number; collections: number };
+  running: Job[];
+  response: { meanMs: number; errorRate: number; samples: number; windowHours: number };
+  dataBytes: number;
+  cacheBytes: number;
+  events: number;
+  backups: BackupRecord[];
+  settings: Settings;
+  maintenance: boolean;
+}
+export interface QualityReport {
+  feedback: (Feedback & { question: string; answer: string })[];
+  unanswered: Turn[];
+  checks: CheckQuestion[];
+  runs: Job[];
+  totals: { feedback: number; unanswered: number; checks: number; runs: number };
+  page: number;
+  pageSize: number;
+}
+export interface EvaluationResult {
+  check: string;
+  question: string;
+  sourceRetrieval: boolean;
+  answerFacts: boolean;
+  citationsValid: boolean;
+  refusalCorrect: boolean;
+  milliseconds: number;
+  answer: string;
+  sources: Source[];
+  assessment: string;
+}
+export interface EvaluationRecord extends EvaluationResult {
+  id: string;
+  job: string;
+  created: number;
+  settings: string;
+  expected: { documents: string[]; facts: string[]; refuse: boolean };
+  error?: { code: string; message: string; diagnostic: string };
+  redacted?: boolean;
+}
+export interface UploadResult {
+  document: DocumentRecord;
+  version?: Version;
+  job?: Job;
+  duplicate?: string;
+}
+export interface SyncPreview {
+  policy: SyncFolder['policy'];
+  files: { path: string; name: string; hash: string; status: string; document: string }[];
+}
+export interface BackupVerification {
+  id: string;
+  integrity: string;
+  entities: Record<string, unknown>[];
+}
+export interface RestoreReport {
+  milliseconds: number;
+  restored: Record<string, unknown>[];
+  backup: string;
+  sessionsRevoked: boolean;
+  completedJobsPreserved: boolean;
+}
+export interface ActionInputs {
+  'answers.create': {
+    conversation: string;
+    revision: number;
+    question: string;
+    scope?: SearchScope;
+    replaces?: string;
+  };
+  'backup.create': Record<string, never>;
+  'backup.list': Record<string, never>;
+  'backup.verify': { id: string };
+  'backup.restore': { id: string };
+  cleanup: Record<string, never>;
+  'collections.list': Record<string, never>;
+  'collections.rename': { id: string; revision: number; name: string };
+  'collections.save': {
+    id?: string;
+    revision?: number;
+    name: string;
+    grants: Collection['grants'];
+  };
+  'conversations.create': { title?: string };
+  'conversations.list': PageQuery;
+  'conversations.read': { id: string; before?: string; pageSize?: number };
+  'conversations.variants': { id: string; parent: string; page?: number; pageSize?: number };
+  'conversations.delete': { id: string; revision: number };
+  'conversations.save': {
+    id: string;
+    revision: number;
+    title?: string;
+    draft?: string;
+    selected?: string;
+  };
+  diagnostics: Record<string, never>;
+  'documents.list': PageQuery & {
+    sort?: 'name' | 'state' | 'updated';
+    state?: DocumentRecord['state'] | '';
+    scope?: SearchScope;
+  };
+  'documents.limits': Record<string, never>;
+  'documents.read': { id: string; version?: string };
+  'documents.preview': {
+    collection?: string;
+    conversation?: string;
+    files: { name: string; bytes: number; hash: string }[];
+  };
+  'documents.upload': {
+    collection?: string;
+    conversation?: string;
+    name: string;
+    base64: string;
+    document?: string;
+    revision?: number;
+  };
+  'documents.update': {
+    id: string;
+    revision: number;
+    name?: string;
+    state?: DocumentRecord['state'];
+  };
+  'documents.delete': { id: string; revision: number };
+  'documents.bulk': {
+    ids: string[];
+    revisions: Record<string, number>;
+    operation: 'archive' | 'exclude' | 'delete';
+  };
+  'documents.compare': { id: string; left: string; right: string };
+  'documents.restore': { id: string; revision: number; version: string };
+  'documents.publish': {
+    id: string;
+    revision: number;
+    version: string;
+    acknowledge?: boolean;
+    activate?: boolean;
+  };
+  'feedback.create': {
+    turn: string;
+    rating: -1 | 1;
+    reason: 'wrong_source' | 'outdated' | 'no_answer' | 'irrelevant_answer' | 'other';
+    detail?: string;
+  };
+  'groups.list': Record<string, never>;
+  'groups.save': { id?: string; revision?: number; name: string };
+  'jobs.read': { id: string };
+  'jobs.cancel': { id: string };
+  me: Record<string, never>;
+  operations: Record<string, never>;
+  'password.change': { oldPassword: string; password: string };
+  'quality.results': PageQuery & { job: string };
+  'quality.list': PageQuery;
+  'quality.delete': { id: string; revision: number };
+  'quality.save': {
+    id?: string;
+    revision?: number;
+    question: string;
+    documents: string[];
+    facts: string[];
+    scope?: SearchScope;
+    refuse?: boolean;
+  };
+  'quality.run': Record<string, never>;
+  'sources.read': { chunk: string };
+  search: { question: string; scope?: SearchScope };
+  'sessions.list': Record<string, never>;
+  'sessions.revoke': { id: string };
+  'settings.read': Record<string, never>;
+  'settings.save': { revision: number; settings: Partial<Settings> };
+  'setup.status': Record<string, never>;
+  'setup.create': { login: string; password: string; settings?: Partial<Settings> };
+  'sync.list': Record<string, never>;
+  'sync.save': {
+    id?: string;
+    revision?: number;
+    path: string;
+    collection: string;
+    policy: SyncFolder['policy'];
+    intervalMinutes: number;
+  };
+  'sync.delete': { id: string; revision: number };
+  'sync.preview': { id: string };
+  'sync.run': { id: string };
+  'users.list': PageQuery & { role?: Role | ''; state?: 'active' | 'blocked' | ''; ids?: string[] };
+  'users.create': {
+    login: string;
+    password: string;
+    role?: Role;
+    groups?: string[];
+    blocked?: boolean;
+  };
+  'users.update': {
+    id: string;
+    revision: number;
+    role?: Role;
+    groups?: string[];
+    blocked?: boolean;
+    password?: string;
+  };
+  'users.revoke': { id: string };
+}
+export interface ActionResults {
+  'answers.create': { conversation: Conversation; turn: Turn; job: Job };
+  'backup.create': { id: string; sha256: string; verified: boolean };
+  'backup.list': BackupRecord[];
+  'backup.verify': BackupVerification;
+  'backup.restore': RestoreReport;
+  cleanup: { removed: number };
+  'collections.list': CollectionSummary[];
+  'collections.rename': Collection;
+  'collections.save': Collection;
+  'conversations.create': Conversation;
+  'conversations.list': ListPage<Conversation>;
+  'conversations.read': ConversationDetails;
+  'conversations.variants': ListPage<TurnVariant>;
+  'conversations.save': Conversation;
+  'conversations.delete': { ok: boolean };
+  diagnostics: Diagnostics;
+  'documents.list': ListPage<DocumentListItem>;
+  'documents.limits': { maxBytes: number; maxDocuments: number; supported: string[] };
+  'documents.read': DocumentDetails;
+  'documents.preview': DocumentPreview[];
+  'documents.upload': UploadResult;
+  'documents.update': DocumentRecord;
+  'documents.delete': { ok: boolean };
+  'documents.bulk': { count: number };
+  'documents.compare': { left: Page[]; right: Page[] };
+  'documents.restore': DocumentRecord;
+  'documents.publish': Job;
+  'feedback.create': Feedback;
+  'groups.list': Group[];
+  'groups.save': Group;
+  'jobs.read': Job;
+  'jobs.cancel': Job;
+  me: { user: Principal; permissionsVersion: number; contentVersion: number };
+  operations: Operations;
+  'password.change': { ok: boolean };
+  'quality.results': ListPage<EvaluationRecord>;
+  'quality.list': QualityReport;
+  'quality.delete': { ok: boolean };
+  'quality.save': CheckQuestion;
+  'quality.run': Job;
+  'sources.read': SourceDetails;
+  search: Source[];
+  'sessions.list': { id: string; created: number; expires: number }[];
+  'sessions.revoke': { ok: boolean };
+  'settings.read': Settings;
+  'settings.save': Settings;
+  'setup.status': { initialized: boolean; dataDir: string; defaults: Settings | null };
+  'setup.create': { initialized: boolean };
+  'sync.list': SyncFolder[];
+  'sync.save': SyncFolder;
+  'sync.delete': { ok: boolean };
+  'sync.preview': SyncPreview;
+  'sync.run': { results: UploadResult[]; preview: SyncPreview };
+  'users.list': ListPage<User>;
+  'users.create': User;
+  'users.update': User;
+  'users.revoke': { ok: boolean };
+}

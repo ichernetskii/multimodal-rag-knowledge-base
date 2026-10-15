@@ -1,0 +1,53 @@
+name: local-rag
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/deploy/Dockerfile
+    init: true
+    restart: unless-stopped
+    environment:
+      RAG_HOST: 0.0.0.0
+      RAG_PORT: 3210
+      RAG_DATA_DIR: /var/lib/local-rag
+      RAG_BACKUP_DIR: /var/backups/local-rag
+      RAG_URL: http://127.0.0.1:3210
+      RAG_PUBLIC_ORIGIN: ${RAG_PUBLIC_ORIGIN:-http://localhost:8080}
+      TRUST_PROXY: '1'
+      EMBEDDING_CACHE: /var/cache/local-rag/models
+      OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    volumes:
+      - ${RAG_DATA_VOLUME:-rag-data}:/var/lib/local-rag
+      - ${RAG_MODELS_VOLUME:-rag-models}:/var/cache/local-rag/models
+      - ${RAG_BACKUPS_VOLUME:-rag-backups}:/var/backups/local-rag
+    expose: ['3210']
+    read_only: true
+    tmpfs: [/tmp]
+    stop_grace_period: 90s
+    mem_limit: ${SERVER_MEMORY:-8g}
+    cpus: ${SERVER_CPUS:-4}
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+  client:
+    build:
+      context: .
+      dockerfile: client/deploy/Dockerfile
+    restart: unless-stopped
+    ports:
+      - target: 8080
+        published: '${CLIENT_HTTP_PORT:-8080}'
+        host_ip: '${CLIENT_BIND_ADDRESS:-127.0.0.1}'
+    read_only: true
+    tmpfs: [/var/cache/nginx, /var/run]
+    mem_limit: 128m
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+volumes:
+  rag-data:
+  rag-models:
+  rag-backups:

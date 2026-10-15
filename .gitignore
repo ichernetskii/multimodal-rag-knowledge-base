@@ -1,11 +1,20 @@
 # Installed dependencies and generated build/test output
 node_modules/
+.venv/
 dist/
 coverage/
 *.tsbuildinfo
+.eslintcache
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+*.cpuprofile
+*.heapprofile
 
 # Local settings; keep the configuration example in Git
 .env
+compose.env
 .env.*
 !.env.example
 

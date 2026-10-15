@@ -1,0 +1,31 @@
+{
+  "name": "@local-rag/server",
+  "version": "6.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.19.0"
+  },
+  "scripts": {
+    "cli": "node scripts/run.ts",
+    "dev": "node scripts/run.ts --watch serve",
+    "start": "node scripts/run.ts --built serve",
+    "build": "node scripts/clean-build.ts && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test --test-timeout=60000 tests/*.test.ts",
+    "test:product": "node --import tsx --test tests/product.test.ts",
+    "test:product:live": "node scripts/run.ts --script test-product-live.ts",
+    "prepare:pdf": "node --env-file-if-exists=.env scripts/prepare-pdf.ts",
+    "benchmark": "node scripts/run.ts --script benchmark.ts"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "3.8.1",
+    "remark-parse": "11.0.0",
+    "unified": "11.0.5"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "tsx": "4.23.15",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>com.local-rag</string>
+<key>ProgramArguments</key><array><string>/usr/local/bin/node</string><string>--env-file-if-exists=/opt/local-rag/server/.env</string><string>/opt/local-rag/server/dist/interfaces/cli/main.js</string><string>serve</string></array>
+<key>WorkingDirectory</key><string>/opt/local-rag</string>
+<key>EnvironmentVariables</key><dict><key>RAG_DATA_DIR</key><string>/var/lib/local-rag</string><key>PDF_PYTHON</key><string>/opt/local-rag/server/.venv/bin/python3</string><key>OCR_VISION_BIN</key><string>/opt/local-rag/server/.cache/ocr-vision</string></dict>
+<key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+<key>StandardOutPath</key><string>/var/lib/local-rag/service.log</string>
+<key>StandardErrorPath</key><string>/var/lib/local-rag/service-error.log</string>
+</dict></plist>
