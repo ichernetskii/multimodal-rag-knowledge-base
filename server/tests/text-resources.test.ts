@@ -8,7 +8,13 @@ import { TextDocumentParser } from '../src/infrastructure/extraction/text-parser
 import { TokenDocumentChunker } from '../src/infrastructure/indexing/token-chunker.js';
 import { defaults } from '../src/config/default-settings.js';
 import { extract } from '../src/infrastructure/extraction/extract.js';
-import { wordTokenizer } from './helpers.js';
+const wordTokenizer = {
+  signature: 'test-words',
+  encode: (text: string) => ({
+    tokenIds: (text.match(/\S+/gu) ?? []).map((_, i) => i),
+    tokenizerSignature: 'test-words',
+  }),
+};
 const formatter = {
   signature: 'test',
   document: (_name: string, _section: string, body: string) => body,
@@ -41,7 +47,7 @@ void test('large text extraction can be cancelled while its parser process is wo
       extract(
         'large.md',
         Buffer.from('# Section\n\nParagraph.\n\n'.repeat(30000)),
-        defaults(path, 'test', 'test'),
+        { ...defaults(), dataDir: path, whisperModel: '' },
         controller.signal,
         () => {},
       ),

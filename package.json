@@ -1,7 +1,7 @@
 {
   "name": "local-rag",
-  "description": "Offline multi-user RAG server, document library, chat, administration and CLI",
-  "version": "6.0.0",
+  "description": "Multi-tenant knowledge SaaS with PostgreSQL, pg-boss, S3, Redis and replaceable AI providers",
+  "version": "7.0.0",
   "private": true,
   "type": "module",
   "packageManager": "yarn@4.18.1",
@@ -24,8 +24,6 @@
     "format:check": "prettier . --check",
     "test": "yarn workspace @local-rag/server test && yarn workspace @local-rag/client test",
     "validate": "yarn docs:check && yarn contracts:check && yarn typecheck && yarn lint && yarn format:check && yarn test && yarn build",
-    "test:product": "yarn workspace @local-rag/server test:product",
-    "test:product:live": "yarn workspace @local-rag/server test:product:live",
     "prepare:pdf": "yarn workspace @local-rag/server prepare:pdf",
     "contracts:generate": "node tooling/contracts.ts",
     "contracts:check": "node tooling/contracts.ts --check",
@@ -33,7 +31,18 @@
     "configure": "node tooling/configure.ts",
     "start:server": "yarn workspace @local-rag/server start",
     "start:client": "yarn workspace @local-rag/client start",
-    "benchmark": "yarn workspace @local-rag/server benchmark"
+    "prepare:media": "yarn workspace @local-rag/server prepare:media",
+    "test:docker": "node tooling/test-docker.ts",
+    "infra:up": "node tooling/infra.ts up",
+    "infra:down": "node tooling/infra.ts down",
+    "dev:reset": "node tooling/infra.ts reset",
+    "seed": "yarn cli seed",
+    "test:integration": "yarn workspace @local-rag/server test:integration",
+    "docker:up": "node tooling/infra.ts app",
+    "docker:down": "node tooling/infra.ts app-down",
+    "installation:backup": "node --import tsx tooling/installation.ts backup",
+    "installation:restore": "node --import tsx tooling/installation.ts restore",
+    "demo:import": "node --import tsx tooling/import-demo.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

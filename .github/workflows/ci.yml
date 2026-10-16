@@ -29,13 +29,17 @@ jobs:
           file: server/deploy/Dockerfile
           push: false
           load: true
-          tags: local-rag-server:ci
-      - run: docker run --rm --entrypoint node local-rag-server:ci server/dist/interfaces/cli/main.js --help
+          tags: local-rag-server:dev
+      - run: docker run --rm --entrypoint node local-rag-server:dev server/dist/interfaces/cli/main.js --help
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: client/deploy/Dockerfile
           push: false
           load: true
-          tags: local-rag-client:ci
-      - run: docker run --rm --entrypoint nginx local-rag-client:ci -t
+          tags: local-rag-client:dev
+      - run: docker run --rm --entrypoint nginx local-rag-client:dev -t
+      - name: SaaS deployment acceptance
+        run: |
+          node tooling/configure.ts
+          node tooling/test-docker.ts --no-build

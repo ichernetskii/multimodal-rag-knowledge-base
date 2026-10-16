@@ -1,0 +1,51 @@
+# Optional local inference. tooling/infra.ts includes this file when LOCAL_AI=1.
+services:
+  ollama:
+    image: ollama/ollama:0.40.5@sha256:5d3a2f25f9825628daba94dc0b1d421c7d57d6c03ae5faa9ba050e058bab8241
+    profiles: [app]
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NO_CLOUD: '1'
+      OLLAMA_CONTEXT_LENGTH: '8192'
+      OLLAMA_NUM_PARALLEL: '1'
+      OLLAMA_MAX_LOADED_MODELS: '1'
+      OLLAMA_MAX_QUEUE: '16'
+      OLLAMA_KEEP_ALIVE: 5m
+    volumes: [ollama-data:/root/.ollama]
+    expose: ['11434']
+    ports: ['127.0.0.1:${OLLAMA_PORT:-11435}:11434']
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: ${OLLAMA_MEMORY:-6g}
+    cpus: ${OLLAMA_CPUS:-6}
+    logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
+  ollama-models:
+    image: ollama/ollama:0.40.5@sha256:5d3a2f25f9825628daba94dc0b1d421c7d57d6c03ae5faa9ba050e058bab8241
+    profiles: [app]
+    entrypoint: [/bin/sh, /prepare.sh]
+    environment: { OLLAMA_HOST: 'http://ollama:11434' }
+    volumes: ['./deploy/ollama/prepare.sh:/prepare.sh:ro']
+    depends_on: { ollama: { condition: service_healthy } }
+    restart: 'no'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+  api:
+    depends_on: { ollama-models: { condition: service_completed_successfully } }
+  worker-answers:
+    depends_on: { ollama-models: { condition: service_completed_successfully } }
+  worker-indexing:
+    depends_on: { ollama-models: { condition: service_completed_successfully } }
+  worker-quality:
+    depends_on: { ollama-models: { condition: service_completed_successfully } }
+volumes:
+  ollama-data:

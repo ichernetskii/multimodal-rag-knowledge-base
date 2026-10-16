@@ -18,6 +18,10 @@ export class ChatStore {
   conversation: Conversation | null = null;
   turns: ConversationDetails['turns'] = [];
   scope: SearchScope = {};
+  attachments: string[] = [];
+  profile = '';
+  private submissionKey = '';
+  private submissionFingerprint = '';
   draft = '';
   busy = false;
   loadingChat = false;
@@ -87,9 +91,15 @@ export class ChatStore {
     this.variantCounts = {};
     this.loadingOlder = false;
     this.scope = {};
+    this.attachments = [];
     this.draft = '';
     this.busy = false;
     this.loadingChat = false;
+  }
+  toggleAttachment(id: string) {
+    this.attachments = this.attachments.includes(id)
+      ? this.attachments.filter((value) => value !== id)
+      : [...this.attachments, id].slice(0, 3);
   }
   get branch() {
     return conversationBranch(this.turns, this.conversation?.selected ?? '');
@@ -126,7 +136,9 @@ export class ChatStore {
       const data = await api('conversations.read', { id });
       if (sequence !== this.chatRequest || epoch !== this.session.epoch) return;
       runInAction(() => {
+        this.submissionFingerprint = '';
         this.conversation = data.conversation;
+        this.attachments = [];
         this.turns = data.turns;
         this.historyBefore = data.history.before;
         this.variantCounts = data.variantCounts;
@@ -214,6 +226,7 @@ export class ChatStore {
         this.conversation?.id === id
       ) {
         const changed = this.conversation?.selected !== data.conversation.selected;
+        this.submissionFingerprint = '';
         this.conversation = data.conversation;
         if (changed || reset)
           this.scope = {
@@ -277,15 +290,33 @@ export class ChatStore {
       const c = this.conversation;
       if (!c) return;
       if (epoch !== this.session.epoch) return;
+      const fingerprint = JSON.stringify({
+        conversation: c.id,
+        question,
+        attachments: this.attachments,
+        replaces,
+        scope: this.scope,
+        profile: this.profile,
+      });
+      if (fingerprint !== this.submissionFingerprint) {
+        this.submissionFingerprint = fingerprint;
+        this.submissionKey = crypto.randomUUID();
+      }
       const data = await api('answers.create', {
+        idempotencyKey: this.submissionKey,
+        ...(this.profile ? { profile: this.profile } : {}),
         conversation: c.id,
         revision: c.revision,
         question,
+        attachments: replaces
+          ? (this.turns.find((turn) => turn.id === replaces)?.attachments ?? [])
+          : this.attachments,
         replaces,
         scope: this.scope,
       });
       if (epoch !== this.session.epoch || this.conversation?.id !== c.id) return;
       runInAction(() => {
+        this.submissionFingerprint = '';
         this.conversation = data.conversation;
         this.turns.push(data.turn);
         this.variantCounts = {

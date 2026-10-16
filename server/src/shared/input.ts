@@ -1,4 +1,5 @@
 import { extname } from 'node:path';
+import { supportedExtensions } from './media-types.js';
 import type { SearchScope } from '../domain/entities.js';
 import { requireValue } from './errors.js';
 export type Input = Record<string, unknown>;
@@ -59,7 +60,7 @@ export function scope(p: Input): SearchScope {
 }
 export const localized = (q: string, ru: string, en: string) => (/[а-яё]/iu.test(q) ? ru : en);
 export const supported = (name: string) =>
-  ['.md', '.markdown', '.txt', '.pdf'].includes(extname(name).toLowerCase());
+  supportedExtensions.includes(extname(name).toLowerCase());
 export function containsCode(text: string, code: string) {
   const continues = (at: number, direction: number) => {
     const char = text[at] ?? ' ',

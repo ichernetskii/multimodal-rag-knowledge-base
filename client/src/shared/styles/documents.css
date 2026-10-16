@@ -242,6 +242,20 @@ pre {
   max-height: 500px;
   white-space: pre-wrap;
 }
+.document-reader-text {
+  max-width: 72ch;
+  margin: 20px auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+}
+.document-find button {
+  display: block;
+  text-align: left;
+  width: 100%;
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
 .review-pages {
   display: flex;
   gap: 6px;
@@ -252,4 +266,35 @@ pre {
   min-height: 30px;
   padding: 4px 9px;
   font-size: 11px;
+}
+
+.media-preview {
+  margin: 1rem 0;
+}
+.media-preview img,
+.media-preview video {
+  display: block;
+  max-width: 100%;
+  max-height: 440px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 0.6rem;
+}
+.media-preview audio {
+  width: 100%;
+}
+.media-preview figcaption {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.chat-attachments {
+  padding: 0.7rem 1rem;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.chat-attachments .muted {
+  font-size: 0.85rem;
+}
+.chat-attachments input {
+  width: auto;
 }

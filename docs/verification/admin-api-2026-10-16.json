@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-16T07:32:40.881Z",
+  "checks": [
+    "Docker owner login",
+    "company creation",
+    "admin/editor/user sessions",
+    "platform diagnostics denied for all company roles",
+    "model connection edits denied for all company roles",
+    "model endpoints and secret references absent for company admin",
+    "plan increases denied for company admin",
+    "partial settings update preserves other sections",
+    "team/settings denied for editors and users",
+    "final Docker diagnostics: PostgreSQL/S3/Redis, 4 workers, FFmpeg and Whisper ready",
+    "disabled index activation rejected with MODEL_UNAVAILABLE; active settings unchanged",
+    "browser owner/admin/editor/user, partial settings save, mobile 390px passed",
+    "temporary verification companies and accounts removed"
+  ],
+  "verifiedAt": "2026-10-16T07:48:53.873Z"
+}

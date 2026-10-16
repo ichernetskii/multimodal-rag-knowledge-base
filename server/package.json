@@ -1,30 +1,39 @@
 {
   "name": "@local-rag/server",
-  "version": "6.0.0",
+  "version": "7.0.0",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=24.19.0"
   },
   "scripts": {
-    "cli": "node scripts/run.ts",
-    "dev": "node scripts/run.ts --watch serve",
-    "start": "node scripts/run.ts --built serve",
-    "build": "node scripts/clean-build.ts && tsc -p tsconfig.build.json",
+    "cli": "node ../tooling/server/run.ts",
+    "dev": "node ../tooling/server/run.ts --watch serve",
+    "worker": "node ../tooling/server/run.ts --watch worker",
+    "start": "node ../tooling/server/run.ts --built serve",
+    "build": "node ../tooling/server/clean-build.ts && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test --test-timeout=60000 tests/*.test.ts",
-    "test:product": "node --import tsx --test tests/product.test.ts",
-    "test:product:live": "node scripts/run.ts --script test-product-live.ts",
-    "prepare:pdf": "node --env-file-if-exists=.env scripts/prepare-pdf.ts",
-    "benchmark": "node scripts/run.ts --script benchmark.ts"
+    "test:integration": "RUN_INTEGRATION=1 node --import tsx --test --test-timeout=120000 tests/saas.integration.test.ts",
+    "prepare:pdf": "node --env-file-if-exists=../.env ../tooling/server/prepare-pdf.ts",
+    "prepare:media": "node ../tooling/server/run.ts prepare-local"
   },
   "dependencies": {
-    "@huggingface/transformers": "3.8.1",
+    "@aws-sdk/client-s3": "3.1152.0",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/exporter-trace-otlp-http": "0.223.0",
+    "@opentelemetry/instrumentation-http": "0.223.0",
+    "@opentelemetry/instrumentation-pg": "0.75.0",
+    "@opentelemetry/sdk-node": "0.223.0",
+    "pg": "8.23.1",
+    "pg-boss": "12.38.0",
+    "redis": "6.3.0",
     "remark-parse": "11.0.0",
     "unified": "11.0.5"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
+    "@types/pg": "8.23.1",
     "tsx": "4.23.15",
     "typescript": "6.0.3"
   }

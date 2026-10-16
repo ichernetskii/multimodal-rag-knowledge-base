@@ -135,6 +135,17 @@ function AccessEditor({
           {!groups.length && <p className="muted">Создайте группы в разделе «Пользователи».</p>}
         </section>
       </Form>
+      {collection && (
+        <Button
+          onClick={async () => {
+            if (!window.confirm('Удалить базу знаний и все её документы?')) return;
+            await api('collections.delete', { id: collection.id, revision: collection.revision });
+            done();
+          }}
+        >
+          Удалить базу знаний
+        </Button>
+      )}
     </>
   );
 }

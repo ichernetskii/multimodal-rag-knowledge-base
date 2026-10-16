@@ -1,0 +1,6 @@
+{$TLS_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy client:8080 {
+    flush_interval -1
+  }
+}

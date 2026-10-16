@@ -1,17 +1,13 @@
-# Сервер
+# Node.js server
 
-Node.js + TypeScript, SQLite/FTS5, локальный embedding и Ollama. `src/app` — запуск процесса; `src/application` — композиция/планировщик/порты; `src/features` — прикладные сервисы; `src/infrastructure` — адаптеры; `src/interfaces` — HTTP/SSE и CLI.
+API, workers and CLI share the application services and public contract. PostgreSQL stores business data and pg-boss jobs; S3 stores immutable originals and derived media; Redis is disposable. Runtime PostgreSQL role cannot bypass RLS. Database initialization is an operator command with a separate admin connection.
 
-```sh
-# Из корня проекта:
-yarn dev:server
-yarn build:server
-yarn cli help
-yarn workspace @local-rag/server test
-```
+See [architecture](../docs/ARCHITECTURE.md), [API](../docs/API.md), [CLI](../docs/CLI.md), [development](../docs/DEVELOPMENT.md) and [operations](../docs/OPERATIONS.md).
 
-Все обычные CLI операции используют API работающего сервера. SQLite имеет единственную текущую схему без миграций старых форматов. [Правила](../AGENTS.md), [архитектура](../docs/ARCHITECTURE.md), [API](../docs/API.md), [эксплуатация](../docs/OPERATIONS.md).
+No SQLite/HuggingFace embedding runtime or old API adapters remain. Do not point version 7 at a legacy database.
 
-`yarn start:server` запускает compiled API; он не раздаёт интерфейс. `yarn cli setup` готовит embedding, `yarn cli serve` запускает API, а первого администратора создаёт локальный мастер или setup.create. Команды и исключения офлайн-доступа — в [CLI.md](../docs/CLI.md); env и лимиты — в [CONFIGURATION.md](../docs/CONFIGURATION.md).
+`src/application/application.ts` validates and dispatches the public actions. `features/knowledge-bases/knowledge-base-service.ts` owns grants, summaries and transactional mutations; `features/operations/retention-service.ts` owns retention and garbage collection. The shared application services enforce the same rules for HTTP and CLI.
 
-В [examples/](examples/) находятся небольшие файлы для ручной загрузки: [политики компании](examples/company.md) и [IT-инструкция](examples/it.txt). Они не загружаются автоматически. Фиксированные PDF для сквозного теста хранятся отдельно в [tests/fixtures/pdf/](tests/fixtures/pdf/).
+PDF extraction/rendering and Apple Vision sources live in `resources/extraction/`; these are production resources, copied into the server image. Development/build/PDF preparation commands live in root `tooling/server/`. Run them through workspace/root package scripts so paths do not depend on the caller's directory. The compiled server resolves resources relative to its server root.
+
+Reusable multimodal data lives in [examples/knowledge-base](../examples/knowledge-base/README.md). Tests consume the same checked-in inputs. Local `.cache` holds managed runtimes/weights and `.venv` holds Python dependencies; neither is sample data. No local SQLite data directory is used by this architecture.

@@ -10,7 +10,7 @@ function parseRoute(path: string): {
   return {
     view: parts[0] === 'admin' ? 'admin' : parts[0] === 'documents' ? 'documents' : 'chat',
     section:
-      parts[1] && Object.hasOwn(adminNames, parts[1]) ? (parts[1] as AdminSection) : 'operations',
+      parts[1] && Object.hasOwn(adminNames, parts[1]) ? (parts[1] as AdminSection) : 'overview',
     conversation: parts[0] === 'chat' && parts[1] ? decodeConversation(parts[1]) : '',
   };
 }
@@ -23,7 +23,7 @@ function decodeConversation(value: string) {
 }
 export class NavigationStore {
   view: View = 'chat';
-  section: AdminSection = 'operations';
+  section: AdminSection = 'overview';
   conversation = '';
   constructor(private readonly onPop: () => void) {
     if (typeof window !== 'undefined') Object.assign(this, parseRoute(window.location.pathname));

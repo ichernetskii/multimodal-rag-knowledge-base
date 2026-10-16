@@ -674,3 +674,380 @@ td .actions button {
   font-size: 11px;
   min-height: 32px;
 }
+
+.model-profiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.model-profile {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #dbe6e3;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.model-profile h3 {
+  margin-top: 0;
+}
+.model-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Administration is organized by task and by the scope of the change. */
+.admin-scope {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  padding: 11px 15px;
+  margin-bottom: 25px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--paper);
+  font-size: 11px;
+  color: var(--muted);
+}
+.admin-scope > span:first-child {
+  color: var(--ink);
+  font-weight: 650;
+}
+.admin-scope-platform {
+  border-left-color: #416eab;
+  background: #f1f5fb;
+}
+.admin-navigation {
+  overflow-y: auto;
+  min-height: 0;
+  flex-shrink: 1;
+  scrollbar-width: thin;
+  padding-bottom: 8px;
+}
+.admin-nav-group {
+  margin-top: 14px;
+}
+.admin-nav-group:first-child {
+  margin-top: 0;
+}
+.admin-nav-group > summary {
+  margin: 10px 13px 6px;
+  color: #a6bdcb;
+  font-size: 10px;
+  letter-spacing: 0.025em;
+}
+
+.admin-navigation button {
+  font-size: 12px;
+  min-height: 39px;
+  padding: 8px 11px;
+}
+.admin-role-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-bottom: 22px;
+  padding: 17px 20px;
+  background: var(--accent-soft);
+  border: 1px solid #dce8e6;
+  border-radius: var(--radius);
+}
+.admin-role-note p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-role-note .badge {
+  flex-shrink: 0;
+}
+.admin-section {
+  margin: 30px 0;
+}
+.admin-task-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.admin-task-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 22px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.admin-task-card:hover {
+  border-color: var(--accent);
+  background: #f9fcfb;
+  text-decoration: none;
+}
+.admin-task-card strong {
+  font-size: 14px;
+  display: block;
+  margin: 1px 0 5px;
+}
+.admin-task-card small {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.admin-task-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 9px;
+}
+.admin-platform-section {
+  padding-top: 26px;
+  border-top: 1px solid var(--line);
+}
+.admin-platform-section .admin-task-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.admin-platform-section .admin-task-card {
+  flex-direction: column;
+}
+.admin-platform-section .admin-task-icon {
+  color: #416eab;
+  background: #e9f1fc;
+}
+.admin-key-guide {
+  border-left: 3px solid #416eab;
+}
+.admin-key-guide pre {
+  padding: 15px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow-x: auto;
+  max-width: 100%;
+  font-size: 12px;
+}
+.admin-steps {
+  padding-left: 22px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.admin-steps li {
+  margin: 9px 0;
+  padding-left: 3px;
+}
+.admin-model-choice {
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-model-choice:last-of-type {
+  border-bottom: 0;
+}
+.admin-model-choice > label {
+  max-width: 650px;
+}
+.admin-details {
+  margin-top: 18px;
+}
+.admin-details summary,
+.admin-index summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-weight: 600;
+}
+.admin-details[open] > summary {
+  margin-bottom: 18px;
+}
+.admin-index-list {
+  display: grid;
+  gap: 14px;
+}
+.admin-index {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 18px;
+}
+.admin-index p,
+.admin-index details {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.admin-index code,
+#admin-body td code {
+  overflow-wrap: anywhere;
+}
+.admin-pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 18px;
+  margin-top: 20px;
+  font-size: 12px;
+}
+.admin-tenant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.admin-tenant-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.admin-tenant-card h3 {
+  margin-bottom: 8px;
+}
+.admin-tenant-card p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-status-list > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.admin-status-list > div:last-child {
+  border-bottom: 0;
+}
+.admin-status-list .badge {
+  margin-left: auto;
+}
+.admin-status-list span:not(.badge) {
+  color: var(--muted);
+}
+@media (max-width: 1100px) {
+  .admin-platform-section .admin-task-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-platform-section .admin-task-card {
+    flex-direction: row;
+  }
+}
+@media (max-width: 600px) {
+  .admin-task-grid,
+  .admin-tenant-grid {
+    grid-template-columns: 1fr;
+  }
+  .admin-task-card {
+    padding: 18px;
+  }
+  .admin-role-note,
+  .admin-index {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .admin-scope {
+    margin-bottom: 20px;
+  }
+  .admin-pagination {
+    justify-content: space-between;
+    gap: 10px;
+  }
+  #admin-body .section-heading {
+    flex-wrap: wrap;
+  }
+}
+
+.admin-task-card > span:nth-child(2) {
+  min-width: 0;
+}
+.admin-task-card > svg:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+
+.admin-nav-group > summary {
+  cursor: pointer;
+  padding: 3px 0;
+}
+.admin-nav-group:not([open]) {
+  margin-top: 9px;
+}
+.admin-nav-group:not([open]) > summary {
+  color: #c3d3dd;
+}
+
+.admin-navigation .admin-nav-group {
+  padding: 0;
+  border: 0;
+  margin-top: 9px;
+}
+.admin-navigation .admin-nav-group > summary,
+.admin-navigation .admin-nav-group[open] > summary {
+  color: #b9cdd9;
+  margin: 5px 13px 6px;
+  font-size: 11px;
+}
+.admin-navigation .admin-nav-group:last-child {
+  border-top: 1px solid #304654;
+  padding-top: 10px;
+}
+.admin-role-note a {
+  display: inline-block;
+  margin-top: 8px;
+}
+
+.admin-credentials {
+  border-left: 3px solid #416eab;
+}
+.admin-credential-form {
+  margin: 22px 0;
+  padding: 22px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.admin-credentials .info-callout .actions {
+  margin-top: 14px;
+}
+@media (max-width: 600px) {
+  .admin-credential-form {
+    padding: 16px;
+  }
+}
+
+.credential-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 16px;
+  margin: 22px 0;
+}
+.credential-card {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.credential-card h3 {
+  margin-bottom: 5px;
+  font-size: 15px;
+}
+.credential-card code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.credential-card p {
+  font-size: 12px;
+}
+.credential-card .section-heading {
+  margin-bottom: 12px;
+}

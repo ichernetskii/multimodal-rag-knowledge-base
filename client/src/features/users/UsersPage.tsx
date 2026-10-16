@@ -8,7 +8,8 @@ import { Button } from '../../shared/ui/Button';
 import { Check, Field, Form, Select } from '../../shared/ui/Form';
 import { Badge, EmptyState, Loading, PageHeader } from '../../shared/ui/Feedback';
 import { Table, Pagination } from '../../shared/ui/DataTable';
-const roleNames = { user: 'Пользователь', editor: 'Редактор', admin: 'Администратор' } as const;
+import { roleNames } from '../admin/admin-sections';
+import { TeamInvitations } from './TeamInvitations';
 function UserEditor({ user, groups, done }: { user?: User; groups: Group[]; done: () => void }) {
   return (
     <>
@@ -16,7 +17,7 @@ function UserEditor({ user, groups, done }: { user?: User; groups: Group[]; done
       <h2>{user ? 'Изменить пользователя' : 'Новый пользователь'}</h2>
       <p className="muted">
         Пользователь общается с документами, редактор управляет разрешёнными базами, администратор —
-        всей установкой.
+        командой и настройками выбранной компании. Права владельца платформы этой ролью не выдаются.
       </p>
       <Form
         label={user ? 'Сохранить изменения' : 'Создать пользователя'}
@@ -148,14 +149,52 @@ export function Users() {
     <>
       <PageHeader
         eyebrow="ДОСТУП И БЕЗОПАСНОСТЬ"
-        title="Пользователи"
-        description="Учётные записи, роли и группы для совместной работы с документами."
+        title="Команда и роли"
+        description="Сотрудники выбранной компании, приглашения и группы доступа к базам знаний."
         actions={
           <Button className="primary" onClick={() => edit()}>
             + Пользователь
           </Button>
         }
       />
+      <details className="panel admin-details">
+        <summary>Чем отличаются роли</summary>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Роль</th>
+                <th>Возможности</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Пользователь</td>
+                <td>Чат и чтение материалов разрешённых баз знаний.</td>
+              </tr>
+              <tr>
+                <td>Редактор</td>
+                <td>Возможности пользователя и управление материалами разрешённых баз.</td>
+              </tr>
+              <tr>
+                <td>Администратор компании</td>
+                <td>Команда, доступ, настройки, расходы и обслуживание своей компании.</td>
+              </tr>
+              <tr>
+                <td>Владелец платформы</td>
+                <td>
+                  Отдельное системное право: компании, подключения к AI, сервер и увеличение
+                  лимитов. Не назначается через форму сотрудника.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>
+          Права владельца не дают автоматического доступа к личным чатам сотрудников. Доступ к
+          материалам проверяется на сервере.
+        </p>
+      </details>
       <section className="panel">
         <div className="filter-bar">
           <label className="search-field">
@@ -222,15 +261,17 @@ export function Users() {
                   </Badge>,
                   <div className="actions compact">
                     <Button onClick={() => edit(u)}>Изменить</Button>
-                    <Button
-                      title="Завершить все активные сессии пользователя"
-                      onClick={async () => {
-                        await api('users.revoke', { id: u.id });
-                        app.notify('Сессии пользователя ' + u.login + ' отозваны.');
-                      }}
-                    >
-                      Отозвать сессии
-                    </Button>
+                    {app.session.user?.operator && (
+                      <Button
+                        title="Завершить сессии пользователя во всех компаниях"
+                        onClick={async () => {
+                          await api('users.revoke', { id: u.id });
+                          app.notify('Сессии пользователя ' + u.login + ' отозваны.');
+                        }}
+                      >
+                        Отозвать сессии
+                      </Button>
+                    )}
                   </div>,
                 ])}
               />
@@ -266,10 +307,11 @@ export function Users() {
         ) : (
           <EmptyState
             title="Объедините пользователей в группы"
-            description="Создайте группу и назначьте ей доступ в разделе «Базы и доступ»."
+            description="Создайте группу и назначьте ей доступ в разделе «Базы знаний и доступ»."
           />
         )}
       </section>
+      <TeamInvitations />
     </>
   );
 }

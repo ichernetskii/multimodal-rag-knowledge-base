@@ -7,7 +7,6 @@ import type {
   TextTokenizer,
   TokenizedInput,
 } from '../../application/ports/embedding.js';
-import type { AppConfig } from '../../config/app-config.js';
 import { setImmediate as yieldToIO } from 'node:timers/promises';
 import { requireValue } from '../../shared/errors.js';
 
@@ -16,7 +15,7 @@ export class TokenDocumentChunker implements DocumentChunker {
   constructor(
     private readonly tokenizer: TextTokenizer,
     private readonly formatter: EmbeddingFormatter,
-    private readonly config: AppConfig['chunking'],
+    private readonly config: { targetTokens: number; overlapTokens: number; maxCharacters: number },
     private readonly maxInputTokens: number,
   ) {}
 

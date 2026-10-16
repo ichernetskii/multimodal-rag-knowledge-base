@@ -2,7 +2,12 @@ import { Component, lazy, Suspense, useEffect, useState, useRef, type ReactNode 
 import { observer } from 'mobx-react-lite';
 import { runInAction } from 'mobx';
 import { Admin } from '../features/admin/AdminPage';
-import { adminNames, type AdminSection } from '../features/admin/admin-sections';
+import {
+  adminNames,
+  adminSections,
+  adminGroups,
+  roleNames,
+} from '../features/admin/admin-sections';
 import { Account } from '../features/auth/AccountDialog';
 import { Auth } from '../features/auth/LoginPage';
 import { useApplication } from '../shared/lib/application-context';
@@ -163,9 +168,23 @@ const Shell = observer(function Shell() {
             <Icon name="documents" size={23} />
           </span>
           <span>
-            Local RAG<small>ВАША БАЗА ЗНАНИЙ</small>
+            Knowledge Workspace<small>БАЗА ЗНАНИЙ КОМПАНИИ</small>
           </span>
         </a>
+        <label className="tenant-selector">
+          Компания
+          <select
+            aria-label="Компания"
+            value={user.tenant}
+            onChange={(e) => void app.execute(() => app.switchCompany(e.target.value))}
+          >
+            {app.session.tenants.map((t) => (
+              <option key={t.id} value={t.id} disabled={t.blocked}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </label>
         <nav className="workspace-nav" aria-label="Рабочее пространство">
           {(['chat', 'documents'] as const).map((view) => (
             <button
@@ -180,7 +199,7 @@ const Shell = observer(function Shell() {
           {user.role === 'admin' && (
             <button
               aria-current={app.view === 'admin' ? 'page' : undefined}
-              onClick={() => app.navigation.navigate('admin', 'operations')}
+              onClick={() => app.navigation.navigate('admin', 'overview')}
             >
               <Icon name="settings" />
               <span>Администрирование</span>
@@ -196,37 +215,41 @@ const Shell = observer(function Shell() {
         )}
         {user.role === 'admin' && app.view === 'admin' && (
           <nav className="admin-navigation" aria-label="Администрирование">
-            <p className="nav-label">УПРАВЛЕНИЕ</p>
-            {(Object.keys(adminNames) as AdminSection[]).map((section) => (
-              <button
-                key={section}
-                aria-current={
-                  app.view === 'admin' && app.navigation.section === section ? 'page' : undefined
+            {adminGroups(user).map((group) => (
+              <details
+                className="admin-nav-group"
+                key={group.name}
+                open={
+                  group.name === 'Начало' ||
+                  group.name === 'Компания' ||
+                  group.sections.includes(app.navigation.section)
                 }
-                onClick={() => app.navigation.navigate('admin', section)}
               >
-                <Icon name={section} />
-                <span>{adminNames[section]}</span>
-              </button>
+                <summary>{group.name}</summary>
+                {group.sections.map((section) => (
+                  <button
+                    key={section}
+                    aria-current={app.navigation.section === section ? 'page' : undefined}
+                    onClick={() => app.navigation.navigate('admin', section)}
+                  >
+                    <Icon name={adminSections[section].icon} />
+                    <span>{adminNames[section]}</span>
+                  </button>
+                ))}
+              </details>
             ))}
           </nav>
         )}
         <div className="sidebar-footer">
           <div className="local-indicator">
-            <span /> Локальное рабочее пространство
+            <span /> {app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Компания'}
           </div>
           <div className="account-row">
             <button className="account-button" onClick={() => modal(<Account />)}>
               <span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span>
               <span>
                 <strong>{user.login}</strong>
-                <small>
-                  {user.role === 'admin'
-                    ? 'Администратор'
-                    : user.role === 'editor'
-                      ? 'Редактор'
-                      : 'Пользователь'}
-                </small>
+                <small>{user.operator ? 'Владелец платформы' : roleNames[user.role]}</small>
               </span>
             </button>
             <Button
@@ -257,12 +280,13 @@ const Shell = observer(function Shell() {
             <Icon name="menu" />
           </button>
           <div className="breadcrumb">
-            <span>Рабочее пространство</span>
+            <span>{app.view === 'admin' ? 'Управление' : 'Рабочее пространство'}</span>
             <Icon name="arrow" size={14} />
             <strong>{title}</strong>
           </div>
           <span className="workspace-tag">
-            <Icon name="shield" size={14} /> Локальные данные
+            <Icon name="shield" size={14} />{' '}
+            {user.operator ? 'Владелец платформы' : roleNames[user.role]}
           </span>
         </header>
         <main
@@ -316,8 +340,10 @@ export function App({ application }: { application: ApplicationStore }) {
   return (
     <ApplicationProvider application={application}>
       <ModalProvider>
-        <Shell />
-        <Notice />
+        <ErrorBoundary>
+          <Shell />
+          <Notice />
+        </ErrorBoundary>
       </ModalProvider>
     </ApplicationProvider>
   );

@@ -1,0 +1,13 @@
+services:
+  client:
+    ports: !reset []
+  ingress:
+    image: caddy:2-alpine
+    ports: ['80:80', '443:443', '443:443/udp']
+    environment: { TLS_DOMAIN: '${TLS_DOMAIN:?Set the real public domain}' }
+    volumes: ['./deploy/Caddyfile:/etc/caddy/Caddyfile:ro', 'tls-data:/data', 'tls-config:/config']
+    depends_on: { client: { condition: service_started } }
+    restart: unless-stopped
+volumes:
+  tls-data:
+  tls-config:

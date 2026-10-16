@@ -1,0 +1,216 @@
+{
+  "at": "2026-10-16T06:51:26.968Z",
+  "success": true,
+  "models": [
+    {
+      "company": "Demo A",
+      "model": "qwen3.5:4b",
+      "ok": true,
+      "message": "Ollama доступен, модель qwen3.5:4b установлена и поддерживает выбранную задачу. Проверка не запускает генерацию."
+    },
+    {
+      "company": "Demo A",
+      "model": "embeddinggemma",
+      "ok": true,
+      "message": "Ollama доступен, модель embeddinggemma установлена и поддерживает выбранную задачу. Проверка не запускает генерацию."
+    },
+    {
+      "company": "Demo A",
+      "model": "small",
+      "ok": true,
+      "message": "Whisper small: программа и веса доступны в контейнере сервера."
+    },
+    {
+      "company": "Demo B",
+      "model": "qwen3.5:4b",
+      "ok": true,
+      "message": "Ollama доступен, модель qwen3.5:4b установлена и поддерживает выбранную задачу. Проверка не запускает генерацию."
+    },
+    {
+      "company": "Demo B",
+      "model": "embeddinggemma",
+      "ok": true,
+      "message": "Ollama доступен, модель embeddinggemma установлена и поддерживает выбранную задачу. Проверка не запускает генерацию."
+    },
+    {
+      "company": "Demo B",
+      "model": "small",
+      "ok": true,
+      "message": "Whisper small: программа и веса доступны в контейнере сервера."
+    }
+  ],
+  "steps": [
+    {
+      "name": "wait for Docker application and model initializer",
+      "ms": 187477
+    },
+    {
+      "name": "enable local generation, embeddings and Whisper for existing companies",
+      "ms": 3167
+    },
+    {
+      "name": "missing model is diagnosed and cannot replace the working answer model",
+      "ms": 119
+    },
+    {
+      "name": "text upload, review, publish and real EmbeddingGemma index",
+      "ms": 1191
+    },
+    {
+      "name": "real Qwen answer with citations over SSE",
+      "ms": 25626
+    },
+    {
+      "name": "repeat answer uses the exact Redis cache",
+      "ms": 341
+    },
+    {
+      "name": "photo description, text retrieval and image-aware answer",
+      "ms": 142899
+    },
+    {
+      "name": "audio is transcribed by bundled Whisper and indexed by EmbeddingGemma",
+      "ms": 67182
+    },
+    {
+      "name": "video is prepared into frames, described by Qwen and retrieved",
+      "ms": 95060
+    },
+    {
+      "name": "CLI reports actual local-model availability",
+      "ms": 1435
+    }
+  ],
+  "answers": [
+    {
+      "question": "Через сколько дней нужно заменять фильтр насоса LOCAL-P200? Ответь одним предложением со ссылкой на источник.",
+      "answer": "Фильтр насоса LOCAL-P200 нужно заменять каждые 45 дней [1].",
+      "ms": 25611,
+      "firstTextMs": 16270,
+      "snapshots": 23,
+      "cache": null,
+      "conversation": "58223cb0-530c-4955-9263-007ec45ef57d",
+      "sources": [
+        {
+          "document": "451b4e8a-f956-438f-9711-4ff620dafbb9"
+        }
+      ]
+    },
+    {
+      "question": "Через сколько дней нужно заменять фильтр насоса LOCAL-P200? Ответь одним предложением со ссылкой на источник.",
+      "answer": "Фильтр насоса LOCAL-P200 нужно заменять каждые 45 дней [1].",
+      "ms": 325,
+      "firstTextMs": 307,
+      "snapshots": 2,
+      "cache": "exact-answer-hit",
+      "conversation": "71aa966b-9858-4bbf-a7f7-1cb209a52fd4",
+      "sources": [
+        {
+          "document": "451b4e8a-f956-438f-9711-4ff620dafbb9"
+        }
+      ]
+    },
+    {
+      "question": "Какой момент затяжки указан на сервисной этикетке AX-100? Кратко, со ссылкой.",
+      "answer": "На сервисной этикетке модели AX-100 указан момент затяжки **12 Нм** [1].",
+      "ms": 92177,
+      "firstTextMs": 78791,
+      "snapshots": 28,
+      "cache": null,
+      "conversation": "f8c1cf1d-ebe7-42d6-b642-d7235f2e3227",
+      "sources": [
+        {
+          "document": "efc916a8-56ef-46bc-b28c-b6f71e4d37ad",
+          "media": "image"
+        }
+      ]
+    },
+    {
+      "question": "What does the speaker ask people to do for their country? Answer briefly and cite the recording.",
+      "answer": "The speaker asks people to \"ask what you can do for your country.\" [1]",
+      "ms": 32975,
+      "firstTextMs": 24559,
+      "snapshots": 22,
+      "cache": null,
+      "conversation": "3d30b951-9f82-4bb6-9bc6-44ab8ead922f",
+      "sources": [
+        {
+          "document": "5b3ee754-1ecc-48e3-b89d-717b2cbe8521",
+          "media": "audio"
+        }
+      ]
+    },
+    {
+      "question": "Какой код ошибки показан на сервисной этикетке в видео? Кратко, со ссылкой.",
+      "answer": "На сервисной этикетке в видео показан код ошибки **E-42** [1].",
+      "ms": 49718,
+      "firstTextMs": 39767,
+      "snapshots": 25,
+      "cache": null,
+      "conversation": "76f0fb28-ac6d-45f8-aa2d-befa52077230",
+      "sources": [
+        {
+          "document": "35795c8a-9c91-4c51-9121-3730db6e031c",
+          "media": "video"
+        }
+      ]
+    }
+  ],
+  "collection": "668bd6c0-b5d6-4744-8578-e20937329654",
+  "textDocument": "451b4e8a-f956-438f-9711-4ff620dafbb9",
+  "photoDocument": "efc916a8-56ef-46bc-b28c-b6f71e4d37ad",
+  "audioDocument": "5b3ee754-1ecc-48e3-b89d-717b2cbe8521",
+  "audioTranscript": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+  "videoDocument": "35795c8a-9c91-4c51-9121-3730db6e031c",
+  "cliStatus": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "name": "TEST AI — deterministic",
+      "model": "test-generation",
+      "enabled": false,
+      "ok": true,
+      "message": "TEST AI — проверочный провайдер, не настоящая модель."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000002",
+      "name": "TEST embeddings",
+      "model": "test-embedding",
+      "enabled": false,
+      "ok": true,
+      "message": "TEST AI — проверочный провайдер, не настоящая модель."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000003",
+      "name": "Anthropic",
+      "model": "claude-sonnet-4-6",
+      "enabled": false,
+      "ok": false,
+      "message": "The operator must configure this provider credential."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000004",
+      "name": "Local Ollama",
+      "model": "qwen3.5:4b",
+      "enabled": true,
+      "ok": true,
+      "message": "Ollama доступен, модель qwen3.5:4b установлена и поддерживает выбранную задачу. Проверка не запускает генерацию."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000005",
+      "name": "Local embeddings",
+      "model": "embeddinggemma",
+      "enabled": true,
+      "ok": true,
+      "message": "Ollama доступен, модель embeddinggemma установлена и поддерживает выбранную задачу. Проверка не запускает генерацию."
+    },
+    {
+      "id": "10000000-0000-4000-8000-000000000006",
+      "name": "Local Whisper",
+      "model": "small",
+      "enabled": true,
+      "ok": true,
+      "message": "Whisper small: программа и веса доступны в контейнере сервера."
+    }
+  ],
+  "elapsedMs": 524597
+}

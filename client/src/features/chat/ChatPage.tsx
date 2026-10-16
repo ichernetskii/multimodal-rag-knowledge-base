@@ -1,16 +1,18 @@
+import { tenantUrl } from '../../shared/api/client';
 import { runInAction } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { api } from '../../shared/api/client';
 import { useApplication } from '../../shared/lib/application-context';
 import { text } from '../../shared/lib/form-data';
-import { useModal } from '../../shared/lib/hooks';
+import { useModal, useLoad } from '../../shared/lib/hooks';
 import { Button } from '../../shared/ui/Button';
 import { Field, Form } from '../../shared/ui/Form';
 import { Loading } from '../../shared/ui/Feedback';
 import { Upload } from '../documents/UploadDialog';
 import { KnowledgeBaseSelector } from '../knowledge-bases/KnowledgeBaseSelector';
 import { TurnView } from './Turn';
+import { Attachments } from './Attachments';
 export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void }) {
   const app = useApplication();
 
@@ -35,6 +37,7 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
   useEffect(() => {
     if (follow && messages.current) messages.current.scrollTop = messages.current.scrollHeight;
   }, [streamContent, follow]);
+  const profiles = useLoad((signal) => api('models.list', {}, { signal }));
   const c = app.chat.conversation;
   if (app.chat.loadingChat) return <Loading />;
   if (!c)
@@ -58,6 +61,27 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
       <div className="toolbar chat-toolbar">
         <Button onClick={sidebar}>☰ Диалоги</Button>
         <h1 title={c.title}>{c.title}</h1>
+        <label>
+          Модель
+          <select
+            aria-label="Модель ответа"
+            value={app.chat.profile}
+            onChange={(e) =>
+              runInAction(() => {
+                app.chat.profile = e.target.value;
+              })
+            }
+          >
+            <option value="">По настройкам компании</option>
+            {profiles.data
+              ?.filter((p) => p.role === 'generation' && p.enabled)
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
+        </label>
         <Button
           onClick={() =>
             modal(
@@ -77,7 +101,7 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
         >
           Переименовать
         </Button>
-        <a className="button-link" href={`/api/conversations/${c.id}/export`}>
+        <a className="button-link" href={tenantUrl(`/api/conversations/${c.id}/export`)}>
           Экспорт
         </a>
         <Button
@@ -154,6 +178,7 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
           ↓ К последнему сообщению
         </Button>
       )}
+      <Attachments key={c.id} conversation={c.id} />
       <form
         className="composer"
         onSubmit={(e) => {
@@ -181,7 +206,7 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
           <button id="send" className="primary" disabled={app.chat.busy || !app.chat.draft.trim()}>
             {app.chat.busy ? 'Отправка…' : 'Отправить'}
           </button>
-          <Button onClick={() => modal(<Upload conversation={c.id} />)}>Прикрепить документ</Button>
+          <Button onClick={() => modal(<Upload conversation={c.id} />)}>Прикрепить файл</Button>
           <small>Ctrl/⌘ + Enter · вложения доступны только вам</small>
         </div>
       </form>

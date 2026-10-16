@@ -1,53 +1,149 @@
-name: local-rag
+name: local-rag-saas
+x-server: &server
+  image: local-rag-server:${APP_VERSION:-dev}
+  build: { context: ., dockerfile: server/deploy/Dockerfile }
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs: [/tmp]
+  stop_grace_period: 45s
+  environment: &server-env
+    NODE_ENV: ${NODE_ENV:-production}
+    DATABASE_URL: postgres://rag_app:${POSTGRES_APP_PASSWORD:?Run yarn configure first}@postgres:5432/rag
+    REDIS_URL: redis://:${REDIS_PASSWORD:?Run yarn configure first}@redis:6379
+    S3_ENDPOINT: http://storage:8333
+    S3_REGION: us-east-1
+    S3_BUCKET: rag
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Run yarn configure first}
+    S3_SECRET_KEY: ${S3_SECRET_KEY:?Run yarn configure first}
+    APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?Run yarn configure first}
+    AI_ALLOWED_ENDPOINTS: ${AI_ALLOWED_ENDPOINTS:-}
+    OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+    OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-knowledge-saas}
+    ALLOW_TEST_AI: ${ALLOW_TEST_AI:-0}
+    DEFAULT_GENERATION_PROVIDER: ${DEFAULT_GENERATION_PROVIDER:-google}
+    DEFAULT_EMBEDDING_PROVIDER: ${DEFAULT_EMBEDDING_PROVIDER:-google}
+    DEFAULT_TRANSCRIPTION_PROVIDER: ${DEFAULT_TRANSCRIPTION_PROVIDER:-}
+    OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://ollama:11434}
+    RAG_HOST: 0.0.0.0
+    RAG_PORT: 3210
+    RAG_PUBLIC_ORIGIN: ${DOCKER_PUBLIC_ORIGIN:-http://localhost:8080}
+    ANSWER_CONCURRENCY: ${ANSWER_CONCURRENCY:-4}
+    INDEX_CONCURRENCY: ${INDEX_CONCURRENCY:-2}
+    PROCESSING_CONCURRENCY: ${PROCESSING_CONCURRENCY:-1}
+  depends_on:
+    init: { condition: service_completed_successfully }
+  mem_limit: ${SERVER_MEMORY:-1g}
+  cpus: ${SERVER_CPUS:-2}
+  logging: { driver: json-file, options: { max-size: 10m, max-file: '3' } }
 services:
-  server:
-    build:
-      context: .
-      dockerfile: server/deploy/Dockerfile
-    init: true
-    restart: unless-stopped
+  postgres:
+    image: pgvector/pgvector:pg18@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11
     environment:
-      RAG_HOST: 0.0.0.0
-      RAG_PORT: 3210
-      RAG_DATA_DIR: /var/lib/local-rag
-      RAG_BACKUP_DIR: /var/backups/local-rag
-      RAG_URL: http://127.0.0.1:3210
-      RAG_PUBLIC_ORIGIN: ${RAG_PUBLIC_ORIGIN:-http://localhost:8080}
-      TRUST_PROXY: '1'
-      EMBEDDING_CACHE: /var/cache/local-rag/models
-      OLLAMA_URL: ${DOCKER_OLLAMA_URL:-http://host.docker.internal:11434}
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen3.5:4b}
-    extra_hosts:
-      - host.docker.internal:host-gateway
-    volumes:
-      - ${RAG_DATA_VOLUME:-rag-data}:/var/lib/local-rag
-      - ${RAG_MODELS_VOLUME:-rag-models}:/var/cache/local-rag/models
-      - ${RAG_BACKUPS_VOLUME:-rag-backups}:/var/backups/local-rag
-    expose: ['3210']
-    read_only: true
-    tmpfs: [/tmp]
-    stop_grace_period: 90s
-    mem_limit: ${SERVER_MEMORY:-8g}
-    cpus: ${SERVER_CPUS:-4}
-    logging:
-      driver: json-file
-      options: { max-size: '10m', max-file: '3' }
-  client:
-    build:
-      context: .
-      dockerfile: client/deploy/Dockerfile
+      {
+        POSTGRES_USER: postgres,
+        POSTGRES_PASSWORD: '${POSTGRES_ADMIN_PASSWORD:?Run yarn configure first}',
+        POSTGRES_DB: rag,
+      }
+    volumes: [postgres-data:/var/lib/postgresql]
+    healthcheck:
+      { test: [CMD-SHELL, 'pg_isready -U postgres -d rag'], interval: 3s, timeout: 3s, retries: 30 }
     restart: unless-stopped
-    ports:
-      - target: 8080
-        published: '${CLIENT_HTTP_PORT:-8080}'
-        host_ip: '${CLIENT_BIND_ADDRESS:-127.0.0.1}'
+    shm_size: 256mb
+  redis:
+    image: redis:8-alpine@sha256:3811787313eba226a2ef38658c6ccb91cd5e110edc89c37767de373120a0e5a0
+    environment: { REDIS_PASSWORD: '${REDIS_PASSWORD:?Run yarn configure first}' }
+    command:
+      [
+        /bin/sh,
+        -c,
+        'exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 128mb --maxmemory-policy allkeys-lru --save ""',
+      ]
+    healthcheck:
+      {
+        test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping'],
+        interval: 3s,
+        timeout: 3s,
+        retries: 20,
+      }
+    restart: unless-stopped
+  storage:
+    image: chrislusf/seaweedfs:latest@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    command: [mini, '-dir=/data']
+    environment:
+      {
+        AWS_ACCESS_KEY_ID: '${S3_ACCESS_KEY:?Run yarn configure first}',
+        AWS_SECRET_ACCESS_KEY: '${S3_SECRET_KEY:?Run yarn configure first}',
+        S3_BUCKET: rag,
+      }
+    volumes: [storage-data:/data]
+    healthcheck:
+      {
+        test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:9333/cluster/status'],
+        interval: 3s,
+        timeout: 3s,
+        retries: 40,
+      }
+    restart: unless-stopped
+  init:
+    <<: *server
+    profiles: [app]
+    restart: 'no'
+    command: [node, server/dist/interfaces/cli/main.js, init]
+    environment:
+      <<: *server-env
+      DATABASE_ADMIN_URL: postgres://postgres:${POSTGRES_ADMIN_PASSWORD}@postgres:5432/rag
+    depends_on:
+      postgres: { condition: service_healthy }
+      storage: { condition: service_healthy }
+  api:
+    <<: *server
+    profiles: [app]
+    command: [node, server/dist/interfaces/cli/main.js, serve]
+    expose: ['3210']
+    healthcheck:
+      {
+        test:
+          [
+            CMD,
+            node,
+            -e,
+            'fetch("http://127.0.0.1:3210/health/live").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))',
+          ],
+        interval: 5s,
+        timeout: 3s,
+        retries: 30,
+      }
+  worker-answers:
+    <<: *server
+    profiles: [app]
+    command: [node, server/dist/interfaces/cli/main.js, worker]
+    environment: { <<: *server-env, WORKER_KIND: answer }
+  worker-indexing:
+    <<: *server
+    profiles: [app]
+    command: [node, server/dist/interfaces/cli/main.js, worker]
+    environment: { <<: *server-env, WORKER_KIND: document }
+    mem_limit: ${INDEX_MEMORY:-2g}
+  worker-maintenance:
+    <<: *server
+    profiles: [app]
+    command: [node, server/dist/interfaces/cli/main.js, worker]
+    environment: { <<: *server-env, WORKER_KIND: maintenance }
+  worker-quality:
+    <<: *server
+    profiles: [app]
+    command: [node, server/dist/interfaces/cli/main.js, worker]
+    environment: { <<: *server-env, WORKER_KIND: evaluation }
+  client:
+    profiles: [app]
+    image: local-rag-client:${APP_VERSION:-dev}
+    build: { context: ., dockerfile: client/deploy/Dockerfile }
+    ports: ['${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:8080']
+    depends_on: { api: { condition: service_healthy } }
+    restart: unless-stopped
     read_only: true
-    tmpfs: [/var/cache/nginx, /var/run]
-    mem_limit: 128m
-    logging:
-      driver: json-file
-      options: { max-size: '10m', max-file: '3' }
+    tmpfs: [/var/cache/nginx, /var/run, /tmp]
 volumes:
-  rag-data:
-  rag-models:
-  rag-backups:
+  postgres-data:
+  storage-data:

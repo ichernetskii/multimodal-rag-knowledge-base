@@ -15,12 +15,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": [
-    "eslint.config.ts",
-    "tooling/**/*.ts",
-    "client/scripts/**/*.ts",
-    "server/scripts/run.ts",
-    "server/scripts/clean-build.ts",
-    "server/scripts/prepare-pdf.ts"
-  ]
+  "include": ["eslint.config.ts", "tooling/**/*.ts", "client/scripts/**/*.ts"]
 }

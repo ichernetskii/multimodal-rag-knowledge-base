@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-16T03:10:10.910Z",
+  "success": true,
+  "project": "rag-test-saas-mvadsg62",
+  "method": "offline pg_dump and stopped SeaweedFS volume snapshot, replace schemas/storage, initialize runtime grants, restart",
+  "format": "e525a1db47996db91eb481ceda27d529ed43793439c7c20a41d4adb6a7d0296f",
+  "archiveChecksums": {
+    "postgres.dump": "66f1da21bdcbed212051a2acec7b8d69f32735b8352f46bdb78dee22b29b0e0e",
+    "storage.tar": "d1c84e74eec6148eb647e6d38006c2422d831731776e6fde1f81138ccbcf18cd"
+  },
+  "tenants": 2,
+  "originalFileHashesVerified": 4,
+  "crossTenantFileStatus": 404,
+  "searchAfterRestore": true,
+  "answerAndSSEAfterRestore": true
+}

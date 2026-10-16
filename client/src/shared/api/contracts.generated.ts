@@ -9,6 +9,8 @@ export interface User {
   revision: number;
 }
 export interface Principal {
+  tenant: string;
+  operator: boolean;
   id: string;
   login: string;
   role: Role;
@@ -23,12 +25,28 @@ export interface Collection {
 export interface CollectionSummary extends Collection {
   documentCount: number;
 }
+export interface MediaReference {
+  kind: 'image' | 'audio' | 'video';
+  asset?: string;
+  preview?: string;
+  startMs?: number;
+  endMs?: number;
+}
 export interface Page {
   number: number;
   text: string;
-  method: 'text' | 'ocr';
+  method: 'text' | 'ocr' | 'vision' | 'speech';
+  media?: MediaReference | undefined;
   warnings: string[];
   sections: { title: string; text: string }[];
+  preparedText?: {
+    text: string;
+    kind: 'description' | 'transcript';
+    profile: string;
+    model: string;
+    provider: AIProvider;
+    created: number;
+  };
 }
 export interface DocumentRecord {
   id: string;
@@ -73,6 +91,7 @@ export interface Source {
   page: number;
   section: string;
   text: string;
+  media?: MediaReference | undefined;
 }
 export type JobStatus =
   | 'queued'
@@ -86,11 +105,12 @@ export type JobStatus =
   | 'clarification'
   | 'cancelled'
   | 'interrupted'
-  | 'failed';
+  | 'failed'
+  | 'retrying';
 export interface Job {
   id: string;
   owner: string;
-  kind: 'answer' | 'document' | 'evaluation';
+  kind: 'answer' | 'document' | 'evaluation' | 'maintenance';
   status: JobStatus;
   created: number;
   updated: number;
@@ -106,6 +126,7 @@ export interface Turn {
   parent: string;
   replaces: string;
   question: string;
+  attachments?: string[];
   answer: string;
   sources: Source[];
   accessSources?: Pick<Source, 'document' | 'version' | 'chunk'>[];
@@ -146,34 +167,45 @@ export interface SyncFolder {
   revision: number;
 }
 export interface Settings {
-  dataDir: string;
-  backupDir: string;
   maxBytes: number;
   maxPages: number;
   maxTextCharacters: number;
   maxChunks: number;
   maxDocuments: number;
   maxQueue: number;
-  minFreeBytes: number;
   sessionHours: number;
   historyDays: number;
   jobDays: number;
   tempHours: number;
   logDays: number;
-  eventLimit: number;
   backupDays: number;
   backupIntervalHours: number;
-  nextBackup: number;
   pauseIndexing: boolean;
   pauseQueue: boolean;
   pauseIntake: boolean;
   topK: number;
   revision: number;
-  model: string;
+  generationProfile: string;
+  embeddingProfile: string;
+  transcriptionProfile: string;
+  answerConcurrency: number;
+  indexConcurrency: number;
+  storageBytes: number;
+  monthlyBudgetMicros: number;
+  maxOutputTokens: number;
+  contextTokens: number;
+  cacheSeconds: number;
   prompt: string;
   ocrLanguage: string;
   ocrTimeoutSeconds: number;
   ocrMemoryMB: number;
+  whisperLanguage: string;
+  whisperThreads: number;
+  mediaMaxSeconds: number;
+  mediaTimeoutSeconds: number;
+  videoMaxFrames: number;
+  mediaImageMaxSide: number;
+  answerMaxImages: number;
 }
 export const terminal = new Set<JobStatus>([
   'complete',
@@ -184,8 +216,37 @@ export const terminal = new Set<JobStatus>([
   'failed',
 ]);
 
+export type CredentialProvider = 'google' | 'anthropic' | 'openai-compatible';
+export interface AICredential {
+  id: string;
+  label: string;
+  provider: CredentialProvider;
+  enabled: boolean;
+  revision: number;
+  created: number;
+  updated: number;
+  uses: number;
+}
+export interface CredentialAudit {
+  id: string;
+  credential: string;
+  action: 'created' | 'updated' | 'rotated' | 'enabled' | 'disabled' | 'deleted';
+  enabled: boolean;
+  actor: string;
+  actorLogin: string;
+  created: number;
+}
 export const actionFields = {
-  'answers.create': ['conversation', 'revision', 'question', 'replaces', 'scope'],
+  'answers.create': [
+    'conversation',
+    'revision',
+    'question',
+    'replaces',
+    'scope',
+    'attachments',
+    'idempotencyKey',
+    'profile',
+  ],
   'backup.create': [],
   'backup.list': [],
   'backup.restore': ['id'],
@@ -203,6 +264,7 @@ export const actionFields = {
   diagnostics: [],
   'documents.bulk': ['ids', 'revisions', 'operation'],
   'documents.compare': ['id', 'left', 'right'],
+  'documents.correct': ['id', 'revision', 'version', 'page', 'text'],
   'documents.delete': ['id', 'revision'],
   'documents.limits': [],
   'documents.list': ['query', 'sort', 'state', 'scope', 'page', 'pageSize'],
@@ -211,11 +273,44 @@ export const actionFields = {
   'documents.read': ['id', 'version'],
   'documents.restore': ['id', 'revision', 'version'],
   'documents.update': ['id', 'revision', 'name', 'state'],
-  'documents.upload': ['collection', 'conversation', 'name', 'base64', 'document', 'revision'],
+  'documents.upload': ['upload'],
+  'uploads.create': [
+    'collection',
+    'conversation',
+    'name',
+    'bytes',
+    'sha256',
+    'document',
+    'revision',
+  ],
+  'uploads.read': ['id'],
   'feedback.create': ['turn', 'rating', 'reason', 'detail'],
   'groups.list': [],
   'groups.save': ['id', 'revision', 'name'],
   'jobs.cancel': ['id'],
+  'jobs.retry': ['id'],
+  'jobs.list': ['page', 'pageSize'],
+  'invitations.list': [],
+  'invitations.create': ['login', 'role'],
+  'invitations.revoke': ['id'],
+  'collections.delete': ['id', 'revision'],
+  'tenants.list': [],
+  'tenants.create': ['name'],
+  'tenants.update': ['id', 'revision', 'name', 'blocked'],
+  'secrets.list': [],
+  'secrets.save': ['id', 'label', 'provider', 'enabled', 'revision', 'value'],
+  'secrets.delete': ['id', 'revision'],
+  'secrets.audit': ['page', 'pageSize'],
+  'models.list': [],
+  'models.save': ['profile'],
+  'models.delete': ['id', 'revision'],
+  'models.check': ['id'],
+  'indexes.list': [],
+  'indexes.build': ['profile'],
+  'indexes.activate': ['id'],
+  'usage.read': [],
+  'cache.clear': [],
+  'audit.list': ['page', 'pageSize'],
   'jobs.read': ['id'],
   me: [],
   operations: [],
@@ -231,12 +326,11 @@ export const actionFields = {
   'sessions.revoke': ['id'],
   'settings.read': [],
   'settings.save': ['revision', 'settings'],
-  'setup.create': ['login', 'password', 'settings'],
   'setup.status': [],
   'sync.delete': ['id', 'revision'],
   'sync.list': [],
-  'sync.preview': ['id'],
-  'sync.run': ['id'],
+  'sync.preview': ['id', 'files'],
+  'sync.report': ['id', 'revision', 'mapping'],
   'sync.save': ['id', 'revision', 'collection', 'path', 'policy', 'intervalMinutes'],
   'users.create': ['login', 'password', 'role', 'groups', 'blocked'],
   'users.list': ['query', 'role', 'state', 'ids', 'page', 'pageSize'],
@@ -324,6 +418,7 @@ export interface ModelHealth {
   models: string[];
 }
 export interface Diagnostics {
+  media: { ffmpeg: boolean; ffprobe: boolean; whisper: boolean; model: boolean };
   extraction: {
     pdf: boolean;
     ocr: boolean;
@@ -334,7 +429,10 @@ export interface Diagnostics {
   indexCompatible: boolean;
   directoryWritable: boolean;
   freeBytes: number;
-  sqliteIntegrity: string;
+  postgres: boolean;
+  redis: boolean;
+  storage: boolean;
+  workers: { kind: string; lastSeen: number }[];
   ready: boolean;
   hardware: { cpu: string; cores: number; totalMemory: number; freeMemory: number };
   dataDir: string;
@@ -421,13 +519,28 @@ export interface RestoreReport {
   sessionsRevoked: boolean;
   completedJobsPreserved: boolean;
 }
+export interface Invitation {
+  id: string;
+  login: string;
+  role: Role;
+  created: number;
+  expires: number;
+  used: boolean;
+}
 export interface ActionInputs {
+  'invitations.list': Record<string, never>;
+  'invitations.create': { login: string; role: Role };
+  'invitations.revoke': { id: string };
+  'collections.delete': { id: string; revision: number };
   'answers.create': {
     conversation: string;
     revision: number;
     question: string;
+    attachments?: string[];
     scope?: SearchScope;
     replaces?: string;
+    idempotencyKey: string;
+    profile?: string;
   };
   'backup.create': Record<string, never>;
   'backup.list': Record<string, never>;
@@ -467,14 +580,17 @@ export interface ActionInputs {
     conversation?: string;
     files: { name: string; bytes: number; hash: string }[];
   };
-  'documents.upload': {
+  'documents.upload': { upload: string };
+  'uploads.create': {
     collection?: string;
     conversation?: string;
     name: string;
-    base64: string;
+    bytes: number;
+    sha256: string;
     document?: string;
     revision?: number;
   };
+  'uploads.read': { id: string };
   'documents.update': {
     id: string;
     revision: number;
@@ -488,6 +604,13 @@ export interface ActionInputs {
     operation: 'archive' | 'exclude' | 'delete';
   };
   'documents.compare': { id: string; left: string; right: string };
+  'documents.correct': {
+    id: string;
+    revision: number;
+    version: string;
+    page: number;
+    text: string;
+  };
   'documents.restore': { id: string; revision: number; version: string };
   'documents.publish': {
     id: string;
@@ -506,6 +629,32 @@ export interface ActionInputs {
   'groups.save': { id?: string; revision?: number; name: string };
   'jobs.read': { id: string };
   'jobs.cancel': { id: string };
+  'jobs.retry': { id: string };
+  'jobs.list': PageQuery;
+  'tenants.list': Record<string, never>;
+  'tenants.create': { name: string };
+  'tenants.update': { id: string; revision: number; name?: string; blocked?: boolean };
+  'secrets.list': Record<string, never>;
+  'secrets.save': {
+    id: string;
+    label: string;
+    provider: CredentialProvider;
+    enabled: boolean;
+    revision: number;
+    value?: string;
+  };
+  'secrets.delete': { id: string; revision: number };
+  'secrets.audit': { page?: number; pageSize?: number };
+  'models.list': Record<string, never>;
+  'models.save': { profile: ModelProfile };
+  'models.delete': { id: string; revision: number };
+  'models.check': { id: string };
+  'indexes.list': Record<string, never>;
+  'indexes.build': { profile: string };
+  'indexes.activate': { id: string };
+  'usage.read': Record<string, never>;
+  'cache.clear': Record<string, never>;
+  'audit.list': PageQuery;
   me: Record<string, never>;
   operations: Record<string, never>;
   'password.change': { oldPassword: string; password: string };
@@ -529,7 +678,6 @@ export interface ActionInputs {
   'settings.read': Record<string, never>;
   'settings.save': { revision: number; settings: Partial<Settings> };
   'setup.status': Record<string, never>;
-  'setup.create': { login: string; password: string; settings?: Partial<Settings> };
   'sync.list': Record<string, never>;
   'sync.save': {
     id?: string;
@@ -540,8 +688,11 @@ export interface ActionInputs {
     intervalMinutes: number;
   };
   'sync.delete': { id: string; revision: number };
-  'sync.preview': { id: string };
-  'sync.run': { id: string };
+  'sync.preview': {
+    id: string;
+    files: { path: string; name: string; hash: string; bytes: number }[];
+  };
+  'sync.report': { id: string; revision: number; mapping: SyncFolder['mapping'] };
   'users.list': PageQuery & { role?: Role | ''; state?: 'active' | 'blocked' | ''; ids?: string[] };
   'users.create': {
     login: string;
@@ -561,12 +712,16 @@ export interface ActionInputs {
   'users.revoke': { id: string };
 }
 export interface ActionResults {
+  'invitations.list': Invitation[];
+  'invitations.create': Invitation & { token: string };
+  'invitations.revoke': { ok: true };
+  'collections.delete': { ok: true };
   'answers.create': { conversation: Conversation; turn: Turn; job: Job };
-  'backup.create': { id: string; sha256: string; verified: boolean };
+  'backup.create': Job;
   'backup.list': BackupRecord[];
   'backup.verify': BackupVerification;
-  'backup.restore': RestoreReport;
-  cleanup: { removed: number };
+  'backup.restore': Job;
+  cleanup: Job;
   'collections.list': CollectionSummary[];
   'collections.rename': Collection;
   'collections.save': Collection;
@@ -586,6 +741,7 @@ export interface ActionResults {
   'documents.delete': { ok: boolean };
   'documents.bulk': { count: number };
   'documents.compare': { left: Page[]; right: Page[] };
+  'documents.correct': DocumentRecord;
   'documents.restore': DocumentRecord;
   'documents.publish': Job;
   'feedback.create': Feedback;
@@ -593,7 +749,28 @@ export interface ActionResults {
   'groups.save': Group;
   'jobs.read': Job;
   'jobs.cancel': Job;
-  me: { user: Principal; permissionsVersion: number; contentVersion: number };
+  'jobs.retry': Job;
+  'jobs.list': ListPage<Job>;
+  'tenants.list': Tenant[];
+  'tenants.create': Tenant;
+  'tenants.update': Tenant;
+  'secrets.list': AICredential[];
+  'secrets.save': AICredential;
+  'secrets.delete': { ok: boolean };
+  'secrets.audit': ListPage<CredentialAudit>;
+  'models.list': ModelProfile[];
+  'models.save': ModelProfile;
+  'models.delete': { ok: boolean };
+  'models.check': { ok: boolean; message: string };
+  'indexes.list': IndexBuild[];
+  'indexes.build': Job;
+  'indexes.activate': IndexBuild;
+  'usage.read': UsageReport;
+  'cache.clear': { ok: boolean };
+  'audit.list': ListPage<AuditRecord>;
+  'uploads.create': UploadSession;
+  'uploads.read': UploadSession;
+  me: { user: Principal; tenants: Tenant[]; permissionsVersion: number; contentVersion: number };
   operations: Operations;
   'password.change': { ok: boolean };
   'quality.results': ListPage<EvaluationRecord>;
@@ -607,15 +784,108 @@ export interface ActionResults {
   'sessions.revoke': { ok: boolean };
   'settings.read': Settings;
   'settings.save': Settings;
-  'setup.status': { initialized: boolean; dataDir: string; defaults: Settings | null };
-  'setup.create': { initialized: boolean };
+  'setup.status': { initialized: boolean };
   'sync.list': SyncFolder[];
   'sync.save': SyncFolder;
   'sync.delete': { ok: boolean };
   'sync.preview': SyncPreview;
-  'sync.run': { results: UploadResult[]; preview: SyncPreview };
+  'sync.report': SyncFolder;
   'users.list': ListPage<User>;
   'users.create': User;
   'users.update': User;
   'users.revoke': { ok: boolean };
+}
+
+export interface Tenant {
+  id: string;
+  name: string;
+  role: Role;
+  blocked: boolean;
+  revision: number;
+}
+export type Modality = 'text' | 'image' | 'audio' | 'video' | 'pdf';
+export type AIProvider =
+  'google' | 'anthropic' | 'ollama' | 'openai-compatible' | 'whisper' | 'test';
+export type BillingModality = 'text' | 'image' | 'audio' | 'video';
+export type InputPrices = Record<BillingModality, number>;
+export interface BillingBreakdown {
+  input: Record<BillingModality, { tokens: number; costMicros: number }>;
+  unattributed: { tokens: number; costMicros: number; rateMicrosPerMillion: number };
+  output: { tokens: number; costMicros: number };
+  prices: InputPrices;
+  outputPrice: number;
+  estimated: boolean;
+  costMicros: number;
+}
+export interface ModelProfile {
+  id: string;
+  revision: number;
+  name: string;
+  provider: AIProvider;
+  role: 'generation' | 'embedding' | 'transcription';
+  model: string;
+  endpoint: string;
+  secretRef: string;
+  input: Modality[];
+  dimensions: number;
+  contextTokens: number;
+  maxOutputTokens: number;
+  maxBytes: number;
+  maxSeconds: number;
+  concurrency: number;
+  requestsPerMinute: number;
+  tokensPerMinute: number;
+  inputMicrosPerMillion: InputPrices;
+  outputMicrosPerMillion: number;
+  timeoutMs: number;
+  cache: boolean;
+  enabled: boolean;
+}
+export interface IndexBuild {
+  id: string;
+  profile: string;
+  state: 'building' | 'ready' | 'active' | 'failed';
+  created: number;
+  documents: number;
+  signature: string;
+}
+export interface UploadSession {
+  id: string;
+  name: string;
+  bytes: number;
+  offset: number;
+  partBytes: number;
+  state: 'uploading' | 'ready' | 'consumed';
+  sha256: string;
+}
+export interface UsageReport {
+  month: string;
+  spentMicros: number;
+  reservedMicros: number;
+  uncertainMicros: number;
+  storageBytes: number;
+  budgetMicros: number;
+  calls: {
+    profile: string;
+    calls: number;
+    input: number;
+    output: number;
+    costMicros: number;
+    estimatedCalls: number;
+    modalities: Record<BillingModality | 'unattributed', { tokens: number; costMicros: number }>;
+  }[];
+}
+export interface AuditRecord {
+  id: string;
+  actor: string;
+  action: string;
+  created: number;
+  target: string;
+}
+export interface ContentPart {
+  kind: Modality;
+  text?: string;
+  asset?: string;
+  startMs?: number;
+  endMs?: number;
 }

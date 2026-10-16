@@ -3,14 +3,14 @@ import { pythonCommand, visionCommand } from './health.js';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { Page, Settings } from '../../domain/entities.js';
+import type { Page } from '../../domain/entities.js';
+import type { ProcessingSettings } from './prepare-media.js';
 import { AppError, requireValue } from '../../shared/errors.js';
 import { parseText } from './parse-text.js';
 export async function extract(
   name: string,
   bytes: Uint8Array,
-  settings: Settings,
+  settings: ProcessingSettings,
   signal: AbortSignal,
   onOCR: () => void,
 ): Promise<Page[]> {
@@ -57,7 +57,7 @@ export async function extract(
     return await new Promise<Page[]>((resolve, reject) => {
       const script =
         (process.env.PDF_EXTRACT_SCRIPT ? serverPath(process.env.PDF_EXTRACT_SCRIPT) : undefined) ??
-        fileURLToPath(new URL('../../../scripts/extract-pdf.py', import.meta.url));
+        serverPath('resources/extraction/extract-pdf.py');
       const child = spawn(
         pythonCommand(),
         [

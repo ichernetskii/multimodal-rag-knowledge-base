@@ -1,3 +1,5 @@
+import { tenantUrl } from '../../shared/api/client';
+import { MediaPreview } from './MediaPreview';
 import { api } from '../../shared/api/client';
 import type { Source as SourceData } from '../../shared/api/contracts.generated';
 import { date } from '../../shared/lib/format';
@@ -16,7 +18,9 @@ export function Source({ source }: { source: SourceData }) {
       ? p.text
       : (p.sections.find((section) => section.title === s.section)?.text ?? p.text),
     at = text.indexOf(s.text),
-    url = `/api/documents/${encodeURIComponent(s.document)}?version=${encodeURIComponent(s.version)}`;
+    url = tenantUrl(
+      `/api/documents/${encodeURIComponent(s.document)}?version=${encodeURIComponent(s.version)}`,
+    );
   return (
     <>
       <p className="eyebrow">ИСТОЧНИК ОТВЕТА</p>
@@ -26,6 +30,7 @@ export function Source({ source }: { source: SourceData }) {
         <span>{s.section}</span>
         <span>Версия от {date(d.version.created)}</span>
       </div>
+      <MediaPreview document={s.document} version={s.version} media={p.media} />
       <h3>Использованный фрагмент</h3>
       <div className="source-text">
         {at >= 0 ? (
@@ -45,8 +50,16 @@ export function Source({ source }: { source: SourceData }) {
         <a className="button-link" href={url + '&download=1'}>
           Скачать оригинал
         </a>
-        <a className="button-link" href={url + '#page=' + s.page} target="_blank" rel="noopener">
-          Открыть страницу оригинала ↗
+        <a
+          className="button-link"
+          href={
+            url +
+            (p.media?.startMs === undefined ? '#page=' + s.page : '#t=' + p.media.startMs / 1000)
+          }
+          target="_blank"
+          rel="noopener"
+        >
+          Открыть оригинал ↗
         </a>
       </div>
       {d.version.name.toLowerCase().endsWith('.pdf') && (

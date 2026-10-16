@@ -1,45 +1,37 @@
-# Local RAG
+# Knowledge Workspace SaaS
 
-An offline document library with chat, local search, users and administration. React + Vite + TypeScript + MobX live in `client/`; the Node.js + TypeScript API, SQLite, background jobs and CLI live in `server/`. The browser and CLI use the same authorization and validation.
+Multi-tenant knowledge application: React client and administration, Node.js API and workers, PostgreSQL with pgvector/RLS, pg-boss durable queues, private local S3 (SeaweedFS), Redis cache. AI providers are replaceable profiles: Google, Anthropic, Ollama, OpenAI-compatible endpoints and local whisper.cpp.
 
-This is a development project with no public release. There is one current API and data format; incompatible data and backups are rejected, without migration. See [development rules](AGENTS.md).
+Unreleased, incompatible schema version 7. No legacy import or API compatibility. Development uses an explicitly labelled deterministic TEST AI; it is not evidence of model answer quality.
 
-## Quick start
+## Develop
 
-Requirements: Node **24.19.0** ([.nvmrc](.nvmrc)), Python 3.10+, and a local Ollama installation. PDF OCR needs Xcode Command Line Tools on macOS or Tesseract and its language packs on Linux. Run Ollama before pulling the generation model.
-
-From the repository root:
+Install Node.js 24.19+ and Docker Desktop / Docker Engine with Compose v2. Then:
 
 ```sh
-node .yarn/releases/yarn-4.18.1.cjs install --immutable
+yarn install --immutable
 yarn configure
-yarn cli setup
-yarn prepare:pdf
-ollama pull qwen3.5:4b
+yarn infra:up
+yarn cli init
+yarn seed
 yarn dev
 ```
 
-`yarn` in these instructions means the pinned Yarn **4.18.1**. If there is no `yarn` command on your machine, replace it with `node .yarn/releases/yarn-4.18.1.cjs` from the repository root. `cli setup` prepares embedding weights; it does **not** create an administrator.
+Open http://localhost:5173. Development account: `admin` / `local-development-only`. The seed is prohibited in production. API and workers reload with server changes; Vite provides client HMR. Infrastructure remains in Docker.
 
-Open **http://127.0.0.1:5173/**. Complete the local first-run wizard, create a knowledge base, upload a document, wait for indexing and ask a question. PDF pages recognized with OCR require review before publication. Supported inputs: PDF, UTF-8 TXT and Markdown (`.md`, `.markdown`). No sample accounts or documents are installed automatically.
+Try the [multimodal knowledge-base corpus](examples/knowledge-base/README.md): Markdown/text, four PDF cases, an image, speech and a ready-to-upload video. After CLI login/company selection, `yarn demo:import` uploads a new review-only knowledge base through the public API. Publish after reviewing the extracted material. TEST AI checks infrastructure; use real configured models to evaluate answers.
 
-Preparation can require internet access. Once dependencies, embedding weights, OCR and the selected Ollama model are ready, normal operation uses local resources only. For a production build, stop development first, then run `yarn build` and `yarn start`; the client opens on **http://127.0.0.1:8080/**. The API listens on port 3210 and does not serve HTML.
+## Entire application in Docker
 
-## Capabilities and boundaries
+```sh
+yarn docker:up
+docker compose --env-file .env -p local-rag-saas-app --profile app exec -T api node server/dist/interfaces/cli/main.js seed
+```
 
-- Users chat and read permitted sources; editors manage assigned knowledge bases; administrators manage access, settings, quality, backups and operations.
-- Hybrid search combines semantic retrieval, full-text search and exact identifiers. Citations retain document versions, pages and sections. Private conversation attachments remain private.
-- Chat drafts, question variants, selected branches and job state are saved on the server. Markdown is rendered without executing HTML or scripts.
-- SQLite online backups include documents, users, processing configuration, history and jobs. Model weights and deployment environment files are prepared separately.
+Open http://localhost:8080. This is a separate installation from native development. Production uses `yarn configure --production`, a real HTTPS domain, an operator created with `bootstrap`, provider credentials and prices; see the [operations guide](docs/OPERATIONS.md).
 
-The server has one SQLite writer. Search scans permitted vectors; an ANN index and multi-server shared storage are not implemented. OCR and factual quality need human review. Quality checks compare configured sources and expected phrases; they do not prove arbitrary answers correct.
+[Русское руководство](README.ru.md) · [Documentation](docs/README.md) · [Architecture](docs/ARCHITECTURE.md) · [Development](docs/DEVELOPMENT.md) · [Verification](docs/VERIFICATION.md)
 
-## Documentation and checks
+Source layout: `client/src` for browser code, `server/src` for API/workers/CLI, `server/resources` for PDF/OCR runtime helpers, `tooling` for development commands, `examples` for reusable sample data, `deploy`/Compose for deployment. Generated evidence belongs in ignored `.artifacts/`, curated reports in `docs/verification/`. The [admin redesign specification](docs/ADMIN-UX.md) describes the interactive prototype for future implementation; the current UI is documented in [usage](docs/USAGE.md).
 
-- [Russian quick start](README.ru.md)
-- [Documentation index](docs/README.md): usage, development, configuration, CLI, API and operations
-- [Architecture](docs/ARCHITECTURE.md)
-- [Verification and known limits](docs/VERIFICATION.md)
-- [Requirements matrix](docs/REQUIREMENTS.md)
-
-`yarn validate` checks documentation, generated contracts, types, lint, formatting, tests and both builds. `yarn test:product:live` additionally uses real local models and the [four PDF fixtures](server/tests/fixtures/pdf/README.md) in an isolated temporary installation. Neither command seeds the working application.
+For a new local-AI installation, use `yarn configure --local-ai` followed by `yarn docker:up` and the container seed command in [development](docs/DEVELOPMENT.md). The optional Docker overlay downloads Qwen3.5:4b and EmbeddingGemma into a persistent Ollama volume; Whisper small is bundled in the server image. Model availability is checked from the server in the admin UI and with `yarn cli models status`. See [operations](docs/OPERATIONS.md) for moving data, secrets and model volumes.

@@ -11,6 +11,7 @@ const excluded = new Set([
   '.yarn',
   '.cache',
   '.venv',
+  '.artifacts',
   'node_modules',
   'dist',
   'data',
@@ -107,6 +108,24 @@ const actions = new Set(
   }),
 );
 const documentedActions = new Set<string>();
+const inputFields = new Map(
+  initializer.properties.map((property) => {
+    if (!ts.isPropertyAssignment(property) || !ts.isArrayLiteralExpression(property.initializer))
+      throw new Error('Unsupported action fields in the public contract.');
+    const name = property.name;
+    if (!ts.isStringLiteral(name) && !ts.isIdentifier(name))
+      throw new Error('Unsupported action name in the public contract.');
+    return [
+      name.text,
+      property.initializer.elements
+        .map((element) => {
+          if (!ts.isStringLiteral(element)) throw new Error('Unsupported action input field.');
+          return element.text;
+        })
+        .sort(),
+    ];
+  }),
+);
 for (const row of api.split('\n').filter((line) => line.startsWith('|'))) {
   const cell = row.split('|')[1]?.replaceAll('`', '').trim() ?? '';
   for (const action of cell.split(/\s+\/\s+/u)) {
@@ -114,6 +133,14 @@ for (const row of api.split('\n').filter((line) => line.startsWith('|'))) {
     if (!actions.has(action)) errors.push(`docs/API.md: unknown action ${action}`);
     if (documentedActions.has(action)) errors.push(`docs/API.md: repeated action ${action}`);
     documentedActions.add(action);
+    const documentedFields = [...(row.split('|')[2] ?? '').matchAll(/`([^`]+)`/gu)]
+      .map((match) => match[1]!)
+      .sort();
+    if (
+      actions.has(action) &&
+      JSON.stringify(documentedFields) !== JSON.stringify(inputFields.get(action))
+    )
+      errors.push(`docs/API.md: input fields differ from the contract for ${action}`);
   }
 }
 for (const action of actions)
@@ -132,7 +159,12 @@ for (const command of Object.keys(manifest.scripts))
 
 const configuration = markdown.get(resolve(root, 'docs/CONFIGURATION.md')) ?? '';
 const variables = new Set<string>();
-for (const example of ['server/.env.example', 'client/.env.example', 'compose.env.example']) {
+for (const example of [
+  '.env.example',
+  'server/.env.example',
+  'client/.env.example',
+  'compose.env.example',
+]) {
   const contents = await readFile(resolve(root, example), 'utf8');
   for (const match of contents.matchAll(/^(?:#\s*)?([A-Z][A-Z\d_]+)=/gmu)) {
     variables.add(match[1]!);

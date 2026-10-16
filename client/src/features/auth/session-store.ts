@@ -1,11 +1,11 @@
 import { makeAutoObservable, observableRef, runInAction } from 'mobx';
 import { api, ApiError, request } from '../../shared/api/client';
-import type { Principal, Settings } from '../../shared/api/contracts.generated';
+import type { Principal, Tenant } from '../../shared/api/contracts.generated';
 
 export class SessionStore {
   user: Principal | null = null;
   phase: 'loading' | 'setup' | 'login' | 'ready' | 'error' = 'loading';
-  defaults: Settings | null = null;
+  tenants: Tenant[] = [];
   epoch = 0;
   permissionsVersion = 0;
   contentVersion = 0;
@@ -20,7 +20,7 @@ export class SessionStore {
       this,
       {
         user: observableRef,
-        defaults: observableRef,
+        tenants: observableRef,
         afterLogin: false,
         afterLogout: false,
         afterAccessChanged: false,
@@ -35,7 +35,6 @@ export class SessionStore {
     if (version !== this.epoch) return;
     if (!setup.initialized) {
       runInAction(() => {
-        this.defaults = setup.defaults ?? null;
         this.phase = 'setup';
       });
       return;
@@ -45,6 +44,8 @@ export class SessionStore {
       if (version !== this.epoch) return;
       runInAction(() => {
         this.user = result.user;
+        this.tenants = result.tenants;
+        sessionStorage.setItem('rag-tenant', result.user.tenant);
         this.permissionsVersion = result.permissionsVersion;
         this.contentVersion = result.contentVersion;
         this.connected = true;
@@ -52,7 +53,14 @@ export class SessionStore {
       });
       await this.afterLogin();
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) this.signedOut();
+      if (
+        error instanceof ApiError &&
+        error.status === 403 &&
+        sessionStorage.getItem('rag-tenant')
+      ) {
+        sessionStorage.removeItem('rag-tenant');
+        await this.load();
+      } else if (error instanceof ApiError && error.status === 401) this.signedOut();
       else throw error;
     }
   }
@@ -67,13 +75,23 @@ export class SessionStore {
         changed = permissionsChanged || result.contentVersion !== this.contentVersion;
       runInAction(() => {
         this.user = result.user;
+        this.tenants = result.tenants;
+        sessionStorage.setItem('rag-tenant', result.user.tenant);
         this.permissionsVersion = result.permissionsVersion;
         this.contentVersion = result.contentVersion;
         this.connected = true;
       });
       if (changed) await this.afterAccessChanged(permissionsChanged);
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) this.signedOut();
+      if (error instanceof ApiError && error.status === 403) {
+        this.afterLogout();
+        sessionStorage.removeItem('rag-tenant');
+        try {
+          await this.load();
+        } catch {
+          this.failed();
+        }
+      } else if (error instanceof ApiError && error.status === 401) this.signedOut();
       else
         runInAction(() => {
           this.connected = false;
@@ -83,8 +101,22 @@ export class SessionStore {
     }
   }
   async login(login: string, password: string) {
+    sessionStorage.removeItem('rag-tenant');
     await request('/api/login', { login, password });
     await this.load();
+  }
+  async switchTenant(id: string) {
+    if (id === this.user?.tenant) return;
+    this.epoch++;
+    this.afterLogout();
+    this.phase = 'loading';
+    sessionStorage.setItem('rag-tenant', id);
+    try {
+      await this.load();
+    } catch (e) {
+      this.failed();
+      throw e;
+    }
   }
   async logout() {
     await request('/api/logout');
@@ -93,7 +125,8 @@ export class SessionStore {
   signedOut() {
     this.epoch++;
     this.user = null;
-    this.defaults = null;
+    this.tenants = [];
+    sessionStorage.removeItem('rag-tenant');
     this.phase = 'login';
     this.afterLogout();
   }

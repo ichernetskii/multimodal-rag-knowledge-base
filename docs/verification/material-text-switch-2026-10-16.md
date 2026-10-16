@@ -1,0 +1,13 @@
+# Missing media text and simplified prototype · 16 October 2026
+
+The server now prepares missing descriptions/transcripts automatically when building an index whose embedding model cannot consume the source media. Image/video-preview descriptions use the selected image-capable generation profile; audio uses the selected Whisper or Google transcription profile. Existing OCR and meaningful text are reused. Choosing another embedding model does not regenerate text.
+
+Late-generated text is stored in Page.preparedText with its model/profile/provider and creation time. Original page text, original-file hash, published state and existing source fragments remain unchanged. documents.read displays the effective text and provenance. A lease serializes generation per tenant/version/page; saving checks the current attempt and permissions. Candidate-index activation retains the existing corpus-revision check. Missing processing models, budgets and other failures leave the old index active.
+
+Verified in an isolated PostgreSQL database with local Redis/S3 and an HTTP fixture for Ollama: native publication creates no caption; the first text-index build creates one; a different text embedding model reuses it; a missing vision capability fails with DESCRIPTION_MODEL_REQUIRED; the original active index remains active; successful preparation then permits activation and search. The full SaaS integration, including the Google transcription fixture, passes. Only task-owned test data is removed afterward.
+
+Unit/client tests, typecheck, ESLint, generated contracts, documentation checks and production build pass. Unit coverage includes technical labels versus meaningful text, reuse of prepared text and priority of reviewed text.
+
+The prototype has one persistent menu with company and platform groups, grouped local/API models, and a single system-status check. Text search is an optional Ctrl+F-style action; P-204 and Russian word searches show matches, snippets and highlights, while missing terms show an empty result. A CSS specificity issue leaving text in a half-width grid column was fixed. Result scrolling and state-echo ordering were corrected. Browser checks at 320 px show no horizontal overflow and preserve scope labels.
+
+Limits: the new navigation remains a prototype for future React implementation. Google/Ollama paid/live model quality was not evaluated by HTTP fixtures. The changed public contract uses the current development data format only; the existing Demo A database was preserved. The shared Google transcription implementation remains separate from voice input with a microphone, which is not implemented.

@@ -1,104 +1,105 @@
-import { readdirSync, rmSync, statSync } from 'node:fs';
-import { join } from 'node:path';
-import { authorized, type ActionMap } from '../../application/action-registry.js';
-import type { DataContext } from '../../application/data-context.js';
-import type { Conversation, DocumentRecord, Principal } from '../../domain/entities.js';
-import type { DocumentService } from '../documents/document-service.js';
-export class RetentionService {
+import type { Services } from '../../application/services.js';
+import type { Documents } from '../documents/saas-documents.js';
+import type { Conversation, DocumentRecord, Job, Principal } from '../../contracts/public.js';
+import type { StoredUpload } from '../../domain/entities.js';
+
+export class Retention {
   constructor(
-    private readonly data: DataContext,
-    private readonly documents: DocumentService,
+    private readonly s: Services,
+    private readonly documents: Documents,
   ) {}
-  readonly actions: ActionMap = { cleanup: authorized((user) => this.handleCleanup(user)) };
-  cleanup() {
-    const s = this.data.catalog.settings(),
-      now = Date.now(),
-      catalog = this.data.catalog,
-      extracting = catalog.count(
-        'job',
-        "job_kind='document' AND state IN ('queued','extracting','ocr','indexing')",
-      );
+  async process(job: Job, user: Principal, attempt: string) {
     let removed = 0;
-    catalog.transaction(() => {
-      removed += Number(catalog.prepare('DELETE FROM sessions WHERE expires<?').run(now).changes);
-      removed += Number(
-        catalog.prepare('DELETE FROM logs WHERE created<?').run(now - s.logDays * 86400_000)
-          .changes,
-      );
-      catalog.prepare('DELETE FROM cache WHERE created<?').run(now - 86400_000);
-      const conversations = catalog.find<Conversation>(
-        'conversation',
-        "updated<? AND NOT EXISTS(SELECT 1 FROM entities j WHERE j.kind='job' AND j.conversation=entities.id AND j.state IN ('queued','searching','generating','extracting','ocr','indexing'))",
-        [now - s.historyDays * 86400_000],
-      );
-      for (const conversation of conversations) {
-        for (const document of catalog.find<DocumentRecord>('document', 'conversation=?', [
-          conversation.id,
-        ]))
-          this.documents.purge(document);
-        removed += this.deleteConversation(conversation.id);
-      }
-      const expired =
-          "kind='job' AND state IN ('complete','no_info','clarification','failed','cancelled','interrupted') AND updated<?",
-        before = now - s.jobDays * 86400_000;
-      catalog
-        .prepare(`DELETE FROM events WHERE job IN (SELECT id FROM entities WHERE ${expired})`)
-        .run(before);
-      removed += Number(
-        catalog
-          .prepare(
-            `DELETE FROM entities WHERE kind='evaluation_result' AND json_extract(body,'$.job') IN (SELECT id FROM entities WHERE ${expired})`,
-          )
-          .run(before).changes,
-      );
-      removed += Number(
-        catalog.prepare(`DELETE FROM entities WHERE ${expired}`).run(before).changes,
-      );
-      removed += Number(
-        catalog
-          .prepare(
-            'DELETE FROM source_fragments WHERE id IN (SELECT s.id FROM source_fragments s WHERE s.created<? AND NOT EXISTS(SELECT 1 FROM chunks c WHERE c.id=s.id) AND NOT EXISTS(SELECT 1 FROM source_usage u WHERE u.chunk=s.id) LIMIT 10000)',
-          )
-          .run(before).changes,
-      );
-      if (conversations.length) catalog.invalidate();
-    });
-    if (!extracting)
-      for (const name of readdirSync(catalog.directory))
-        if (name.startsWith('extract-')) {
-          const path = join(catalog.directory, name);
-          if (statSync(path).mtimeMs < now - s.tempHours * 3600_000) {
-            rmSync(path, { recursive: true, force: true });
-            removed++;
-          }
-        }
-    return { removed };
-  }
-  deleteConversation(id: string) {
-    const catalog = this.data.catalog;
-    let count = 0;
-    catalog
-      .prepare(
-        "DELETE FROM events WHERE job IN (SELECT id FROM entities WHERE kind='job' AND conversation=?)",
-      )
-      .run(id);
-    count += Number(
-      catalog
-        .prepare(
-          "DELETE FROM entities WHERE kind='feedback' AND json_extract(body,'$.turn') IN (SELECT id FROM entities WHERE kind='turn' AND conversation=?)",
+    const known = new Set(
+      (
+        await this.s.db.query<{ key: string }>(
+          "SELECT object_key key FROM assets WHERE tenant_id=$1 UNION SELECT body->>'key' key FROM uploads WHERE tenant_id=$1 AND body->>'state'<>'consumed'",
+          [user.tenant],
         )
-        .run(id).changes,
+      ).map((row) => row.key),
     );
-    count += Number(
-      catalog
-        .prepare("DELETE FROM entities WHERE kind IN ('turn','job') AND conversation=?")
-        .run(id).changes,
+    const orphans = (await this.s.storage.keys('tenants/' + user.tenant + '/objects/')).filter(
+      (key) => !known.has(key),
     );
-    catalog.delete('conversation', id);
-    return count + 1;
-  }
-  async handleCleanup(user: Principal) {
-    this.data.auth.admin(user);
-    return this.cleanup();
+    for (let offset = 0; offset < orphans.length; offset += 1000)
+      await this.s.db.query(
+        'INSERT INTO gc_objects SELECT key,$2 FROM unnest($1::text[]) key ON CONFLICT DO NOTHING',
+        [orphans.slice(offset, offset + 1000), Date.now()],
+      );
+    const pending = await this.s.db.query<{ object_key: string }>(
+      'SELECT object_key FROM gc_objects WHERE object_key LIKE $1 AND created<$2 ORDER BY created LIMIT 1000',
+      [`tenants/${user.tenant}/%`, Date.now() - 3600000],
+    );
+    const activeBackup = await this.s.db.count('backup', "body->>'state'='building'");
+    if (!activeBackup)
+      for (const row of pending) {
+        const live = await this.s.db.query(
+          'SELECT 1 FROM assets WHERE tenant_id=$1 AND object_key=$2',
+          [user.tenant, row.object_key],
+        );
+        if (!live.length) await this.s.storage.remove(row.object_key);
+        await this.s.db.query('DELETE FROM gc_objects WHERE object_key=$1', [row.object_key]);
+        removed++;
+      }
+    const settings = await this.s.identity.settings();
+    const uploads = await this.s.db.list<StoredUpload>(
+      'upload',
+      "(body->>'created')::bigint<$2 AND body->>'state'<>'consumed'",
+      [Date.now() - settings.tempHours * 3600000],
+      1000,
+    );
+    for (const upload of uploads) {
+      await this.s.storage.abort(upload.key, upload.uploadId).catch(() => {});
+      await this.s.storage.remove(upload.key);
+      await this.s.db.remove('upload', upload.id);
+      removed++;
+    }
+    await this.s.db.query(
+      "DELETE FROM uploads WHERE tenant_id=$1 AND body->>'state'='consumed' AND (body->>'created')::bigint<$2",
+      [user.tenant, Date.now() - settings.tempHours * 3600000],
+    );
+    for (const conversation of await this.s.db.list<Conversation>(
+      'conversation',
+      "(body->>'updated')::bigint<$2",
+      [Date.now() - settings.historyDays * 86400000],
+      1000,
+    )) {
+      for (const doc of await this.s.db.list<DocumentRecord>(
+        'document',
+        'conversation_id=$2',
+        [conversation.id],
+        100000,
+      ))
+        await this.documents.remove({ ...user, id: conversation.owner }, doc.id);
+      await this.s.db.remove('conversation', conversation.id);
+    }
+    await this.s.db.query(
+      "DELETE FROM jobs WHERE tenant_id=$1 AND body->>'status' IN('complete','no_info','clarification','cancelled','failed','interrupted') AND (body->>'updated')::bigint<$2",
+      [user.tenant, Date.now() - settings.jobDays * 86400000],
+    );
+    await this.s.db.query(
+      "DELETE FROM audits WHERE tenant_id=$1 AND (body->>'created')::bigint<$2",
+      [user.tenant, Date.now() - settings.logDays * 86400000],
+    );
+    await this.s.db.query('DELETE FROM idempotency WHERE tenant_id=$1 AND created<$2', [
+      user.tenant,
+      Date.now() - settings.jobDays * 86400000,
+    ]);
+    const backups = await this.s.db.list<{ id: string; created: number; state: string }>(
+      'backup',
+      "(body->>'created')::bigint<$2 AND body->>'state'<>'building'",
+      [Date.now() - settings.backupDays * 86400000],
+      1000,
+    );
+    for (const backup of backups) {
+      for (const key of await this.s.storage.keys('backups/' + user.tenant + '/' + backup.id + '/'))
+        await this.s.storage.remove(key);
+      await this.s.db.remove('backup', backup.id);
+    }
+    await this.s.db.query('DELETE FROM rate_windows WHERE window_start<$1', [
+      Math.floor(Date.now() / 60000) - 60,
+    ]);
+    await this.s.db.query('DELETE FROM sessions WHERE expires<$1', [Date.now()]);
+    await this.s.queue.update(job.id, { status: 'complete', result: { removed } }, attempt);
   }
 }

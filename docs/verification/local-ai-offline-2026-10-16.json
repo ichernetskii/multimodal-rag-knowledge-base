@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-16T06:55:35.671Z",
+  "success": true,
+  "network": "none",
+  "modelVolume": "read-only",
+  "ms": 2509,
+  "output": "Local model already installed: qwen3.5:4b\nLocal model already installed: embeddinggemma\nLocal models are installed. Model availability is checked separately in the admin UI.\n",
+  "models": [
+    {
+      "name": "embeddinggemma:latest",
+      "digest": "85462619ee721b466c5927d109d4cb765861907d5417b9109caebc4e614679f1",
+      "size": 621875917
+    },
+    {
+      "name": "qwen3.5:4b",
+      "digest": "d8b0f5e9760cd1682034f292d7ef72ec46f432149be0df7574bf2d6e92e38c04",
+      "size": 3324173934
+    }
+  ]
+}

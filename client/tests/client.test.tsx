@@ -289,7 +289,14 @@ describe('state and transport regressions', () => {
     const store = new ApplicationStore();
     runInAction(() => {
       store.session.phase = 'ready';
-      store.session.user = { id: 'u', login: 'reader', role: 'user', groups: [] };
+      store.session.user = {
+        id: 'u',
+        login: 'reader',
+        role: 'user',
+        groups: [],
+        tenant: 'tenant-a',
+        operator: false,
+      };
     });
     store.handleError(new ApiError('AUTH_FAILED', 'Wrong password', 'diagnostic', 401), false);
     expect(store.session.phase).toBe('ready');

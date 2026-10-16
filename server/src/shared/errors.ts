@@ -25,7 +25,7 @@ export function errorResponse(error: unknown) {
       status: error.status,
       error: { code: error.code, message: error.message, diagnostic: error.diagnostic },
     };
-  const disk = error instanceof Error && /ENOSPC|SQLITE_FULL|disk.*full/iu.test(error.message);
+  const disk = error instanceof Error && /ENOSPC|disk.*full/iu.test(error.message);
   return {
     status: disk ? 507 : 500,
     error: {

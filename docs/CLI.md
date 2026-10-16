@@ -1,73 +1,66 @@
 # CLI
 
-Команды выполняются из корня через `yarn cli`. Без установленного Yarn используйте `node .yarn/releases/yarn-4.18.1.cjs cli`. После сборки можно запускать `node --env-file-if-exists=server/.env server/dist/interfaces/cli/main.js <command>`; для файловых аргументов тогда используется текущий рабочий каталог.
-
-Обычные операции требуют работающего API и применяют те же права, ревизии и ограничения, что браузер. Подготовка моделей, локальная проверка runtime, запуск сервера и офлайн-восстановление — отдельные локальные операции. Справка не требует исправной конфигурации.
-
-## Команды
-
-| Команда после `yarn cli`                                  | Назначение / доступ                                                                           |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `help`, `--help`                                          | Справка; без аргументов также показывается справка                                            |
-| `setup`                                                   | Скачать и проверить закреплённые embedding assets; не создаёт пользователя                    |
-| `check`                                                   | Проверить временную SQLite, реальный embedding и наличие модели Ollama; без входа             |
-| `check --embedding-only`                                  | Временная SQLite и embedding, без Ollama                                                      |
-| `check --storage-only`                                    | Только новая временная SQLite, не целостность рабочей базы                                    |
-| `serve`                                                   | Запустить API и фоновые задания; интерфейс раздаётся отдельным клиентом                       |
-| `login <login>`                                           | Прочитать пароль из stdin, сохранить CLI-сессию                                               |
-| `logout`                                                  | Отозвать текущую сессию и удалить локальный токен                                             |
-| `upload <file> <collection-id> [document-id revision]`    | Загрузить новый документ или версию; вернуть документ/версию/задание, не ждать индексации     |
-| `download <document-id> <output> [version-id]`            | Скачать разрешённый оригинал; файл назначения не должен существовать                          |
-| `export <conversation-id> <output.json>`                  | Экспортировать собственный диалог со всеми ветками и источниками                              |
-| `search <question>`                                       | Поиск по всем разрешённым общим базам без генерации                                           |
-| `ask <question>`                                          | Создать новый диалог, дождаться результата и вывести сохранённую историю                      |
-| `api <action> [input.json]`                               | Выполнить любую команду [API](API.md); без файла читать JSON из stdin                         |
-| `diagnose`                                                | Полная диагностика работающей установки; администратор                                        |
-| `operations`                                              | Показатели ресурсов/очередей/копий; администратор                                             |
-| `backup`, `backups`                                       | Создать копию / показать список; администратор                                                |
-| `quality-check`                                           | Запустить контрольный набор, дождаться и вывести все страницы результатов; администратор      |
-| `cleanup`                                                 | Применить сроки хранения с защитой незавершённой работы; администратор                        |
-| `recover-admin <login>`                                   | Локально восстановить административный доступ; новый пароль через stdin                       |
-| `restore-installation <backup.sqlite> <target-directory>` | Проверить копию и восстановить отдельную остановленную установку под эксклюзивной блокировкой |
-
-`check` проверяет подготовленный runtime и новую тестовую БД; `diagnose` проверяет именно работающую установку, её индекс, данные, каталоги, PDF/OCR, модели и готовность. Эти команды не взаимозаменяемы. `ask` и `quality-check` опрашивают сохранённое задание каждые 500 мс, показывают смены стадии в stderr и ждут до 30 минут. Истечение ожидания не удаляет задание: используйте `api jobs.read`.
-
-## Вход и передача JSON
-
-Пароль — не аргумент командной строки. Передайте строку из защищённого файла; одна завершающая новая строка удаляется. Минимальная длина — 12 символов.
+Run `yarn cli help`. CLI uses the same HTTP API, permissions and tenant checks as the browser. The local init/bootstrap/serve/worker/seed/prepare-local/check commands operate on deployment configuration directly. There is no legacy offline database adapter.
 
 ```sh
-yarn cli login admin < /secure/password.txt
-yarn cli api collections.list < /dev/null
-yarn cli api documents.list list-documents.json
+yarn cli init
+# Password via stdin, not a shell argument or history:
+read -s OPERATOR_PASSWORD
+printf '%s' "$OPERATOR_PASSWORD" | yarn cli bootstrap admin --name 'My Company'
+unset OPERATOR_PASSWORD
+
+yarn cli login admin
+yarn cli tenants list
+yarn cli tenant-use TENANT_UUID
+yarn cli collections save input.json
+yarn cli upload ./manual.pdf COLLECTION_UUID
+yarn cli watch JOB_UUID
+yarn cli review DOCUMENT_UUID
+yarn cli publish DOCUMENT_UUID
+yarn cli ask 'How often should XZ-417 be serviced?'
+yarn cli ask 'What is shown here?' --file ./photo.jpg
+yarn cli search 'XZ-417'
+yarn cli download DOCUMENT_UUID ./original.pdf
+yarn cli export CONVERSATION_UUID ./conversation.json
 ```
 
-Пример `list-documents.json`:
+`login` reads the password from stdin. Credentials are mode 0600 under `~/.local/share/local-rag/cli.json`; use RAG_CLI_FILE to choose a private location. `--url`, `--tenant`, `--json` apply to API commands. Upload progress persists on the server; retry interrupted binary upload with `--upload UPLOAD_UUID`. SHA-256 and length must still match. `ask --file` explicitly processes and publishes the private attachment before asking.
 
-```json
-{ "query": "инструкция", "sort": "updated", "page": 1, "pageSize": 25 }
+From the project root, `yarn demo:import` reuses the saved CLI session/company and uploads the [checked-in multimodal corpus](../examples/knowledge-base/README.md) into a new knowledge base. It waits for extraction but leaves publication for review. `--publish` acknowledges/indexes demo data explicitly; failures return code 1 with the saved base/job context. Every invocation creates a new base. It uses no separate database/authorization bypass. `seed` creates the development identity/companies only and is prohibited in production.
+
+Administrative actions accept JSON files or stdin: `yarn cli models list`, `yarn cli models save profile.json`, `yarn cli indexes build input.json`, `yarn cli indexes activate input.json`, `yarn cli settings save input.json`, `yarn cli backup create`, `yarn cli backup verify input.json`, `yarn cli backup restore input.json`, `yarn cli usage read`, `yarn cli cache clear`, `yarn cli audit list`, `yarn cli invitations create input.json`. All actions are also available through `yarn cli api ACTION input.json`; input fields are in [API](API.md). The invitation token is shown once; the employee accepts it in the UI or with `yarn cli accept-invite TOKEN` and password on stdin.
+
+`yarn cli sync CONNECTOR_UUID ./directory [--watch]` hashes a local manifest and uploads changes through resumable sessions. The server stores connector metadata, never reads a client filesystem path. Removed-file policy is keep/exclude/delete. New or replaced documents require review/publication. Symbolic links are skipped.
+
+`watch JOB_UUID` reconnects to saved SSE state; waiting does not create another AI call. `cancel` fences the active attempt. `retry` records a new job and requires explicit review for uncertain provider outcomes. `diagnose` and local `check` inspect the configured installation. Whole-installation snapshot commands are in [operations](OPERATIONS.md).
+
+users.revoke завершает глобальные сессии аккаунта и доступен только оператору. Администратор компании может заблокировать членство через users.update; остальные компании сохраняют доступ.
+
+## Проверка моделей
+
+Владелец платформы задаёт отдельные входные ставки (USD за миллион токенов) одной командой:
+
+```sh
+yarn cli models pricing PROFILE_UUID --text 0.20 --image 0.45 --audio 6.50 --video 12 --output 0
+yarn cli usage read --json
 ```
 
-Токен записывается с правами 0600 в `.cli-session` выбранного каталога данных. `RAG_TOKEN` переопределяет файл; `RAG_URL` задаёт origin сервера. Для удалённого подключения используйте HTTPS. Настройки путей — в [CONFIGURATION.md](CONFIGURATION.md).
+Все пять ставок обязательны. Числа в примере иллюстрируют формат, а не подтверждают текущую цену поставщика. Перед включением платного профиля проверьте тариф своего аккаунта. В JSON профиля `inputMicrosPerMillion` — объект `{ "text": 200000, "image": 450000, "audio": 6500000, "video": 12000000 }`. Старое числовое поле отклоняется. `usage read` возвращает токены и расходы каждой модальности, нераспределённые токены и число оценочных вызовов; права и проверки бюджета общие с админкой.
 
-Идентификаторы берите из API, например `collections.list`, `users.list`, `documents.list`, `conversations.list`. Изменение существующей записи требует текущую `revision`: сначала прочитайте запись, затем отправьте изменение. При `REVISION_CONFLICT` перечитайте и повторно примените намеренное изменение. Пример настройки из файла:
+After login use `yarn cli models status` or `yarn cli models status <profile-id> --json`. Each result includes enabled, ok and a readable message. Exit code 1 means at least one enabled checked profile is unavailable. Disabled optional cloud profiles can report missing credentials without failing the status command. The same checks run in the admin UI; they inspect connectivity and installed models without requesting a generated answer.
 
-```json
-{ "revision": 1, "settings": { "topK": 5, "backupIntervalHours": 24 } }
-```
+Общая диагностика (`diagnostics`), изменение AI-подключений (`models.save/delete`) и управление компаниями (`tenants.create/update`) требуют права владельца платформы. CLI использует те же серверные проверки, что и админка.
 
-Это вход для `yarn cli api settings.save settings.json`; замените revision актуальным значением из `settings.read`. Для ограниченного поиска передайте `{"question":"E-42","scope":{"collection":"<id>"}}` команде `api search`. Удобная команда `search` отдельного флага базы не имеет. Для продолжения существующего диалога используйте `answers.create`, а не `ask`, создающий новый.
+## API-ключи владельца
 
-## Скачивание, копии и recovery
+`yarn cli secrets list` возвращает только метаданные. `yarn cli secrets save` принимает JSON через stdin: id, label, provider, enabled, revision и value. Для нового ключа revision=0 и value обязателен; при изменении текущая revision обязательна, отсутствие value сохраняет значение. Не передавайте ключ в аргументах команды или URL. Для автоматизации подавайте JSON из менеджера секретов через stdin; не сохраняйте значение в истории shell или файлах проекта.
 
-`download` и `export` пишут поток во временный файл рядом с назначением и публикуют только полный результат. Родительский каталог должен существовать. Существующий файл не перезаписывается; ошибка или разрыв соединения удаляет временный файл.
+`yarn cli secrets delete` принимает id/revision через stdin и требует отсутствия ссылок во всех компаниях. `yarn cli secrets audit` показывает журнал без значений. Все команды требуют права владельца платформы, совпадают с правилами админки и применяются без перезапуска сервера. Полный контракт — в [API](API.md).
 
-Проверка и online restore выполняются через `api backup.verify` и `api backup.restore` с `{"id":"<имя-копии.sqlite>"}`. Ручное создание копии не требует остановки сервера. Для восстановления на другой диск или машину следуйте [runbook](OPERATIONS.md#резервное-копирование-и-восстановление), перенесите также файл `.sha256`. Веса моделей и env-файлы в копию не входят.
+## Исправление обработки до публикации
 
-`recover-admin` принимает только локальный `RAG_URL`. При работающем сервере читает локальный recovery.key и вызывает loopback endpoint; ключ не передаётся удалённому адресу. Online recovery может восстановить существующего пользователя или создать администратора в уже настроенной установке. Offline recovery требует существующего пользователя, берёт writer lock, меняет пароль/роль, разблокирует учётную запись и отзывает её сессии. Первого администратора создавайте мастером либо `setup.create`; email не нужен. Доступ к recovery.key равен административному доступу.
+После `yarn cli review DOCUMENT_UUID` вызовите `yarn cli api documents.correct correction.json`. JSON содержит id, актуальную revision документа, version, номер page и исправленный text. Секретов в этом файле нет. После правки повторно прочитайте документ и подтвердите публикацию командой publish. Оригинал сохраняется; опубликованную версию править нельзя.
 
-## Результаты и ошибки
+Google-расшифровка использует обычный `models save`: provider=google, role=transcription, input=[text,audio], secretRef активного Google-ключа, модель Gemini с аудиовходом и актуальные ставки. Затем `settings save` выбирает её id в transcriptionProfile с текущей revision настроек. Команды используют те же бюджет, права и проверки, что UI; они не переключают модель автоматически при ошибке Whisper.
 
-Успех — exit code 0. Ошибка — 1 и строка `[CODE] сообщение (diagnostic)` в stderr; результаты команд обычно выводятся JSON в stdout. `diagnose` возвращает 1, если не готовы модели/PDF/OCR/индекс, каталог, SQLite или приём заданий. `quality-check` возвращает 1 при проваленных контрольных вопросах. `ask` возвращает ошибку для failed/interrupted; no_info и clarification являются завершёнными результатами, их статус нужно читать в выводе.
-
-Коды HTTP и формат событий описаны в [API.md](API.md). CLI не получает особых прав за счёт запуска на машине сервера; исключения — явно локальные recovery и offline restore под блокировкой.
+При `indexes build` недостающие описания/расшифровки готовятся автоматически выбранными в настройках компании моделями обработки. Готовый текст повторно не генерируется для другой embedding-модели. Перед `indexes activate` проверьте текст через `review` и результаты поиска; сбой подготовки не переключает текущий индекс.

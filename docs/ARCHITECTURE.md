@@ -1,137 +1,80 @@
-# Архитектура Local RAG
+# Архитектура SaaS
 
-Приложение — универсальная локальная библиотека документов с поиском и чатом. Правила изменения проекта находятся в [AGENTS.md](../AGENTS.md). До первого релиза поддерживается только текущий API и формат данных; преобразования старых схем и адаптеры отсутствуют.
-
-## Границы системы
-
-Два Yarn workspace имеют собственные зависимости, конфигурацию TypeScript, сборки и тесты. Клиент работает только через HTTP/SSE. Сервер не импортирует клиентскую реализацию. Корневой lockfile фиксирует единый набор зависимостей для воспроизводимой установки.
+## Компоненты
 
 ```mermaid
 flowchart LR
-  Browser[React / MobX] --> HTTP[HTTP API]
-  CLI[CLI] --> HTTP
-  HTTP --> App[Application]
-  App --> Features[Сервисы функций]
-  Features --> DB[SQLite Catalog / FTS5]
-  Features --> Models[ModelRuntime]
-  Models --> ONNX[Локальный embedding]
-  Models --> Ollama[Ollama]
-  Features --> Extract[PDF / локальный OCR]
-  Scheduler[JobScheduler] --> Features
-  HTTP --> SSE[SSE snapshots]
-  DB --> SSE
+  C[React: чат и админка] --> N[Nginx]
+  CLI[CLI] --> N
+  N --> API[Node.js API]
+  API --> PG[(PostgreSQL + pgvector + pg-boss)]
+  API --> S3[(S3 / SeaweedFS)]
+  API --> R[(Redis)]
+  PG --> W[Node.js workers]
+  W --> PG
+  W --> S3
+  W --> R
+  W --> AI[Google / Anthropic / Ollama / compatible API]
+  W --> CPU[FFmpeg / PDF / OCR / whisper.cpp]
 ```
 
-## Структура
+API, workers and CLI use one application contract. The browser imports generated types, never server internals. PostgreSQL is the source of truth; external AI calls run outside business transactions. Queue admission and the application job are committed together through the pg-boss SQL adapter.
 
-```text
-client/
-  src/
-    app/                 создание приложения, provider, навигация
-    features/            экраны, диалоги и хранилища отдельных функций
-      auth/              сессия, вход, первый запуск, аккаунт
-      chat/              ветки диалогов, черновик, сообщения
-      documents/         библиотека, загрузка, версии, источники
-      knowledge-bases/   выбор базы и управление доступом
-      jobs/              состояния заданий, ограниченные SSE-соединения
-      admin/             ленивое подключение административных экранов
-      users/ quality/ sync/ backups/ settings/ operations/
-    shared/              API, генерируемые DTO, UI, hooks, permissions, styles
-  scripts/               production gateway и сжатие assets
-  deploy/                nginx, Dockerfile, служба клиента
-  dist/                  генерируемая браузерная сборка
-  tests/
-server/
-  src/
-    app/                 сборка и жизненный цикл процесса
-    application/         композиция сервисов, контекст, планировщик, порты
-    contracts/           публичные DTO и поля команд API
-    domain/              внутренние сущности
-    features/            самостоятельные сервисы функций
-      identity/ collections/ documents/ search/ chat/ jobs/
-      quality/ setup/ settings/ sync/ backup/ operations/
-    infrastructure/      SQLite, файлы, модели, извлечение, токенизация
-    interfaces/          HTTP, SSE, CLI
-    config/ shared/      конфигурация, ошибки, валидация, хеширование
-  scripts/               подготовка PDF/OCR, launcher, проверка с реальными моделями
-  deploy/                Dockerfile, systemd и launchd API
-  data/                  данные по умолчанию, не исходники
-  .cache/ .venv/         локальные модели/PDF runtime
-  dist/                  генерируемый серверный JavaScript
-  tests/
-tooling/                 общие native TypeScript launchers и генератор DTO
-compose.yaml             композиция отдельных client/server deployments
-docs/                   API, разработка, эксплуатация, проверка
-```
+`application/application.ts` validates action fields and dispatches to services. Knowledge-base list/grant/mutation policy lives in `features/knowledge-bases/knowledge-base-service.ts`; document counts are batched in one tenant-scoped query. Rename/save/delete use the shared access transaction lock and revisions. Retention/GC lives in `features/operations/retention-service.ts`, invoked by the maintenance queue. HTTP and CLI do not duplicate these policies.
 
-`Application` создаёт сервисы и регистрирует команды, отслеживает запросы и обслуживание. Прикладная логика находится в сервисах функций. `DataContext` предоставляет текущий каталог, авторизацию, конфигурацию и порт моделей; его смена при первом выборе каталога не требует пересоздания всех сервисов. `RuntimeState` содержит только состояние текущего процесса: выполняющиеся задания, отмену, транспортные метрики и блокировку обслуживания.
+Production Python/Swift helpers are `server/resources/extraction`; compiled and source code resolve them from the server root. Root `tooling/server` owns launch/build/preparation. Shared demo inputs live in `examples/knowledge-base`, outside application code and runtime storage. Current UI and the proposed redesign are documented separately in [usage](USAGE.md) and [admin UX](ADMIN-UX.md).
 
-## Решения и последствия
+## Компания и права
 
-### Единый сервер с функциональными модулями
+A global identity has separate membership, role and groups in each company. Tenant ID comes from the authenticated membership, not an unchecked request header. Every tenant table has forced row security. App role is neither superuser nor BYPASSRLS; schema ownership belongs to the initializer. The operator manages companies and approved model connections. Company administrators manage members, grants, knowledge bases and settings, and can lower spending limits. Only the operator can raise resource entitlements or edit provider/model/pricing profiles. Personal attachments and conversations remain owner-only, including for company administrators.
 
-Для автономной установки выбран один серверный процесс с одним writer SQLite. Разделение на микросервисы потребовало бы нескольких хранилищ, транзакций между ними и дополнительной эксплуатации. Функциональные сервисы позволяют независимо менять чат, документы, авторизацию и резервное копирование. Отдельные процессы сервера не должны писать в один каталог; writer lock проверяется до старта.
+ACL filtering happens before vector/full-text candidates are limited. File downloads, SSE, citations and historical answers recheck current access. Redis keys include tenant, user, groups, revisions, index and model. Company switching clears client state and rejects stale responses. Invitations are single-use, seven-day tokens stored as hashes; existing identities must prove their password. There is no public first-operator registration.
 
-### Клиентские хранилища по функциям
+## Загрузка и индексация
 
-`ApplicationStore` создаёт `SessionStore`, `ChatStore`, `KnowledgeBaseStore` и `JobStreamStore` и хранит навигацию/уведомления. Хранилища передаются через React provider; модульного singleton нет. Административные страницы загружаются лениво. Выбор базы для поиска документов не меняет выбор базы в чате. Ответы, пришедшие после выхода или смены диалога, не восстанавливают закрытое состояние пользователя.
+1. Client hashes the file and creates an authenticated upload session with declared length and SHA-256.
+2. Binary multipart chunks go through our API to private S3. Offset and part metadata survive API restart; the same upload session can resume.
+3. Finalization verifies actual object size and checksum, then atomically creates document/version/assets/job metadata. Incomplete files never become searchable.
+4. A document worker extracts text, renders PDF pages, normalizes images and segments audio/video. A reviewer checks the result before explicit publication.
+5. Published immutable source fragments receive provenance IDs. Embeddings and FTS chunks belong to a specific index/model space. Search combines vector, full-text and technical-code matches with reciprocal rank fusion.
+6. Replacing an embedding model builds a separate index. Activation rejects a build if the corpus changed. Old source IDs remain valid for historical citations.
 
-### Один публичный контракт
+Originals and derived media have immutable tenant-prefixed keys. Database rows carry checksum, size, MIME, document/version and owner scope. Files never use a public bucket. Deletion queues physical objects for GC and invalidates retrieval/history access immediately.
 
-`server/src/contracts/public.ts` определяет сущности, состояния заданий, имена и допустимые поля команд. `yarn contracts:generate` создаёт `client/src/shared/api/contracts.generated.ts`, и `server/src/contracts/format.generated.ts` с подписью формата; `yarn contracts:check` проверяет совпадение в CI. Подпись схемы включает DDL и текущий контракт: несовместимость определяется по содержимому, а не только номеру версии. Клиент не зависит от Node и серверных SDK. Неизвестные поля команд отклоняются; старые параметры не преобразуются и не сохраняются.
+## Запрос и очередь
 
-### Один поисковый конвейер
+The client submits conversation, parent revision, question, attachments, selected profile and idempotency key. A retry with the same key returns the accepted job; different content with the same key is rejected. The API returns after the database commit, then a worker retrieves authorized sources, builds bounded model context, streams deltas to saved PostgreSQL snapshots and completes the job. SSE carries snapshots and monotonic update IDs; reconnect does not rerun generation.
 
-`SearchService` объединяет семантическую близость и FTS5 с точным сопоставлением идентификаторов. Значимые символы в кодах сохраняются. Поиск ограничивается опубликованной активной версией доступного документа, базой знаний и личными вложениями текущего диалога. Исторические версии доступны отдельно для чтения, сравнения и восстановления.
+pg-boss supplies persistent delivery, heartbeat recovery, group concurrency, retry backoff and a dead-letter queue. Our job row records visible status, model/settings snapshots, cancellation, error diagnostic and attempt token. Global, tenant and model limits are separate. Indexing, answers, evaluation and maintenance run in independent processes/queues. Processing limits additionally isolate FFmpeg/OCR/Whisper CPU usage.
 
-Специализированные поля производителя, семейства, модели оборудования, редакции инструкции, языка, типа, серийного диапазона, даты и «действующей версии» удалены из UI, API, хранения, фильтрации и промпта. Редакции документа представлены реальными неизменяемыми версиями загрузки и временем создания. Язык ответа определяется вопросом. Настройки модели генерации и языка OCR остаются настройками обработки.
+An attempt token prevents stale work from committing after cancellation/deletion. Safe capacity/rate failures can retry. A crash during a reserved external AI call is marked uncertain on recovery: the app cannot promise exactly-once billing by an external provider. Manual retry creates a new recorded job. Accepted jobs remain visible even when they fail or require review. Request rejection before acceptance returns 429/503 and creates no phantom job.
 
-### Хранилище и резервные копии
+Workers use a one-second polling backstop while LISTEN/NOTIFY is active. PostgreSQL notifications can coalesce; without a bounded backstop a single-slot maintenance worker can wait 30 seconds between ready jobs even when its previous job completed. Polling without notifications remains 0.5 seconds. These are pickup intervals, not job completion deadlines.
 
-Оригиналы, страницы, фрагменты, векторы, пользователи, сессии, история, задания и эффективная конфигурация находятся в одном SQLite каталоге. Метаданные оригиналов отделены от блоков по 64 КиБ. Каждая операция чтения до 64 КиБ затрагивает максимум два соседних блока; большой HTTP Range стримится такими порциями без материализации всего BLOB. SHA-256 и последовательность блоков проверяются при backup/restore. Векторы хранятся нормализованным Float32 BLOB; JSON-декодирования вектора для каждого поиска нет. Это делает backup API SQLite согласованной копией всего состояния. Новая пустая база создаётся с идентификатором приложения и единственной актуальной схемой. Несовместимая база отклоняется до записи; несовместимая копия не восстанавливается. Миграций прежних форматов нет.
+## Провайдеры и стоимость
 
-При восстановлении сервер блокирует новые действия, завершает/отменяет выполняющуюся работу, создаёт согласованный rollback-снимок и восстанавливает через SQLite backup. Сессии отзываются, незавершённые задания помечаются interrupted. Завершённые результаты не запускаются заново. Обычные операции CLI используют HTTP работающего сервера. Offline restore и recovery открывают каталог под эксклюзивной блокировкой; локальные check-тесты используют отдельную временную БД.
+AI ports accept typed text/image/audio/video/PDF input. Adapters implement streaming generation, embeddings and health; Whisper has a local transcription adapter. Each role has a profile with capabilities, dimensions, endpoint, secret reference, concurrency, timeouts, RPM/TPM and prices. Unsupported combinations fail explicitly. Operator endpoint allowlisting prevents company-controlled arbitrary URLs. API credentials live in the encrypted global PostgreSQL vault; only the master key remains deployment configuration. Profiles store an alias, and saved credential values are never returned to the browser.
 
-Поисковый индекс и сохранённые цитаты имеют разные сроки жизни. `chunks` содержит текущие поисковые фрагменты; `source_fragments` сохраняет неизменяемый текст использованной цитаты с документом, версией, страницей и разделом. Поэтому переиндексация той же версии не ломает старые ответы. `source_usage` индексирует ссылки из сообщений, оценок и результатов проверки; SQL-триггеры поддерживают их транзакционно. Очистка не удаляет фрагмент, пока на него ссылаются сохранённые данные. Окончательное удаление документа удаляет оригиналы, версии, оба вида фрагментов, векторы, кеши и производные результаты, включая ожидаемые факты контрольных запусков.
+Google supports native multimodal generation/embeddings when the configured models do. Anthropic supports text/image/PDF generation. Ollama and compatible endpoints support text/image generation and text embeddings subject to the actual model. Profiles expose only implemented generation, embedding and transcription roles.
 
-Составные изменения пользователя, сессий, прав и эпох кеша выполняются в одной транзакции. Вложенные операции используют SQLite savepoints. Ошибка записи откатывает всё изменение; отдельный регрессионный тест инъецирует `DISK_FULL` между сменой пользователя и отзывом сессий.
+Before cloud calls the application reserves a conservative budget using the profile context limit and output cap, then settles provider-reported usage. Uncertain calls retain their reservation. Prices are configurable, not live invoices; quotas protect the application estimate, while provider billing remains authoritative. Missing prices or credentials block paid calls. Model IDs are configurable defaults and must be verified against the provider account.
 
-### Доступ и ресурсы
+## Кеширование и эксплуатация
 
-Сервер повторно читает пользователя и ACL при каждом запросе, перед выдачей задания/SSE, при выборе источников и выдаче кеша. Изменения документов, прав и настроек увеличивают epoch и очищают кеш. Отдельный access epoch сообщает клиенту об изменении прав; открытые окна со старыми данными закрываются, история и списки обновляются. В контекст модели попадают только разрешённые источники. Интерфейсные permissions нужны для отображения кнопок, сервер остаётся авторитетом.
+Redis stores exact answer, embedding and retrieval caches with bounded values/TTL. It never stores the only copy of accepted jobs or permissions. In-process single-flight and short Redis locks reduce simultaneous duplicate embedding calls; distributed cache locks are an optimization, not an exactly-once guarantee. Content/access/settings changes advance revision keys. Anthropic ephemeral prompt caching is requested when enabled; Google implicit cache and local runtime KV reuse are provider-managed and not guaranteed hits. No application-managed transferable KV cache exists.
 
-Планировщик выделяет независимые полосы для ответа, документов и оценки. Query embedding и массовая индексация используют отдельные ONNX runners. OCR запускается только на страницах без пригодного текста и имеет отдельные ограничения времени/памяти. Страницы OCR с предупреждениями требуют явной проверки. SSE передаёт актуальные snapshots, использует heartbeat и ограничивает соединения, размер события и буфер медленного клиента.
+PostgreSQL leases and rate windows remain effective during Redis failure. Nginx proxies SSE without buffering, limits uploads and serves immutable client assets. Health and diagnostics report dependency availability; optional OpenTelemetry exports HTTP/PostgreSQL spans without document text or enhanced SQL parameter capture. Structured errors use diagnostic IDs without provider response bodies.
 
-Markdown больше 256 КиБ разбирается в отдельном процессе Node с пределом heap 256 МиБ, таймаутом и отменой. Извлечённый текст и число фрагментов ограничены до inference; чанкинг периодически возвращает управление event loop. PDF-процесс и его OCR-потомки завершаются вместе при отмене, ошибке лимита или таймауте; собственные временные файлы удаляются в `finally`.
+Tenant snapshots are signed, checksummed current-format exports in S3 with a consistent PostgreSQL snapshot and copied immutable objects. Restoration blocks that tenant, fences jobs and replaces only its rows. Global accounts/passwords and other companies are not overwritten. An offline operator snapshot additionally saves PostgreSQL and the stopped local S3 volume for whole-installation disaster recovery. The private deployment .env must be backed up separately.
 
-## Проверка границ
+HTTP memory bounds: at most 16 simultaneous buffered request bodies per API process; SSE leases cap 128 streams per deployment, 32 per company and 8 per user. Completed jobs remain saved when a transport connection is rejected or reconnects.
 
-`server/tests/architecture.test.ts` проверяет изоляцию workspace, отсутствие Node-зависимостей на клиенте, зависимостей domain от реализации, циклов runtime-импортов и расхождения публичных команд с регистрацией сервисов. Функциональные тесты проверяют поведение независимо от расположения файлов; live-сценарий использует настоящие embedding, Ollama, PDF и OCR. См. [REQUIREMENTS.md](REQUIREMENTS.md).
+Tenant restore preserves the current usage ledger, operator resource/spending entitlements and model catalog. It cannot rewind provider expenses or restore obsolete prices/connections. Model calls use current approved prices and rate limits even when an index retains its original semantic model snapshot; changing prices alone never requires reindexing.
 
-## Независимые deployments
+## Реестр API-ключей
 
-API не обслуживает клиентские assets и не знает каталог client/dist. Клиентская production-сборка развёртывается отдельно: nginx либо небольшой gateway на стандартной библиотеке Node. Оба проксируют только публичный HTTP API/SSE. Клиент остаётся доступным при остановке API и показывает состояние подключения. Общая команда start — supervisor двух процессов, Compose — композиция двух образов.
+Platform-wide ai_credentials and credential_audits are separate from tenant resource tables. Values use AES-256-GCM with a random 96-bit nonce, a 128-bit tag and authenticated alias/provider; HKDF derives the encryption key from APP_ENCRYPTION_KEY with a domain distinct from backup signatures. The database never stores the master key or plaintext. Every environment requires a valid master key. Public results expose only metadata; even operators cannot read a saved value.
 
-Относительные данные и модели по умолчанию принадлежат server/; production-пути задаются окружением вне исходников. Настройки различаются по владельцу: физические адреса/каталоги/CPU относятся к deployment, семантические параметры обработки — к данным и воспроизводимости индекса. Восстановление сохраняет вторые и привязывает первые к новой машине.
+The application authorizes secrets.* using the current operator identity. Writes and model reference updates share a platform transaction lock. Global reference counts use a narrow SECURITY DEFINER count function because tenant model tables enforce RLS. Delete checks every company; global revisions prevent stale writes after alias recreation. Credential audit excludes values and stays outside tenant audit/backup/restore. Full installation dumps include ciphertext, requiring the separately protected master key.
 
-## Ограничение стоимости операций
-
-Списки документов, пользователей, диалогов, контрольных вопросов и результатов проверок используют SQL-пагинацию. Чат читает последние 40 сообщений выбранной ветки, старые сообщения подгружает назад, варианты — отдельным списком. Экспорт всех веток стримит согласованный read-only SQLite snapshot, проверяя актуальные права перед каждым сообщением. Медленное скачивание не может неограниченно удерживать snapshot и блокировать обслуживание.
-
-Кеш поиска проверяется до чтения корпуса и inference, но после актуальной авторизации. Некешированный поиск объединяет FTS-кандидатов с ограниченной heap семантических кандидатов, фильтрует ACL до LIMIT и декодирует тексты только финальных кандидатов. Векторный LRU ограничен 32 МиБ, SQL-кеш — 1000 записями/64 МиБ, вопросный embedding — 128 записями. Сканирование больших наборов отдаёт управление I/O.
-
-Token-события объединяются при записи в транзакции с интервалом 100 мс. Отмена сохраняет последний разрешённый текст; удаление источника или диалога не позволяет finally-блоку воскресить удалённые данные. Запуск, восстановление и очистка выбирают только незавершённые записи, не декодируя всю завершённую историю. Хеширование локальных синхронизируемых файлов потоковое и асинхронное.
-
-## Клиентский UI
-
-Навигация хранится в URL, а не в одном компоненте экрана. Auth, чат, документы и семь разделов администрирования используют общие кнопки, формы, таблицы, модальные окна, статусы и токены дизайна. Общие стили разделены на базу, layout, административные компоненты, документы, чат, auth, overlays и responsive. Административные экраны загружаются лениво.
-
-Серверные снимки в MobX shallow/ref сохраняют неизменяемость и избегают глубокого преобразования длинных ответов. Асинхронные ответы защищены счётчиками запросов и эпохой сессии. SSE имеет общий для вкладок origin пул из четырёх соединений через Web Locks; одно место резервируется для чата. Освобождение блокировки следует отмене/закрытию вкладки. Без Web Locks действует более консервативный локальный лимит; серверный предел соединений остаётся обязательным. Смена диалога не отменяет наблюдение индексации. Формы сохраняют введённые значения при ошибке, показывают код/diagnostic, переводят фокус к ошибке, а конфликты ревизий требуют перечитать актуальные данные. Временное состояние кнопки не теряет фокус и не допускает повторного запуска действия.
-
-На телефоне меню исключено из tab-порядка в закрытом состоянии; открытое меню удерживает фокус, Escape закрывает его и возвращает фокус. Нативные dialog обеспечивают фокус и Escape. Markdown рендерится через React без raw HTML, сценариев и внешних изображений; ссылки используют allowlist. Источники в обычном тексте, списках и таблицах открывают конкретную версию/страницу/фрагмент.
-
-## Оставшиеся ограничения архитектуры
-
-Один процесс/writer SQLite — намеренная граница автономной установки, горизонтального масштабирования и совместного каталога нескольких серверов нет. Семантический поиск перебирает разрешённые векторы; для существенно большего корпуса потребуется измерение и отдельное решение по ANN, а не скрытая замена метрики вероятностью. Обработка PDF/OCR и генерация зависят от подготовленных локальных моделей и ресурсов машины. Docker и службы требуют запуска в целевом окружении; результаты локальных проверок не заменяют такую приёмку.
-
-Справочники: [конфигурация](CONFIGURATION.md), [CLI](CLI.md), [проверки и измерения](VERIFICATION.md).
+AIService resolves the enabled credential from PostgreSQL after waiting for provider capacity, immediately before constructing an adapter. There is no process/Redis plaintext cache or invalidation broadcast. API and independent workers observe rotations on the next call; in-flight calls may finish. Provider errors discard response bodies. Credentialed endpoints require HTTPS in production; deployment endpoints remain allowlisted.

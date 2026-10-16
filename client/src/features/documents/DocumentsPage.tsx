@@ -300,7 +300,10 @@ export const Documents = observer(function Documents() {
                   </>,
                   <div className="actions compact">
                     <Button onClick={() => modal(<DocumentView id={d.id} after={load.reload} />)}>
-                      Открыть
+                      {d.processing?.reviewRequired &&
+                      canEditDocument(d, app.session.user, app.bases.items)
+                        ? 'Проверить и опубликовать'
+                        : 'Открыть'}
                     </Button>
                     {canEditDocument(d, app.session.user, app.bases.items) && (
                       <Button onClick={() => modal(<EditDocument doc={d} after={load.reload} />)}>

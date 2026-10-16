@@ -8,6 +8,12 @@ coverage/
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+playwright-report/
+test-results/
 *.py[cod]
 *.cpuprofile
 *.heapprofile
@@ -18,9 +24,32 @@ compose.env
 .env.*
 !.env.example
 
-# Downloaded tokenizer/ONNX model bundles and local indexes
+# Downloaded model weights, local indexes and runtime data
 .cache/
 data/
+/models/
+/model-cache/
+/ollama-data/
+/postgres-data/
+/pgdata/
+/redis-data/
+/storage-data/
+/s3-data/
+/docker-data/
+/volumes/
+/uploads/
+/server/uploads/
+/backups/
+/server/backups/
+/snapshots/
+*.dump
+*.sql.gz
+*.gguf
+*.onnx
+*.safetensors
+*.pt
+*.pth
+ggml-*.bin
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
@@ -32,11 +61,31 @@ data/
 
 # Personal IDE settings, system files, and temporary files
 .idea/
+.vscode/
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
 Thumbs.db
+Desktop.ini
+/tmp/
+/temp/
 *.log
 *.log.*
 *.tmp
 *.swp
 *.swo
 *~
+
+# Private deployment credentials and TLS material; do not ignore application source.
+/.secrets/
+/secrets/
+/credentials/
+/deploy/secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Generated verification runs; keep curated reports in docs/verification.
+.artifacts/

@@ -1,0 +1,35 @@
+{
+  "id": "10000000-0000-4000-8000-000000000002",
+  "name": "Gemini Embedding 2",
+  "role": "embedding",
+  "cache": true,
+  "input": [
+    "text",
+    "image",
+    "audio",
+    "video",
+    "pdf"
+  ],
+  "model": "gemini-embedding-2",
+  "enabled": true,
+  "endpoint": "https://generativelanguage.googleapis.com",
+  "maxBytes": 20971520,
+  "provider": "google",
+  "revision": 3,
+  "secretRef": "google-test-key",
+  "timeoutMs": 300000,
+  "dimensions": 1536,
+  "maxSeconds": 60,
+  "concurrency": 2,
+  "contextTokens": 8192,
+  "maxOutputTokens": 0,
+  "tokensPerMinute": 100000,
+  "requestsPerMinute": 60,
+  "inputMicrosPerMillion": {
+    "text": 200000,
+    "image": 450000,
+    "audio": 6500000,
+    "video": 12000000
+  },
+  "outputMicrosPerMillion": 0
+}

@@ -8,6 +8,7 @@ import { useModal } from '../../shared/lib/hooks';
 import { Button } from '../../shared/ui/Button';
 import { Field, Form } from '../../shared/ui/Form';
 import { Markdown } from '../../shared/ui/Markdown';
+import { mediaTime } from '../documents/MediaPreview';
 import { Source } from '../documents/SourceDialog';
 import { statuses } from '../jobs/job-status';
 import { ConversationVersions } from './ConversationVersions';
@@ -48,7 +49,8 @@ export const TurnView = observer(function TurnView({
           <strong>Источники</strong>
           {t.sources.map((s) => (
             <Button key={s.chunk} onClick={() => modal(<Source source={s} />)}>
-              [{s.id}] {s.name} · {s.section} · стр. {s.page}
+              [{s.id}] {s.name} · {s.section} ·{' '}
+              {s.media?.startMs === undefined ? `стр. ${s.page}` : mediaTime(s.media.startMs)}
             </Button>
           ))}
         </div>

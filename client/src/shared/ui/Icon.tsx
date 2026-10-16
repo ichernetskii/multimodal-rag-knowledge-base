@@ -1,4 +1,9 @@
 const paths = {
+  overview: 'M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7',
+  connections: 'M7 3v5m10-5v5M5 8h14v4a7 7 0 0 1-14 0V8Zm7 11v3',
+  tenants: 'M3 21V7l9-4v18M12 9h9v12M6 9h2m-2 4h2m-2 4h2m7-5h3m-3 4h3',
+  usage: 'M4 20V10m7 10V4m7 16v-7M2 21h20',
+  audit: 'M4 5h16M4 12h16M4 19h16',
   chat: 'M4 4h16v12H9l-5 4V4Z',
   documents: 'M6 3h8l4 4v14H6V3Zm8 0v5h5M9 12h6M9 16h6',
   operations: 'M3 12h4l3-8 4 16 3-8h4',
@@ -17,7 +22,7 @@ const paths = {
   plus: 'M12 4v16M4 12h16',
   shield: 'm12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Z',
 } as const;
-type IconName = keyof typeof paths;
+export type IconName = keyof typeof paths;
 export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return (
     <svg

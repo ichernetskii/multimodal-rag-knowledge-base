@@ -1,3 +1,4 @@
+import { tenantUrl } from '../../shared/api/client';
 import { makeAutoObservable, observableShallow, runInAction } from 'mobx';
 import type { Job, Turn } from '../../shared/api/contracts.generated';
 import { terminal } from '../../shared/api/contracts.generated';
@@ -110,7 +111,7 @@ export class JobStreamStore {
     this.starting.delete(id);
     let stream: EventSource;
     try {
-      stream = new EventSource('/api/events/' + encodeURIComponent(id));
+      stream = new EventSource(tenantUrl('/api/events/' + encodeURIComponent(id)));
     } catch (error) {
       releaseCapacity();
       controller.abort();

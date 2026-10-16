@@ -16,6 +16,7 @@ export function Form({
   busyLabel = 'Выполняется…',
   disabled = false,
   className = '',
+  autoComplete,
 }: {
   children: ReactNode;
   submit: (data: FormData) => Promise<unknown>;
@@ -23,6 +24,7 @@ export function Form({
   busyLabel?: string;
   disabled?: boolean;
   className?: string;
+  autoComplete?: string;
 }) {
   const app = useApplication(),
     [busy, setBusy] = useState(false),
@@ -35,6 +37,7 @@ export function Form({
   return (
     <form
       className={className}
+      autoComplete={autoComplete}
       aria-busy={busy || undefined}
       aria-describedby={error ? errorId : undefined}
       onSubmit={(event) => {

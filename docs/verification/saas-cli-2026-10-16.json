@@ -1,0 +1,17 @@
+{
+  "at": "2026-10-16T03:16:02.510Z",
+  "success": true,
+  "url": "http://localhost:8080",
+  "credentialMode": "0600",
+  "companySwitchAndIsolation": true,
+  "uploadReviewPublish": true,
+  "chatAndSSE": true,
+  "conversationExport": true,
+  "localFolderSyncAndPublish": true,
+  "demoCollection": "608f1542-f69e-458c-a341-1b195e3aa7cb",
+  "demoDocuments": [
+    "8dc46e7d-a94c-4644-a597-506e479ce2cf",
+    "e6f57bab-91ac-4e27-b2c2-fe16cca74996"
+  ],
+  "testAI": true
+}

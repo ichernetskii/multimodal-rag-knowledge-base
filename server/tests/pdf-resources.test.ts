@@ -10,7 +10,7 @@ void test('cancelling extraction terminates its child process group and removes 
   const directory = mkdtempSync(join(tmpdir(), 'rag-pdf-cancel-')),
     script = join(directory, 'extract.mjs'),
     controller = new AbortController(),
-    settings = defaults(directory, 'test', 'test');
+    settings = { ...defaults(), dataDir: directory, whisperModel: '' };
   writeFileSync(
     script,
     "import {spawn} from 'node:child_process';import {writeFileSync} from 'node:fs';import {dirname,join} from 'node:path';const child=spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});writeFileSync(join(dirname(process.argv[2]),'child.pid'),String(child.pid));console.log(JSON.stringify({progress:'ocr'}));setInterval(()=>{},1000);",

@@ -6,6 +6,6 @@ dist/
 data/
 .idea/
 # Generated machine-readable verification evidence uses JSON.stringify formatting.
-docs/verification/*.json
+docs/verification/
 yarn.lock
 .env

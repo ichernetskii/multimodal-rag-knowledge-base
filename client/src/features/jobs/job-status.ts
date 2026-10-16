@@ -1,5 +1,6 @@
 import type { Job } from '../../shared/api/contracts.generated';
 export const statuses: Record<Job['status'], string> = {
+  retrying: 'Ожидание повторной попытки',
   queued: 'В очереди',
   extracting: 'Извлечение текста',
   ocr: 'Распознавание страниц',

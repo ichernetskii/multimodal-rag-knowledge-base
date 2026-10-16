@@ -1,13 +1,14 @@
-import { api, base64 } from '../../shared/api/client';
+import { api, uploadFile } from '../../shared/api/client';
 import type { DocumentRecord } from '../../shared/api/contracts.generated';
 import { useApplication } from '../../shared/lib/application-context';
-import { useModal } from '../../shared/lib/hooks';
+import { useLoad, useModal } from '../../shared/lib/hooks';
 import { Form } from '../../shared/ui/Form';
 
 export function ReplaceDocument({ doc, after }: { doc: DocumentRecord; after: () => void }) {
   const app = useApplication();
 
   const modal = useModal();
+  const limits = useLoad((signal) => api('documents.limits', {}, { signal }));
   return (
     <>
       <h2>Новая версия {doc.name}</h2>
@@ -18,13 +19,11 @@ export function ReplaceDocument({ doc, after }: { doc: DocumentRecord; after: ()
           if (!(file instanceof File) || !file.size) throw new Error('Выберите файл.');
           const limits = await api('documents.limits');
           if (file.size > limits.maxBytes) throw new Error('Превышение лимита файла.');
-          const r = await api('documents.upload', {
+          const r = await uploadFile(file, {
             document: doc.id,
             revision: doc.revision,
             collection: doc.collection,
             conversation: doc.conversation,
-            name: file.name,
-            base64: await base64(file),
           });
           if (r.job) {
             app.jobs.upsert(r.job);
@@ -37,7 +36,12 @@ export function ReplaceDocument({ doc, after }: { doc: DocumentRecord; after: ()
       >
         <label>
           Файл
-          <input type="file" name="file" required accept=".pdf,.txt,.md,.markdown" />
+          <input
+            type="file"
+            name="file"
+            required
+            accept={limits.data?.supported.map((extension) => '.' + extension).join(',')}
+          />
         </label>
       </Form>
     </>

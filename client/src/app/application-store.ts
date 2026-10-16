@@ -4,6 +4,7 @@ import { ChatStore } from '../features/chat/chat-store';
 import { JobStreamStore } from '../features/jobs/job-stream-store';
 import { KnowledgeBaseStore } from '../features/knowledge-bases/knowledge-base-store';
 import { NavigationStore } from './navigation/navigation-store';
+import { canAccessAdmin } from '../features/admin/admin-sections';
 import { ApiError } from '../shared/api/client';
 
 /** Composition and navigation only. Feature state and asynchronous work belong to feature stores. */
@@ -58,6 +59,14 @@ export class ApplicationStore {
       { autoBind: true },
     );
   }
+  async switchCompany(id: string) {
+    const view = this.view,
+      section = this.navigation.section;
+    await this.session.switchTenant(id);
+    const user = this.session.user;
+    if (view === 'admin' && this.view === 'chat' && user?.tenant === id && user.role === 'admin')
+      this.navigation.navigate('admin', canAccessAdmin(section, user) ? section : 'overview');
+  }
   private async loadWorkspace() {
     const epoch = this.session.epoch;
     await this.bases.refresh();
@@ -66,7 +75,8 @@ export class ApplicationStore {
     if (epoch !== this.session.epoch) return;
     const user = this.session.user;
     if (!user) return;
-    const saved = this.navigation.conversation || localStorage.getItem('rag-c-' + user.id);
+    const saved =
+      this.navigation.conversation || localStorage.getItem('rag-c-' + user.tenant + ':' + user.id);
     const selected = saved ?? this.chat.conversations[0]?.id;
     if (selected)
       try {

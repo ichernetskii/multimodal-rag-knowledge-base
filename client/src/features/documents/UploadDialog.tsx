@@ -1,6 +1,6 @@
 import { observer } from 'mobx-react-lite';
 import { useEffect, useRef, useState } from 'react';
-import { api, base64 } from '../../shared/api/client';
+import { api, uploadFile } from '../../shared/api/client';
 import type { DocumentPreview } from '../../shared/api/contracts.generated';
 import { useApplication } from '../../shared/lib/application-context';
 import { bytes } from '../../shared/lib/format';
@@ -46,6 +46,7 @@ export const Upload = observer(function Upload({
   );
   if (!limits.data) return <Loading error={limits.error} retry={limits.reload} />;
   const maxBytes = limits.data.maxBytes;
+  const extensions = limits.data.supported;
   async function prepare(files: File[]) {
     const request = ++sequence.current;
     setPrepared([]);
@@ -57,7 +58,8 @@ export const Upload = observer(function Upload({
       for (const file of files) {
         if (request !== sequence.current) return;
         const digest =
-          file.size > maxBytes || !/\.(pdf|md|markdown|txt)$/iu.test(file.name)
+          file.size > maxBytes ||
+          !extensions.some((extension) => file.name.toLowerCase().endsWith('.' + extension))
             ? ''
             : Array.from(
                 new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer())),
@@ -111,17 +113,18 @@ export const Upload = observer(function Upload({
             for (const item of ready) {
               setUploading(item.file.name);
               const { file, result } = item,
-                response = await api(
-                  'documents.upload',
+                response = await uploadFile(
+                  file,
                   {
                     ...(conversation ? { conversation } : { collection: chosen }),
-                    name: file.name,
-                    base64: await base64(file),
                     ...(result.status === 'update'
                       ? { document: result.document!, revision: result.revision! }
                       : {}),
                   },
-                  { timeoutMs: 120_000 },
+                  {
+                    progress: (done, total) =>
+                      setUploading(file.name + ' · ' + Math.round((done / total) * 100) + '%'),
+                  },
                 );
               if (response.job) {
                 app.jobs.upsert(response.job);
@@ -169,14 +172,14 @@ export const Upload = observer(function Upload({
             ↑
           </span>
           <strong>Выберите файлы</strong>
-          <span>PDF, Markdown и TXT · до {bytes(maxBytes)} на файл</span>
+          <span>Документы, фото, видео и аудио · до {bytes(maxBytes)} на файл</span>
           <input
             className="sr-only"
             ref={fileInput}
             type="file"
             name="files"
             multiple
-            accept=".pdf,.md,.markdown,.txt"
+            accept={extensions.map((extension) => '.' + extension).join(',')}
             onChange={(event) => void prepare(Array.from(event.target.files ?? []))}
           />
         </label>
@@ -209,8 +212,9 @@ export const Upload = observer(function Upload({
         )}
         <div className="info-callout">
           <p>
-            Индексация выполняется в фоне. Страницы с OCR и предупреждениями потребуют проверки
-            перед публикацией.
+            Обработка выполняется в фоне. Фото и кадры описывает Qwen, речь расшифровывает Whisper.
+            Перед публикацией проверьте результат. Видео анализируется по выбранным кадрам; звуки
+            механизма не распознаются.
           </p>
         </div>
       </Form>
