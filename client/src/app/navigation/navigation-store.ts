@@ -1,16 +1,27 @@
 import { makeAutoObservable } from 'mobx';
-import { adminNames, type AdminSection } from '../../features/admin/admin-sections';
-type View = 'chat' | 'documents' | 'admin';
+import { adminNames, adminSections, type AdminSection } from '../../features/admin/admin-sections';
+export const knowledgeTabs = {
+  materials: 'Материалы',
+  collections: 'Базы и доступ',
+  sources: 'Подключённые папки',
+  quality: 'Качество ответов',
+} as const;
+export type View = 'chat' | 'documents' | 'admin';
 function parseRoute(path: string): {
   view: View;
   section: AdminSection;
   conversation: string;
+  tab: string;
 } {
   const parts = path.split('/').filter(Boolean);
+  const section =
+    parts[1] && Object.hasOwn(adminNames, parts[1]) ? (parts[1] as AdminSection) : 'models';
+  const tabs = parts[0] === 'knowledge' ? knowledgeTabs : adminSections[section].tabs;
+  const tab = parts[0] === 'knowledge' ? parts[1] : parts[2];
   return {
-    view: parts[0] === 'admin' ? 'admin' : parts[0] === 'documents' ? 'documents' : 'chat',
-    section:
-      parts[1] && Object.hasOwn(adminNames, parts[1]) ? (parts[1] as AdminSection) : 'overview',
+    view: parts[0] === 'admin' ? 'admin' : parts[0] === 'knowledge' ? 'documents' : 'chat',
+    section,
+    tab: tab && Object.hasOwn(tabs, tab) ? tab : (Object.keys(tabs)[0] ?? ''),
     conversation: parts[0] === 'chat' && parts[1] ? decodeConversation(parts[1]) : '',
   };
 }
@@ -23,11 +34,19 @@ function decodeConversation(value: string) {
 }
 export class NavigationStore {
   view: View = 'chat';
-  section: AdminSection = 'overview';
+  section: AdminSection = 'models';
+  tab = 'assignments';
   conversation = '';
-  constructor(private readonly onPop: () => void) {
+  constructor(
+    private readonly onPop: () => void,
+    private readonly allowPop: () => boolean = () => true,
+  ) {
     if (typeof window !== 'undefined') Object.assign(this, parseRoute(window.location.pathname));
-    makeAutoObservable<this, 'onPop'>(this, { onPop: false }, { autoBind: true });
+    makeAutoObservable<this, 'onPop' | 'allowPop'>(
+      this,
+      { onPop: false, allowPop: false },
+      { autoBind: true },
+    );
   }
   start() {
     if (typeof window !== 'undefined') window.addEventListener('popstate', this.pop);
@@ -36,13 +55,23 @@ export class NavigationStore {
     if (typeof window !== 'undefined') window.removeEventListener('popstate', this.pop);
   }
   private pop = () => {
+    if (!this.allowPop()) {
+      this.write();
+      return;
+    }
     Object.assign(this, parseRoute(window.location.pathname));
     this.onPop();
   };
-  navigate(view: View, section: AdminSection = this.section) {
+  navigate(view: View, section: AdminSection = this.section, tab?: string) {
+    const tabs = view === 'documents' ? knowledgeTabs : adminSections[section].tabs;
+    const candidate = tab ?? (this.view === view && this.section === section ? this.tab : '');
+    this.tab = Object.hasOwn(tabs, candidate) ? candidate : (Object.keys(tabs)[0] ?? '');
     this.view = view;
     this.section = section;
     this.write();
+  }
+  selectTab(tab: string) {
+    this.navigate(this.view, this.section, tab);
   }
   selectConversation(id: string) {
     this.conversation = id;
@@ -52,9 +81,9 @@ export class NavigationStore {
     if (typeof window === 'undefined') return;
     const path =
       this.view === 'admin'
-        ? '/admin/' + this.section
+        ? '/admin/' + this.section + (this.tab ? '/' + this.tab : '')
         : this.view === 'documents'
-          ? '/documents'
+          ? '/knowledge/' + (this.tab || 'materials')
           : '/chat' + (this.conversation ? '/' + encodeURIComponent(this.conversation) : '');
     if (window.location.pathname !== path) window.history.pushState(null, '', path);
   }

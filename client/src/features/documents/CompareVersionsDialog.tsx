@@ -1,39 +1,54 @@
 import { useState } from 'react';
 import { api } from '../../shared/api/client';
-import type { DocumentDetails, Page } from '../../shared/api/contracts.generated';
+import type { DocumentDetails } from '../../shared/api/contracts.generated';
 import { text } from '../../shared/lib/form-data';
+import { date } from '../../shared/lib/format';
+import { useLoad } from '../../shared/lib/hooks';
 import { Form, Select } from '../../shared/ui/Form';
-import { Badge } from '../../shared/ui/Feedback';
-
+import { Button } from '../../shared/ui/Button';
+import { Badge, Loading } from '../../shared/ui/Feedback';
 export function Compare({ data }: { data: DocumentDetails }) {
-  const [pages, setPages] = useState<{ left: Page[]; right: Page[] }>();
-  const [page, setPage] = useState(1);
-  const options: [string, string][] = data.versions.map((v, index) => [
-    v.id,
-    `Версия ${data.versions.length - index} · ${new Date(v.created).toLocaleString()}`,
+  const [selection, setSelection] = useState<{ left: string; right: string } | null>(null);
+  const [page, setPage] = useState(1),
+    [offset, setOffset] = useState(0);
+  const load = useLoad(
+    (signal) =>
+      selection
+        ? api(
+            'documents.compare',
+            {
+              id: data.document.id,
+              ...selection,
+              page,
+              offset,
+              limit: 12000,
+            },
+            { signal },
+          )
+        : Promise.resolve(null),
+    [selection, page, offset],
+  );
+  const options: [string, string][] = data.versions.map((version, index) => [
+    version.id,
+    `Версия ${data.versions.length - index} · ${date(version.created)}`,
   ]);
-  const numbers = pages
-    ? [...new Set([...pages.left, ...pages.right].map((item) => item.number))].sort((a, b) => a - b)
-    : [];
-  const left = pages?.left.find((item) => item.number === page),
-    right = pages?.right.find((item) => item.number === page);
+  const comparison = load.data;
+  const total = Math.max(
+    comparison?.left?.totalCharacters ?? 0,
+    comparison?.right?.totalCharacters ?? 0,
+  );
   return (
-    <>
-      <h2>Сравнение извлечённого текста</h2>
+    <div className="document-comparison">
+      <h2>Сравнение текста двух версий</h2>
       <p className="muted">
-        Выберите две версии. Сравнение показано по страницам, чтобы большие документы было удобно
-        просматривать.
+        Выберите версии. Большие страницы загружаются фрагментами; оригиналы остаются без изменений.
       </p>
       <Form
         label="Сравнить"
-        submit={async (f) => {
-          const result = await api('documents.compare', {
-            id: data.document.id,
-            left: text(f, 'left'),
-            right: text(f, 'right'),
-          });
-          setPages(result);
-          setPage(result.left[0]?.number ?? result.right[0]?.number ?? 1);
+        submit={async (form) => {
+          setPage(1);
+          setOffset(0);
+          setSelection({ left: text(form, 'left'), right: text(form, 'right') });
         }}
       >
         <div className="form-grid">
@@ -46,33 +61,69 @@ export function Compare({ data }: { data: DocumentDetails }) {
           <Select label="Новая версия" name="right" options={options} value={data.version.id} />
         </div>
       </Form>
-      {pages && (
-        <>
-          <div className="document-page-bar">
-            <label className="field">
-              Страница
-              <select value={page} onChange={(event) => setPage(Number(event.target.value))}>
-                {numbers.map((number) => (
-                  <option key={number} value={number}>
-                    {number}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Badge tone={left?.text === right?.text ? 'success' : 'warning'}>
-              {left?.text === right?.text ? 'Текст совпадает' : 'Текст отличается'}
-            </Badge>
-          </div>
-          <div className="split">
-            {(['left', 'right'] as const).map((key) => (
-              <div key={key}>
-                <h3>{key === 'left' ? 'Старая версия' : 'Новая версия'}</h3>
-                <pre>{(key === 'left' ? left : right)?.text ?? 'Страницы нет в этой версии.'}</pre>
+      {selection &&
+        (load.error ? (
+          <Loading error={load.error} retry={load.reload} />
+        ) : load.loading ? (
+          <Loading />
+        ) : (
+          comparison && (
+            <>
+              <div className="document-page-bar">
+                <label>
+                  Страница / сегмент
+                  <select
+                    value={page}
+                    onChange={(event) => {
+                      setPage(Number(event.target.value));
+                      setOffset(0);
+                    }}
+                  >
+                    {comparison.pages.map((number) => (
+                      <option key={number} value={number}>
+                        {number}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Badge
+                  tone={comparison.left?.text === comparison.right?.text ? 'success' : 'warning'}
+                >
+                  {comparison.left?.text === comparison.right?.text
+                    ? 'Текст фрагмента совпадает'
+                    : 'Текст фрагмента отличается'}
+                </Badge>
               </div>
-            ))}
-          </div>
-        </>
-      )}
-    </>
+              <div className="split">
+                {(['left', 'right'] as const).map((side) => (
+                  <section key={side}>
+                    <h3>{side === 'left' ? 'Старая версия' : 'Новая версия'}</h3>
+                    <pre>{comparison[side]?.text ?? 'Страницы нет в этой версии.'}</pre>
+                  </section>
+                ))}
+              </div>
+              {total > 12000 && (
+                <div className="actions">
+                  <Button
+                    disabled={offset === 0}
+                    onClick={() => setOffset(Math.max(0, offset - 12000))}
+                  >
+                    ← Предыдущий фрагмент
+                  </Button>
+                  <span>
+                    {offset + 1}–{Math.min(total, offset + 12000)} из {total}
+                  </span>
+                  <Button
+                    disabled={offset + 12000 >= total}
+                    onClick={() => setOffset(offset + 12000)}
+                  >
+                    Следующий фрагмент →
+                  </Button>
+                </div>
+              )}
+            </>
+          )
+        ))}
+    </div>
   );
 }

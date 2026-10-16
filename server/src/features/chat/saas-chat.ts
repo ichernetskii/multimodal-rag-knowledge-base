@@ -17,6 +17,7 @@ import { string, number, strings, revision } from '../../shared/input.js';
 import { requireValue } from '../../shared/errors.js';
 import { signature, estimateInput } from '../models/ai-service.js';
 import type { AIInput } from '../../application/ports/ai.js';
+import { hasSearchText, presentPage } from '../documents/material-text.js';
 export class Chat {
   constructor(
     readonly s: Services,
@@ -196,36 +197,37 @@ export class Chat {
     await this.s.ai.profile(model.id, 'generation');
     const attachments: Source[] = [],
       queryParts: AIInput[] = [{ kind: 'text', text: turn.question }];
+    const attachmentIndex = turn.attachments?.length
+      ? await this.documents.activeIndex()
+      : undefined;
     for (const id of turn.attachments ?? []) {
-      const detail = await this.documents.details(user, id);
+      const document = await this.documents.document(user, id);
       requireValue(
-        detail.document.conversation === turn.conversation && detail.document.state === 'published',
+        document.conversation === turn.conversation && document.state === 'published',
         'INVALID_ATTACHMENT',
         'Attachment is no longer available.',
       );
-      const stored = await this.s.db.get<StoredVersion>('version', detail.version.id);
-      requireValue(stored, 'NOT_FOUND', 'Version not found.');
-      for (const page of stored.pages.slice(0, 1)) {
-        const source: Source = {
-          id: 0,
-          chunk:
-            (
-              await this.s.db.query<{ id: string }>(
-                "SELECT id FROM source_fragments WHERE tenant_id=$1 AND version_id=$2 AND (body->>'page')::int=$3 ORDER BY id LIMIT 1",
-                [user.tenant, stored.id, page.number],
-              )
-            )[0]?.id ?? '',
-          document: id,
-          version: stored.id,
-          name: stored.name,
-          page: page.number,
-          section: page.sections[0]?.title ?? '',
-          text: page.text,
-          ...(page.media ? { media: page.media } : {}),
-        };
-        attachments.push(source);
+      const stored = await this.s.db.get<StoredVersion>('version', document.activeVersion);
+      requireValue(
+        stored?.document === document.id && stored.state === 'ready',
+        'NOT_FOUND',
+        'Version not found.',
+      );
+      for (const page of stored.pages.slice(0, 1).map(presentPage)) {
+        const [fragment] = await this.s.db.query<{ body: Source }>(
+          `SELECT f.body FROM source_fragments f JOIN chunks c ON c.tenant_id=f.tenant_id AND c.source_id=f.id
+           WHERE f.tenant_id=$1 AND f.version_id=$2 AND (f.body->>'page')::int=$3 AND c.index_id=$4 ORDER BY f.id LIMIT 1`,
+          [user.tenant, stored.id, page.number, attachmentIndex?.id],
+        );
+        requireValue(
+          fragment,
+          'ATTACHMENT_NOT_INDEXED',
+          'Вложение ещё не готово для текущей модели поиска. Дождитесь индексации.',
+          409,
+        );
+        attachments.push(fragment.body);
         if (queryParts.length < 2 && page.media) {
-          const input = await this.documents.mediaInput(user, detail.document, stored, page);
+          const input = await this.documents.mediaInput(user, document, stored, page);
           const index = await this.documents.activeIndex();
           for (const part of input)
             if (part.kind !== 'text' && index.model.input.includes(part.kind))
@@ -238,15 +240,14 @@ export class Chat {
       user,
       turn.question,
       { ...turn.scope, conversation: turn.conversation },
-      queryParts,
-      job.id,
-      signal,
+      { parts: queryParts, job: job.id, signal },
+    );
+    const primary = attachments.map(
+      (source) => retrieved.find((found) => found.document === source.document) ?? source,
     );
     turn.sources = [
-      ...attachments,
-      ...retrieved.filter(
-        (s) => !attachments.some((a) => a.document === s.document && a.page === s.page),
-      ),
+      ...primary,
+      ...retrieved.filter((s) => !primary.some((a) => a.chunk === s.chunk)),
     ]
       .slice(0, settings.topK + 3)
       .map((s, i) => ({ ...s, id: i + 1 }));
@@ -265,13 +266,18 @@ export class Chat {
       parent = prior.parent;
     }
     turn.accessSources = dependencies;
-    let mediaSelected = 0;
-    turn.sources = turn.sources
-      .filter((source) => !source.media || mediaSelected++ < settings.answerMaxImages)
-      .map((source, i) => ({ ...source, id: i + 1 }));
     const context: AIInput[] = [];
+    const included: Source[] = [];
     let mediaCount = 0;
     for (const source of turn.sources) {
+      // The limit applies to binary inputs, not to transcripts/captions attached to them.
+      if (source.media && mediaCount >= settings.answerMaxImages) {
+        const version = await this.s.db.get<StoredVersion>('version', source.version);
+        const page = version?.pages.find((p) => p.number === source.page);
+        if (!page || !hasSearchText(presentPage(page))) continue;
+      }
+      source.id = included.length + 1;
+      included.push(source);
       context.push({
         kind: 'text',
         text: `[${source.id}] ${source.name}, page ${source.page}\n${source.text}`,
@@ -305,16 +311,14 @@ export class Chat {
           const version = await this.s.db.get<StoredVersion>('version', source.version);
           const page = version?.pages.find((p) => p.number === source.page);
           requireValue(
-            page &&
-              (page.method === 'text' ||
-                page.method === 'ocr' ||
-                page.sections.some((s) => ['Transcript', 'Visual description'].includes(s.title))),
+            page && hasSearchText(presentPage(page)),
             'UNSUPPORTED_MODALITY',
             `${model.name} cannot read ${source.media.kind}. Choose a matching profile or an explicitly prepared transcript/description.`,
           );
         }
       }
     }
+    turn.sources = included;
     const budget =
       Math.min(model.contextTokens, settings.contextTokens) -
       Math.min(model.maxOutputTokens, settings.maxOutputTokens);

@@ -12,6 +12,9 @@ export const ModalProvider = observer(function ModalProvider({
     dialog = useRef<HTMLDialogElement>(null),
     previous = useRef<HTMLElement | null>(null),
     opened = useRef(false);
+  const replace = (next: ReactNode) => {
+    if (!content || app.unsaved.confirmDiscard('dialog')) setContent(next);
+  };
   useEffect(() => setContent(null), [app.session.permissionsVersion, app.session.epoch]);
   useEffect(() => {
     if (content) {
@@ -31,13 +34,16 @@ export const ModalProvider = observer(function ModalProvider({
     }
   }, [content]);
   return (
-    <ModalContext.Provider value={setContent}>
+    <ModalContext.Provider value={replace}>
       {children}
       <dialog
         id="dialog"
         ref={dialog}
         aria-label="Диалоговое окно"
-        onCancel={() => setContent(null)}
+        onCancel={(event) => {
+          event.preventDefault();
+          replace(null);
+        }}
         onClose={() => setContent(null)}
         onClick={(event) => {
           if (event.target === dialog.current) {
@@ -48,14 +54,14 @@ export const ModalProvider = observer(function ModalProvider({
               event.clientY < rect.top ||
               event.clientY > rect.bottom
             )
-              setContent(null);
+              replace(null);
           }
         }}
       >
         <button
           id="close-dialog"
           className="icon-button modal-close"
-          onClick={() => setContent(null)}
+          onClick={() => replace(null)}
           aria-label="Закрыть окно"
         >
           ×

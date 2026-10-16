@@ -4,9 +4,12 @@ import { text } from '../../shared/lib/form-data';
 import { Form, Field } from '../../shared/ui/Form';
 import { PageHeader, Loading } from '../../shared/ui/Feedback';
 import { Button } from '../../shared/ui/Button';
-export function Sync() {
-  const load = useLoad((signal) => api('sync.list', {}, { signal })),
-    bases = useLoad((signal) => api('collections.list', {}, { signal }));
+import { useApplication } from '../../shared/lib/application-context';
+import { observer } from 'mobx-react-lite';
+export const Sync = observer(function Sync() {
+  const app = useApplication(),
+    load = useLoad((signal) => api('sync.list', {}, { signal }));
+  const bases = app.bases.items.filter((base) => app.bases.canEdit(base));
   return (
     <>
       <PageHeader
@@ -16,6 +19,7 @@ export function Sync() {
       <section className="panel">
         <Form
           label="Создать подключение"
+          disabled={!bases.length}
           submit={async (f) => {
             await api('sync.save', {
               path: text(f, 'path'),
@@ -30,7 +34,7 @@ export function Sync() {
           <label>
             База знаний
             <select name="collection" required>
-              {bases.data?.map((b) => (
+              {bases.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}
                 </option>
@@ -60,7 +64,7 @@ export function Sync() {
           <article key={c.id}>
             <h2>{c.path}</h2>
             <p>
-              Последний отчёт: {new Date(c.nextRun).toLocaleString()} · Файлов:{' '}
+              Следующая проверка клиентом: {new Date(c.nextRun).toLocaleString()} · Файлов:{' '}
               {Object.keys(c.mapping).length}
             </p>
             <p>На компьютере с папкой выполните:</p>
@@ -80,4 +84,4 @@ export function Sync() {
       </section>
     </>
   );
-}
+});

@@ -3,8 +3,10 @@ import { SessionStore } from '../features/auth/session-store';
 import { ChatStore } from '../features/chat/chat-store';
 import { JobStreamStore } from '../features/jobs/job-stream-store';
 import { KnowledgeBaseStore } from '../features/knowledge-bases/knowledge-base-store';
-import { NavigationStore } from './navigation/navigation-store';
-import { canAccessAdmin } from '../features/admin/admin-sections';
+import { NavigationStore, type View } from './navigation/navigation-store';
+import { UnsavedChanges } from './navigation/unsaved-changes';
+import type { AdminSection } from '../features/admin/admin-sections';
+import { canAccessAdmin, canAccessAdminTab } from '../features/admin/admin-sections';
 import { ApiError } from '../shared/api/client';
 
 /** Composition and navigation only. Feature state and asynchronous work belong to feature stores. */
@@ -14,20 +16,24 @@ export class ApplicationStore {
   readonly jobs: JobStreamStore;
   readonly chat: ChatStore;
   readonly navigation: NavigationStore;
+  readonly unsaved = new UnsavedChanges();
   get view() {
     return this.navigation.view;
   }
   notice = '';
   constructor() {
-    this.navigation = new NavigationStore(() => {
-      if (
-        this.session?.phase === 'ready' &&
-        this.view === 'chat' &&
-        this.navigation.conversation &&
-        this.navigation.conversation !== this.chat.conversation?.id
-      )
-        void this.execute(() => this.chat.openChat(this.navigation.conversation));
-    });
+    this.navigation = new NavigationStore(
+      () => {
+        if (
+          this.session?.phase === 'ready' &&
+          this.view === 'chat' &&
+          this.navigation.conversation &&
+          this.navigation.conversation !== this.chat.conversation?.id
+        )
+          void this.execute(() => this.chat.openChat(this.navigation.conversation));
+      },
+      () => this.unsaved.confirmDiscard(),
+    );
     this.session = new SessionStore(
       () => this.loadWorkspace(),
       () => this.resetWorkspace(),
@@ -55,17 +61,22 @@ export class ApplicationStore {
     );
     makeAutoObservable(
       this,
-      { session: false, bases: false, jobs: false, chat: false, navigation: false },
+      { session: false, bases: false, jobs: false, chat: false, navigation: false, unsaved: false },
       { autoBind: true },
     );
   }
   async switchCompany(id: string) {
+    if (id === this.session.user?.tenant || !this.unsaved.confirmDiscard()) return;
     const view = this.view,
-      section = this.navigation.section;
+      section = this.navigation.section,
+      tab = this.navigation.tab;
     await this.session.switchTenant(id);
     const user = this.session.user;
-    if (view === 'admin' && this.view === 'chat' && user?.tenant === id && user.role === 'admin')
-      this.navigation.navigate('admin', canAccessAdmin(section, user) ? section : 'overview');
+    if (view === 'admin' && this.view === 'chat' && user?.tenant === id) {
+      this.navigation.navigate('admin', canAccessAdmin(section, user) ? section : 'models', tab);
+      this.clampNavigation();
+    } else if (view === 'documents' && this.view === 'chat' && user?.tenant === id)
+      this.navigation.navigate('documents', section, tab);
   }
   private async loadWorkspace() {
     const epoch = this.session.epoch;
@@ -88,9 +99,10 @@ export class ApplicationStore {
         } else throw error;
       }
     this.clampScope();
-    if (this.view === 'admin' && user.role !== 'admin') this.navigation.navigate('chat');
+    this.clampNavigation();
   }
   private async refreshAccess(reset: boolean) {
+    if (reset) this.unsaved.clear();
     const epoch = this.session.epoch;
     if (reset) this.jobs.reset();
     await this.bases.refresh();
@@ -103,6 +115,7 @@ export class ApplicationStore {
     }
     if (epoch !== this.session.epoch) return;
     this.clampScope();
+    this.clampNavigation();
     await this.chat.loadConversations();
     if (!this.chat.conversation && this.chat.conversations[0])
       await this.chat.openChat(this.chat.conversations[0].id);
@@ -114,7 +127,19 @@ export class ApplicationStore {
     )
       this.chat.scope = {};
   }
+  private clampNavigation() {
+    const user = this.session.user;
+    if (user && this.view === 'admin' && !canAccessAdmin(this.navigation.section, user))
+      this.navigation.navigate(user.role === 'admin' ? 'admin' : 'documents', 'models');
+    else if (
+      user &&
+      this.view === 'admin' &&
+      !canAccessAdminTab(this.navigation.section, this.navigation.tab, user)
+    )
+      this.navigation.selectTab('assignments');
+  }
   private resetWorkspace() {
+    this.unsaved.clear();
     this.chat.reset();
     this.jobs.reset();
     this.bases.reset();
@@ -124,6 +149,15 @@ export class ApplicationStore {
   notify(message: string) {
     this.notice = message;
   }
+  navigate(view: View, section?: AdminSection, tab?: string) {
+    if (this.unsaved.confirmDiscard()) this.navigation.navigate(view, section, tab);
+  }
+  selectTab(tab: string) {
+    if (this.unsaved.confirmDiscard()) this.navigation.selectTab(tab);
+  }
+  private beforeUnload = (event: BeforeUnloadEvent) => {
+    if (this.unsaved.dirty) event.preventDefault();
+  };
   handleError(error: unknown, notify = true) {
     if (notify)
       this.notice = error instanceof Error ? error.message : 'Не удалось выполнить действие.';
@@ -139,6 +173,7 @@ export class ApplicationStore {
   }
   async boot() {
     this.navigation.start();
+    if (typeof window !== 'undefined') window.addEventListener('beforeunload', this.beforeUnload);
     try {
       await this.session.load();
     } catch (error) {
@@ -147,6 +182,8 @@ export class ApplicationStore {
     }
   }
   dispose() {
+    if (typeof window !== 'undefined')
+      window.removeEventListener('beforeunload', this.beforeUnload);
     this.navigation.dispose();
     this.chat.dispose();
     this.jobs.closeConnections();

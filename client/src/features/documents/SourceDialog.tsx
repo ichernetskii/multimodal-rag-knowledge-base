@@ -14,9 +14,7 @@ export function Source({ source }: { source: SourceData }) {
   const d = load.data,
     s = d.source,
     p = d.page,
-    text = p.text.includes(s.text)
-      ? p.text
-      : (p.sections.find((section) => section.title === s.section)?.text ?? p.text),
+    text = p.text,
     at = text.indexOf(s.text),
     url = tenantUrl(
       `/api/documents/${encodeURIComponent(s.document)}?version=${encodeURIComponent(s.version)}`,

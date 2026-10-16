@@ -2,6 +2,9 @@ import type { Services } from './services.js';
 import { Retention } from '../features/operations/retention-service.js';
 import { KnowledgeBases } from '../features/knowledge-bases/knowledge-base-service.js';
 import { Documents } from '../features/documents/saas-documents.js';
+import { DocumentCatalog } from '../features/documents/document-catalog.js';
+import { DocumentReader } from '../features/documents/document-reader.js';
+import { DocumentRevisions } from '../features/documents/document-revisions.js';
 import { Search } from '../features/search/saas-search.js';
 import { Chat } from '../features/chat/saas-chat.js';
 import { Administration } from '../features/operations/saas-admin.js';
@@ -30,6 +33,9 @@ import { requireValue } from '../shared/errors.js';
 import { passwordHash } from '../features/identity/saas-identity.js';
 export class Application {
   readonly documents;
+  readonly reader;
+  readonly catalog;
+  readonly revisions;
   readonly knowledgeBases;
   readonly retention;
   readonly search;
@@ -38,9 +44,15 @@ export class Application {
   readonly backups;
   readonly quality;
   readonly sync;
-  readonly actions: Record<string, (user: Principal, p: Input) => Promise<unknown>>;
+  readonly actions: Record<
+    string,
+    (user: Principal, p: Input, signal: AbortSignal) => Promise<unknown>
+  >;
   constructor(readonly s: Services) {
     this.documents = new Documents(s);
+    this.reader = new DocumentReader(s, this.documents);
+    this.catalog = new DocumentCatalog(s, this.documents);
+    this.revisions = new DocumentRevisions(s, this.documents);
     this.knowledgeBases = new KnowledgeBases(s, this.documents);
     this.retention = new Retention(s, this.documents);
     this.search = new Search(s, this.documents);
@@ -165,8 +177,11 @@ export class Application {
           supported: this.documents.supported(),
         };
       },
-      'documents.list': (u, p) => this.documents.list(u, p),
-      'documents.read': (u, p) => this.documents.details(u, string(p, 'id'), string(p, 'version')),
+      'documents.list': (u, p) => this.catalog.list(u, p),
+      'documents.read': (u, p) => this.reader.details(u, string(p, 'id'), string(p, 'version')),
+      'documents.page': (u, p) => this.reader.page(u, p),
+      'documents.find': (u, p) => this.reader.find(u, p),
+      'documents.revise': (u, p) => this.revisions.create(u, p),
       'documents.preview': async (u, p) => {
         const selection = await this.documents.scope(u, {
           collection: string(p, 'collection'),
@@ -274,12 +289,9 @@ export class Application {
           await s.db.invalidate(true);
           return { count: ids.length };
         }),
-      'documents.compare': async (u, p) => ({
-        left: (await this.documents.details(u, string(p, 'id'), string(p, 'left'))).version.pages,
-        right: (await this.documents.details(u, string(p, 'id'), string(p, 'right'))).version.pages,
-      }),
+      'documents.compare': (u, p) => this.reader.compare(u, p),
       'documents.restore': async (u, p) => {
-        const detail = await this.documents.details(u, string(p, 'id'), string(p, 'version'));
+        const detail = await this.reader.details(u, string(p, 'id'), string(p, 'version'));
         revision(p, detail.document);
         await this.documents.publish(u, { ...p, acknowledge: true, activate: true });
         return detail.document;
@@ -295,19 +307,20 @@ export class Application {
           'Source not found.',
           404,
         );
-        const detail = await this.documents.details(u, row.body.document, row.body.version);
+        const detail = await this.reader.details(u, row.body.document, row.body.version);
         return {
           document: detail.document,
           version: detail.version,
-          page: detail.version.pages.find((v) => v.number === row.body.page),
+          page: await this.reader.sourcePage(u, row.body),
           source: row.body,
         };
       },
-      search: async (u, p) =>
+      search: async (u, p, signal) =>
         this.search.search(
           u,
           string(p, 'question'),
           await this.documents.scope(u, (p.scope ?? {}) as Input),
+          { signal },
         ),
       'conversations.create': (u, p) => this.chat.create(u, p),
       'conversations.list': async (u, p) => {
@@ -527,13 +540,28 @@ export class Application {
       },
       'feedback.create': (u, p) => this.quality.feedback(u, p),
       'sync.list': async (u) => {
+        const collections = (await this.documents.allowedCollections(u))
+          .filter(
+            (collection) =>
+              u.role === 'admin' ||
+              (u.role === 'editor' &&
+                collection.grants.some(
+                  (grant) =>
+                    grant.access === 'edit' &&
+                    (grant.subject === u.id ||
+                      u.groups.some((id) => grant.subject === 'group:' + id)),
+                )),
+          )
+          .map((collection) => collection.id);
         const values = u.role === 'admin' ? [] : [u.id];
-        return s.db.list<SyncFolder>(
-          'sync',
-          u.role === 'admin' ? 'true' : "body->>'owner'=$2",
-          values,
-          10000,
-        );
+        return (
+          await s.db.list<SyncFolder>(
+            'sync',
+            u.role === 'admin' ? 'true' : "body->>'owner'=$2",
+            values,
+            10000,
+          )
+        ).filter((connector) => collections.includes(connector.collection));
       },
       'sync.save': (u, p) => this.sync.save(u, p),
       'sync.preview': (u, p) => this.sync.preview(u, p),
@@ -575,6 +603,8 @@ export class Application {
       if (job.kind === 'answer') await this.chat.process(job, user, signal, attempt);
       else if (job.kind === 'document') {
         if (job.payload.build) await this.administration.processIndex(job, user, signal, attempt);
+        else if (job.payload.stage === 'revise')
+          await this.revisions.process(job, user, signal, attempt);
         else await this.documents.process(job, user, signal, attempt);
       } else if (job.kind === 'evaluation') await this.quality.process(job, user, signal, attempt);
       else if (job.payload.operation === 'cleanup')
@@ -582,7 +612,12 @@ export class Application {
       else await this.backups.process(job, user, signal, attempt);
     };
   }
-  async execute(action: string, p: Input = {}, user?: Principal) {
+  async execute(
+    action: string,
+    p: Input = {},
+    user?: Principal,
+    signal = AbortSignal.timeout(60000),
+  ) {
     requireValue(
       Object.hasOwn(actionFields, action),
       'ACTION_NOT_FOUND',
@@ -612,7 +647,7 @@ export class Application {
       );
       const handler = this.actions[action];
       requireValue(handler, 'ACTION_NOT_FOUND', 'Unknown action.', 404);
-      return handler(current, p);
+      return handler(current, p, signal);
     });
   }
   async schedule() {

@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { useApplication } from '../../shared/lib/application-context';
-import { Icon } from '../../shared/ui/Icon';
-import { adminSections, type AdminSection } from './admin-sections';
+import { defaultAdminTab, type AdminSection } from './admin-sections';
 export const money = (micros: number) =>
   new Intl.NumberFormat('ru-RU', {
     style: 'currency',
@@ -12,38 +11,27 @@ export function AdminLink({
   to,
   children,
   className = '',
+  tab,
 }: {
   to: AdminSection;
   children: ReactNode;
   className?: string;
+  tab?: string;
 }) {
   const app = useApplication();
   return (
     <a
       className={className}
-      href={'/admin/' + to}
+      href={
+        '/admin/' + to + ((tab ?? defaultAdminTab(to)) ? '/' + (tab ?? defaultAdminTab(to)) : '')
+      }
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
-        app.navigation.navigate('admin', to);
+        app.navigate('admin', to, tab);
       }}
     >
       {children}
     </a>
-  );
-}
-export function TaskCard({ to }: { to: AdminSection }) {
-  const section = adminSections[to];
-  return (
-    <AdminLink to={to} className="admin-task-card">
-      <span className="admin-task-icon">
-        <Icon name={section.icon} />
-      </span>
-      <span>
-        <strong>{section.name}</strong>
-        <small>{section.description}</small>
-      </span>
-      <Icon name="arrow" size={16} />
-    </AdminLink>
   );
 }

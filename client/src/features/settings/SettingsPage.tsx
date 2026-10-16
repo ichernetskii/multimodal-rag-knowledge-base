@@ -126,12 +126,6 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
     operator = Boolean(app.session.user?.operator);
   return (
     <>
-      {mode === 'assistant' && (
-        <PageHeader
-          title="Помощник и модели"
-          description="Как помощник отвечает сотрудникам: модель, распознавание речи и правила работы."
-        />
-      )}
       {mode === 'processing' && (
         <PageHeader
           title="Параметры обработки"
@@ -151,6 +145,7 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
         </div>
       )}
       <Form
+        protectChanges
         disabled={mode === 'assistant' && (!models.data || models.loading || Boolean(models.error))}
         key={mode + ':' + settings.revision}
         label={
@@ -203,17 +198,11 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
                 Проверка подтверждает доступность модели; она не оценивает качество и скорость
                 ответов. Выбор модели не устанавливает её на сервер.
               </p>
-              <div className="info-callout">
-                Поиск по базе знаний:{' '}
-                <strong>
-                  {models.data?.find((p) => p.id === settings.embeddingProfile)?.name ??
-                    'Загрузка…'}
-                </strong>
-                . <AdminLink to="indexes">Изменить модель поиска</AdminLink>
-              </div>
               {operator ? (
                 <p>
-                  <AdminLink to="connections">Управлять подключениями и API-ключами</AdminLink>
+                  <AdminLink to="models" tab="connections">
+                    Настроить подключённые модели
+                  </AdminLink>
                 </p>
               ) : (
                 <p className="muted">
@@ -221,8 +210,8 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
                 </p>
               )}
             </section>
-            <section className="panel">
-              <h2>Поведение помощника</h2>
+            <details className="panel admin-details">
+              <summary>Поведение помощника</summary>
               <Field
                 label="Системная инструкция"
                 name="prompt"
@@ -232,55 +221,64 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
                 maxLength={32000}
                 hint="Правила для всех новых ответов в этой компании. Не вводите пароли и API-ключи."
               />
-            </section>
+            </details>
           </>
         )}
-        {groups[mode].map((group) => (
-          <section className="panel" key={group.title}>
-            <h2>{group.title}</h2>
-            <p>{group.description}</p>
-            <div className="form-grid">
-              {group.keys.map((key) => (
-                <Field
-                  key={key}
-                  label={limits[key][0]}
-                  name={key}
-                  type="number"
-                  value={settings[key] / limits[key][1]}
-                  min={0}
-                  max={
-                    !operator && planKeys.includes(key) ? settings[key] / limits[key][1] : undefined
-                  }
-                  step="any"
-                  required
-                  hint={
-                    !operator && planKeys.includes(key)
-                      ? 'Увеличение доступно владельцу платформы.'
-                      : undefined
-                  }
-                />
-              ))}
-            </div>
-            {mode === 'processing' && group.title === 'Изображения, аудио и видео' && (
+        {groups[mode].map((group) => {
+          const Container = mode === 'assistant' ? 'details' : 'section';
+          return (
+            <Container className="panel admin-details" key={group.title}>
+              {mode === 'assistant' ? (
+                <summary>Параметры ответов и контекста</summary>
+              ) : (
+                <h2>{group.title}</h2>
+              )}
+              <p>{group.description}</p>
               <div className="form-grid">
-                <Field
-                  label="Языки OCR"
-                  name="ocrLanguage"
-                  value={settings.ocrLanguage}
-                  required
-                  hint="Например, eng+rus. Языковые пакеты должны быть установлены на сервере."
-                />
-                <Field
-                  label="Язык речи для Whisper"
-                  name="whisperLanguage"
-                  value={settings.whisperLanguage}
-                  required
-                  hint="auto — определить автоматически, ru — русский, en — английский."
-                />
+                {group.keys.map((key) => (
+                  <Field
+                    key={key}
+                    label={limits[key][0]}
+                    name={key}
+                    type="number"
+                    value={settings[key] / limits[key][1]}
+                    min={0}
+                    max={
+                      !operator && planKeys.includes(key)
+                        ? settings[key] / limits[key][1]
+                        : undefined
+                    }
+                    step="any"
+                    required
+                    hint={
+                      !operator && planKeys.includes(key)
+                        ? 'Увеличение доступно владельцу платформы.'
+                        : undefined
+                    }
+                  />
+                ))}
               </div>
-            )}
-          </section>
-        ))}
+              {mode === 'processing' && group.title === 'Изображения, аудио и видео' && (
+                <div className="form-grid">
+                  <Field
+                    label="Языки OCR"
+                    name="ocrLanguage"
+                    value={settings.ocrLanguage}
+                    required
+                    hint="Например, eng+rus. Языковые пакеты должны быть установлены на сервере."
+                  />
+                  <Field
+                    label="Язык речи для Whisper"
+                    name="whisperLanguage"
+                    value={settings.whisperLanguage}
+                    required
+                    hint="auto — определить автоматически, ru — русский, en — английский."
+                  />
+                </div>
+              )}
+            </Container>
+          );
+        })}
         {mode === 'processing' && (
           <section className="panel">
             <h2>Приостановить работу компании</h2>

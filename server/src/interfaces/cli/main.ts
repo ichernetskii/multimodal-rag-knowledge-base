@@ -41,7 +41,7 @@ const stdin = async () => {
 async function main() {
   if (['help', '--help'].includes(command)) {
     console.log(
-      `Local RAG SaaS CLI\nLocal: init | bootstrap <login> [--name company] (password via stdin) | serve | worker | seed | prepare-local\nAPI: login <login> (password via stdin) | logout | tenant-use <id> | api <action> [input.json]\nContent: upload <file> <collection> [--document id --revision n --upload id] | download <document> <file> | review <document> | publish <document>\nChat: ask <question> [--file path] | search <question> | export <conversation> <file>\nJobs: watch <id> | cancel <id> | retry <id>\nSync: sync <connector-id> <directory> [--watch]\nAdministration: secrets|models|tenants|indexes|users|groups|collections|jobs|settings|quality|backup|usage|cache|audit <action> [input.json]\nFlags: --tenant id --url origin --json\nmodels pricing <id> --text 0.20 --image 0.45 --audio 6.50 --video 12 --output 0 sets USD per million tokens.\nmodels status [id] checks installed model availability; check and diagnose inspect the active installation.`,
+      `Local RAG SaaS CLI\nLocal: init | bootstrap <login> [--name company] (password via stdin) | serve | worker | seed | prepare-local\nAPI: login <login> (password via stdin) | logout | tenant-use <id> | api <action> [input.json]\nContent: upload <file> <collection> [--document id --revision n --upload id] | download <document> <file> | review <document> [--page n --offset n] | publish <document> | revise <document> [--version id]\nChat: ask <question> [--file path] | search <question> | export <conversation> <file>\nJobs: watch <id> | cancel <id> | retry <id>\nSync: sync <connector-id> <directory> [--watch]\nAdministration: secrets|models|tenants|indexes|users|groups|collections|jobs|settings|quality|backup|usage|cache|audit <action> [input.json]\nFlags: --tenant id --url origin --json\nmodels pricing <id> --text 0.20 --image 0.45 --audio 6.50 --video 12 --output 0 sets USD per million tokens.\nmodels status [id] checks installed model availability; check and diagnose inspect the active installation.`,
     );
     return;
   }
@@ -243,7 +243,34 @@ async function main() {
     return;
   }
   if (command === 'review') {
-    output(await api.action('documents.read', { id: args[0]! }));
+    const page = Number(take('--page') || 1),
+      offset = Number(take('--offset') || 0);
+    const detail = await api.action('documents.read', { id: args[0]! });
+    output({
+      ...detail,
+      text: detail.pages.length
+        ? await api.action('documents.page', {
+            id: detail.document.id,
+            version: detail.version.id,
+            page,
+            offset,
+          })
+        : null,
+    });
+    return;
+  }
+  if (command === 'revise') {
+    const version = take('--version');
+    const detail = await api.action('documents.read', {
+      id: args[0]!,
+      ...(version ? { version } : {}),
+    });
+    const job = await api.action('documents.revise', {
+      id: detail.document.id,
+      revision: detail.document.revision,
+      version: detail.version.id,
+    });
+    output(await api.wait(job.id));
     return;
   }
   if (command === 'publish') {

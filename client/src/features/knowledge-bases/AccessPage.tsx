@@ -77,6 +77,7 @@ function AccessEditor({
       <p className="eyebrow">БАЗА ЗНАНИЙ</p>
       <h2>{collection ? 'Название и доступ' : 'Новая база знаний'}</h2>
       <Form
+        protectChanges
         submit={async (f) => {
           await api('collections.save', {
             ...(collection ? { id: collection.id, revision: collection.revision } : {}),

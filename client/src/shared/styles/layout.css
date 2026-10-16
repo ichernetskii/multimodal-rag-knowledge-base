@@ -45,15 +45,13 @@
   border: 1px solid #3a6260;
   border-radius: 11px;
 }
-.workspace-nav,
-.admin-navigation {
+.workspace-nav {
   display: flex;
   flex-direction: column;
   gap: 3px;
   flex-shrink: 0;
 }
-.workspace-nav button,
-.admin-navigation button {
+.workspace-nav button {
   justify-content: flex-start;
   width: 100%;
   border: 0;
@@ -66,18 +64,15 @@
   font-weight: 500;
   text-align: left;
 }
-.workspace-nav button:hover,
-.admin-navigation button:hover {
+.workspace-nav button:hover {
   background: #213b4b;
   color: #fff;
 }
-.workspace-nav button[aria-current],
-.admin-navigation button[aria-current] {
+.workspace-nav button[aria-current] {
   background: #2a4a50;
   color: #c4f2df;
 }
-.workspace-nav button[aria-current] svg,
-.admin-navigation button[aria-current] svg {
+.workspace-nav button[aria-current] svg {
   color: #8ce0bd;
 }
 .nav-label {
@@ -223,4 +218,55 @@
   max-width: 1500px;
   margin: 0 auto;
   padding: 32px;
+}
+
+.workspace-navigation {
+  min-height: 0;
+  flex-shrink: 1;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.workspace-navigation .nav-label {
+  margin: 9px 12px 6px;
+  font-size: 10px;
+  letter-spacing: 0.015em;
+  overflow-wrap: anywhere;
+}
+.nav-platform {
+  border-top: 1px solid #304654;
+  margin-top: 14px;
+  padding-top: 10px;
+}
+.header-tenant-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-size: 11px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.header-tenant-selector select {
+  width: auto;
+  max-width: 240px;
+  min-height: 36px;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .header-tenant-selector > span {
+    display: none;
+  }
+  .header-tenant-selector select {
+    max-width: 145px;
+  }
+  .workspace-header .breadcrumb > span,
+  .workspace-header .breadcrumb > svg {
+    display: none;
+  }
+  .workspace-header {
+    gap: 10px;
+  }
+  .workspace-navigation .nav-label {
+    display: block;
+  }
 }

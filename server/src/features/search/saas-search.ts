@@ -14,10 +14,12 @@ export class Search {
     user: Principal,
     question: string,
     selection: SearchScope = {},
-    parts: AIInput[] = [{ kind: 'text', text: question }],
-    job: string = randomUUID(),
-    signal = AbortSignal.timeout(60000),
+    options: { parts?: AIInput[]; job?: string; signal?: AbortSignal } = {},
   ) {
+    const parts = options.parts ?? [{ kind: 'text', text: question }],
+      job = options.job ?? randomUUID(),
+      signal = options.signal ?? AbortSignal.timeout(60000);
+    signal.throwIfAborted();
     user = await this.s.identity.current(user.id, user.tenant);
     await this.documents.scope(user, { ...selection });
     const index = await this.documents.activeIndex(),

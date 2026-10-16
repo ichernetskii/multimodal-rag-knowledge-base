@@ -166,14 +166,10 @@ export class Quality {
           { status: 'searching', result: { check: check.id } },
           attempt,
         );
-        result.sources = await this.search.search(
-          user,
-          check.question,
-          check.scope,
-          undefined,
-          job.id,
+        result.sources = await this.search.search(user, check.question, check.scope, {
+          job: job.id,
           signal,
-        );
+        });
         if (result.sources.length)
           await this.s.ai.generate(
             model,

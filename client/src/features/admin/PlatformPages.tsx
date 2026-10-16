@@ -35,25 +35,7 @@ export function Tenants() {
                   {t.blocked ? 'Приостановлена' : 'Активна'}
                 </Badge>
               </div>
-              <p>
-                {t.id === app.session.user?.tenant
-                  ? 'Сейчас выбрана'
-                  : app.session.tenants.some((m) => m.id === t.id)
-                    ? 'Вы можете открыть управление этой компанией'
-                    : 'У вас нет членства для просмотра материалов этой компании'}
-              </p>
               <div className="actions">
-                {app.session.tenants.some((m) => m.id === t.id) && (
-                  <Button
-                    disabled={t.blocked}
-                    onClick={async () => {
-                      await app.switchCompany(t.id);
-                      app.navigation.navigate('admin', 'overview');
-                    }}
-                  >
-                    Управлять компанией
-                  </Button>
-                )}
                 <Button
                   className={t.blocked ? '' : 'danger'}
                   onClick={async () => {
@@ -69,6 +51,32 @@ export function Tenants() {
                   {t.blocked ? 'Возобновить доступ' : 'Приостановить доступ'}
                 </Button>
               </div>
+              <details className="admin-details">
+                <summary>Изменить название</summary>
+                <Form
+                  key={t.id + ':' + t.revision}
+                  protectChanges
+                  label="Сохранить название"
+                  submit={async (form) => {
+                    await api('tenants.update', {
+                      id: t.id,
+                      revision: t.revision,
+                      name: text(form, 'companyName'),
+                    });
+                    load.reload();
+                    await app.session.refresh();
+                    app.notify('Название компании обновлено.');
+                  }}
+                >
+                  <Field
+                    label="Название компании"
+                    name="companyName"
+                    value={t.name}
+                    required
+                    maxLength={200}
+                  />
+                </Form>
+              </details>
             </article>
           ))}
         </div>
@@ -77,7 +85,7 @@ export function Tenants() {
         <h2>Добавить компанию</h2>
         <p>
           Будут созданы отдельные настройки, каталог моделей и доступ владельца платформы.
-          Сотрудников пригласите в разделе «Команда и роли» этой компании.
+          Сотрудников пригласите в разделе «Команда и доступ» этой компании.
         </p>
         <Form
           label="Создать компанию"
@@ -106,9 +114,13 @@ export function System() {
   return (
     <>
       <PageHeader
-        title="Состояние сервера"
+        title="Состояние системы"
         description="Общие зависимости и вычислительные ресурсы установки. Раздел доступен только владельцу платформы."
-        actions={<Button onClick={load.reload}>Проверить снова</Button>}
+        actions={
+          <Button disabled={load.loading} onClick={load.reload}>
+            {load.loading ? 'Проверяем…' : 'Обновить проверку'}
+          </Button>
+        }
       />
       {!d ? (
         <Loading error={load.error} retry={load.reload} />
@@ -154,14 +166,31 @@ export function System() {
           <section className="panel">
             <h2>Материалы и распознавание</h2>
             <div className="admin-status-list">
-              {Object.entries({
-                'Текст PDF': d.extraction.pdf,
-                'OCR изображений': d.extraction.ocr,
-                FFmpeg: d.media.ffmpeg,
-                Whisper: d.media.whisper && d.media.model,
-              }).map(([name, ready]) => (
+              {[
+                {
+                  name: 'Текст PDF',
+                  ready: d.extraction.pdf,
+                  issue: d.extraction.pdf ? '' : 'Выполните yarn prepare:pdf на сервере.',
+                },
+                {
+                  name: 'OCR изображений',
+                  ready: d.extraction.ocr,
+                  issue: d.extraction.ocr ? '' : 'Проверьте установку OCR и выбранный язык.',
+                },
+                {
+                  name: 'FFmpeg',
+                  ready: d.media.ffmpeg && d.media.ffprobe,
+                  issue: d.media.issues.ffmpeg || d.media.issues.ffprobe,
+                },
+                {
+                  name: 'Whisper',
+                  ready: d.media.whisper && d.media.model,
+                  issue: d.media.issues.whisper || d.media.issues.model,
+                },
+              ].map(({ name, ready, issue }) => (
                 <div key={name}>
                   <strong>{name}</strong>
+                  {!ready && <span>{issue}</span>}
                   <Badge tone={ready ? 'success' : 'danger'}>
                     {ready ? 'Готово' : 'Требует настройки'}
                   </Badge>

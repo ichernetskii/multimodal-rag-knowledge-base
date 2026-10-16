@@ -7,7 +7,37 @@ import test from 'node:test';
 import { downloadVerified, digestFile } from '../src/infrastructure/media-runtime/download.js';
 import { prepareMediaRuntime } from '../src/infrastructure/media-runtime/installer.js';
 import { mediaBuildVersion } from '../src/infrastructure/media-runtime/manifest.js';
+import { mediaCommand } from '../src/infrastructure/extraction/media-process.js';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
+void test('processing rejects an outdated managed runtime and respects explicit executable configuration', (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'rag-media-version-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const previous = {
+    MEDIA_RUNTIME_DIR: process.env.MEDIA_RUNTIME_DIR,
+    FFMPEG_BIN: process.env.FFMPEG_BIN,
+  };
+  t.after(() => {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+  process.env.MEDIA_RUNTIME_DIR = dir;
+  delete process.env.FFMPEG_BIN;
+  assert.throws(() => mediaCommand('ffmpeg'), /не установлены/u);
+  writeFileSync(
+    join(dir, 'receipt.json'),
+    JSON.stringify({ version: 'outdated', platform: process.platform, arch: process.arch }),
+  );
+  assert.throws(() => mediaCommand('ffmpeg'), /не соответствует/u);
+  writeFileSync(
+    join(dir, 'receipt.json'),
+    JSON.stringify({ version: mediaBuildVersion, platform: process.platform, arch: process.arch }),
+  );
+  assert.equal(mediaCommand('ffmpeg'), join(dir, 'bin/ffmpeg'));
+  process.env.FFMPEG_BIN = '/custom/ffmpeg';
+  assert.equal(mediaCommand('ffmpeg'), '/custom/ffmpeg');
+});
 void test('managed downloads verify content, work offline and reject corruption without publishing partial files', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'rag-media-assets-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));

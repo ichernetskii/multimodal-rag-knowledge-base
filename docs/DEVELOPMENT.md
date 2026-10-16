@@ -44,7 +44,7 @@ The first image/model download needs Internet and several GB of disk. Startup ca
 
 `yarn dev:reset --confirm-development-reset` removes only local-rag-saas-dev volumes. Then run init and seed again. A schema mismatch is deliberately rejected; there are no migrations for old data. Never substitute a production project name into a reset command.
 
-`yarn test` runs bounded unit/component/resource tests, including corpus checksums/modality coverage. `yarn test:integration` needs seeded local infrastructure and checks real queues/storage/RLS/backup and conflicting knowledge-base revisions. The scenario removes only its own temporary companies, files and created accounts on exit. `yarn test:docker` creates a fresh rag-test-* installation, exercises the built images with PDF/OCR, image, audio and ready-made video inputs and deletes only its own volumes. It writes `.artifacts/verification/docker.json`; this output is ignored by Git and excluded from Docker. TEST AI is explicitly enabled in those scenarios; real provider quality requires configured models and manual evaluation against corpus questions.
+`yarn test` runs bounded unit/component/resource tests, including corpus checksums/modality coverage. `yarn test:integration` requires running PostgreSQL/Redis/S3 from `yarn infra:up`, but no initialized application database. It creates a separate `rag_test_*` database and `rag-test-*` S3 bucket, applies the current schema, exercises real queues/RLS/storage/backup, document windows and corrections, then removes only those resources. The administrative PostgreSQL URL must be loopback. Existing development data and incompatible schemas are not modified. `yarn test:docker` creates a fresh rag-test-* installation, exercises the built images with PDF/OCR, image, audio and ready-made video inputs and deletes only its own volumes. It writes `.artifacts/verification/docker.json`; this output is ignored by Git and excluded from Docker. TEST AI is explicitly enabled in those scenarios; real provider quality requires configured models and manual evaluation against corpus questions.
 
 ## Команды package.json
 
@@ -56,7 +56,7 @@ The first image/model download needs Internet and several GB of disk. Startup ca
 - `yarn build:client` — `yarn workspace @local-rag/client build`.
 - `yarn build:server` — `yarn workspace @local-rag/server build`.
 - `yarn start` — `node tooling/start.ts`.
-- `yarn typecheck` — `tsc --noEmit && yarn workspace @local-rag/server typecheck && yarn workspace @local-rag/client typecheck`.
+- `yarn typecheck` — `tsc --noEmit && tsc --noEmit -p tooling/testing/tsconfig.json && yarn workspace @local-rag/server typecheck && yarn workspace @local-rag/client typecheck`.
 - `yarn lint` — `eslint .`.
 - `yarn lint:fix` — `eslint . --fix`.
 - `yarn format` — `prettier . --write`.
@@ -76,9 +76,17 @@ The first image/model download needs Internet and several GB of disk. Startup ca
 - `yarn infra:down` — `node tooling/infra.ts down`.
 - `yarn dev:reset` — `node tooling/infra.ts reset`.
 - `yarn seed` — `yarn cli seed`.
-- `yarn test:integration` — `yarn workspace @local-rag/server test:integration`.
+- `yarn test:integration` — `node --import tsx tooling/testing/integration.ts`.
 - `yarn docker:up` — `node tooling/infra.ts app`.
 - `yarn docker:down` — `node tooling/infra.ts app-down`.
 - `yarn installation:backup` — `node --import tsx tooling/installation.ts backup`.
 - `yarn installation:restore` — `node --import tsx tooling/installation.ts restore`.
 - `yarn demo:import` — `node --import tsx tooling/import-demo.ts`; new multimodal review-only knowledge base, optional `--publish`.
+
+- `yarn test:workspace` — `node --import tsx tooling/testing/workspace.ts`.
+
+## Проверка реального интерфейса
+
+Run `yarn build:client`, then `yarn test:workspace`. The helper uses the same isolated database/bucket ownership rules, starts API/workers and the production client gateway on random loopback ports, imports all nine corpus materials plus a long TXT and a deliberately broken PDF, and prints the URL and disposable logins. Native PDF/OCR/media tools must be prepared first. Accounts include the platform operator, company administrator, editor and reader. AI generation/embeddings use TEST AI: this checks real HTTP/UI/permissions/jobs, not LLM quality. Whisper, PDF/OCR and video processing are real. Stop with Ctrl+C to close servers and remove the owned database/bucket. Temporary observations/screenshots belong in `.artifacts/verification/`.
+
+`tooling/testing` runs explicitly through tsx and has a separate TypeScript project that checks imported server code. The root tooling project retains erasableSyntaxOnly for scripts executed directly by Node.

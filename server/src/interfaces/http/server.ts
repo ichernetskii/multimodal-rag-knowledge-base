@@ -156,7 +156,7 @@ export function createHttpServer(app: Application) {
         action === 'setup.status'
           ? undefined
           : await s.identity.principal(token(req), tenant(req, url) || undefined);
-      const result = await app.execute(action, p as Record<string, unknown>, user);
+      const result = await app.execute(action, p as Record<string, unknown>, user, signal);
       if (
         user &&
         ![

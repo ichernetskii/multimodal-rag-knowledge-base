@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { runInAction } from 'mobx';
-import { adminGroups, adminSections, canAccessAdmin } from '../src/features/admin/admin-sections';
+import {
+  adminGroups,
+  adminSections,
+  canAccessAdmin,
+  canAccessAdminTab,
+} from '../src/features/admin/admin-sections';
 import { ApplicationStore } from '../src/app/application-store';
 beforeEach(() => {
   for (const name of ['localStorage', 'sessionStorage']) {
@@ -48,10 +53,10 @@ afterEach(() => {
 it('separates company administration from platform ownership', () => {
   const admin = { role: 'admin', operator: false } as const;
   const sections = adminGroups(admin).flatMap((g) => g.sections);
-  expect(sections).toContain('assistant');
-  expect(sections).toContain('indexes');
+  expect(sections).toContain('models');
+  expect(sections).toContain('maintenance');
   expect(sections).toContain('usage');
-  for (const section of ['tenants', 'connections', 'system'] as const) {
+  for (const section of ['credentials', 'system'] as const) {
     expect(canAccessAdmin(section, admin)).toBe(false);
     expect(sections).not.toContain(section);
     expect(canAccessAdmin(section, { ...admin, operator: true })).toBe(true);
@@ -61,26 +66,26 @@ it('separates company administration from platform ownership', () => {
 it('does not give company management to editors or ordinary users', () => {
   for (const role of ['editor', 'user'] as const) {
     expect(adminGroups({ role, operator: false })).toEqual([]);
-    expect(canAccessAdmin('settings', { role, operator: false })).toBe(false);
+    expect(canAccessAdmin('maintenance', { role, operator: false })).toBe(false);
   }
 });
 it('keeps a permitted administration section when switching company', async () => {
   const app = new ApplicationStore();
   runInAction(() => {
-    app.navigation.navigate('admin', 'assistant');
+    app.navigation.navigate('admin', 'models');
   });
   await app.switchCompany('b');
   expect(app.view).toBe('admin');
-  expect(app.navigation.section).toBe('assistant');
+  expect(app.navigation.section).toBe('models');
   app.dispose();
 });
 it('does not carry platform navigation into an unprivileged company session', async () => {
   const app = new ApplicationStore();
   runInAction(() => {
-    app.navigation.navigate('admin', 'connections');
+    app.navigation.navigate('admin', 'credentials');
   });
   await app.switchCompany('b');
-  expect(app.navigation.section).toBe('overview');
+  expect(app.navigation.section).toBe('models');
   app.dispose();
 });
 
@@ -104,12 +109,34 @@ it('preserves a new navigation choice made while company data is loading', async
     }),
   );
   const app = new ApplicationStore();
-  runInAction(() => app.navigation.navigate('admin', 'assistant'));
+  runInAction(() => app.navigation.navigate('admin', 'models'));
   const switching = app.switchCompany('b');
   await loading;
   runInAction(() => app.navigation.navigate('admin', 'usage'));
   release();
   await switching;
   expect(app.navigation.section).toBe('usage');
+  app.dispose();
+});
+
+it('keeps company model profiles separate from global API keys', () => {
+  const admin = { role: 'admin', operator: false } as const;
+  expect(adminSections.models.scope).toBe('company');
+  expect(adminSections.credentials.scope).toBe('platform');
+  expect(canAccessAdminTab('models', 'assignments', admin)).toBe(true);
+  expect(canAccessAdminTab('models', 'connections', admin)).toBe(false);
+  expect(canAccessAdminTab('models', 'connections', { ...admin, operator: true })).toBe(true);
+});
+it('treats platform ownership independently from the company role', () => {
+  const owner = { role: 'user', operator: true } as const;
+  expect(canAccessAdmin('credentials', owner)).toBe(true);
+  expect(canAccessAdmin('models', owner)).toBe(false);
+});
+it('retains the maintenance tab when changing company', async () => {
+  const app = new ApplicationStore();
+  runInAction(() => app.navigation.navigate('admin', 'maintenance', 'backups'));
+  await app.switchCompany('b');
+  expect(app.navigation.section).toBe('maintenance');
+  expect(app.navigation.tab).toBe('backups');
   app.dispose();
 });

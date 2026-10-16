@@ -96,13 +96,14 @@ export class ObjectStore {
   async remove(key: string) {
     await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
-  async copy(from: string, to: string) {
+  async copy(from: string, to: string, signal?: AbortSignal) {
     await this.client.send(
       new CopyObjectCommand({
         Bucket: this.bucket,
         Key: to,
         CopySource: encodeURIComponent(this.bucket + '/' + from),
       }),
+      signal ? { abortSignal: signal } : {},
     );
   }
   async multipart(key: string, mime: string) {

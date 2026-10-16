@@ -28,10 +28,15 @@ export function Indexes() {
     activeIndex = indexes.data?.find((index) => index.state === 'active');
   return (
     <>
-      <PageHeader
-        title="Поисковый индекс"
-        description="Поиск использует одну embedding-модель. При её замене сначала строится новый индекс, затем вы включаете его."
-      />
+      <div className="section-heading">
+        <div>
+          <h2>Модель поиска и индекс</h2>
+          <p>
+            При замене модели сначала строится новый индекс, затем вы включаете его. Текущий поиск
+            продолжает работать.
+          </p>
+        </div>
+      </div>
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -182,7 +187,9 @@ export function Indexes() {
                 </div>
               )}
               {i.state === 'failed' && (
-                <AdminLink to="operations">Посмотреть ошибку задания</AdminLink>
+                <AdminLink to="maintenance" tab="jobs">
+                  Посмотреть ошибку задания
+                </AdminLink>
               )}
             </article>
           ))}

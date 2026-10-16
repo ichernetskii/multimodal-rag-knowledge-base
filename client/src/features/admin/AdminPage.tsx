@@ -1,53 +1,81 @@
 import { lazy, Suspense } from 'react';
-import { Loading, EmptyState } from '../../shared/ui/Feedback';
+import { Loading, EmptyState, PageHeader } from '../../shared/ui/Feedback';
+import { Tabs } from '../../shared/ui/Tabs';
 import { observer } from 'mobx-react-lite';
 import { useApplication } from '../../shared/lib/application-context';
-import { canAccessAdmin, adminSections, type AdminSection } from './admin-sections';
-const pages = {
-  overview: lazy(() => import('./OverviewPage').then((m) => ({ default: m.Overview }))),
-  assistant: lazy(() => import('../settings/SettingsPage').then((m) => ({ default: m.Assistant }))),
-  usage: lazy(() => import('./CompanyPages').then((m) => ({ default: m.Usage }))),
-  indexes: lazy(() => import('./CompanyPages').then((m) => ({ default: m.Indexes }))),
-  audit: lazy(() => import('./CompanyPages').then((m) => ({ default: m.Audit }))),
-  tenants: lazy(() => import('./PlatformPages').then((m) => ({ default: m.Tenants }))),
-  connections: lazy(() =>
-    import('../saas/ConnectionsPage').then((m) => ({ default: m.Connections })),
-  ),
-  system: lazy(() => import('./PlatformPages').then((m) => ({ default: m.System }))),
-  operations: lazy(() =>
-    import('../operations/OperationsPage').then((m) => ({ default: m.Operations })),
-  ),
-  users: lazy(() => import('../users/UsersPage').then((m) => ({ default: m.Users }))),
-  collections: lazy(() =>
-    import('../knowledge-bases/AccessPage').then((m) => ({ default: m.Collections })),
-  ),
-  quality: lazy(() => import('../quality/QualityPage').then((m) => ({ default: m.Quality }))),
-  sync: lazy(() => import('../sync/SyncPage').then((m) => ({ default: m.Sync }))),
-  backups: lazy(() => import('../backups/BackupsPage').then((m) => ({ default: m.Backups }))),
-  settings: lazy(() =>
-    import('../settings/SettingsPage').then((m) => ({ default: m.SettingsView })),
-  ),
-};
+import {
+  canAccessAdmin,
+  canAccessAdminTab,
+  adminSections,
+  type AdminSection,
+} from './admin-sections';
+const Models = lazy(() => import('../models/ModelsPage').then((m) => ({ default: m.Models })));
+const Usage = lazy(() => import('./CompanyPages').then((m) => ({ default: m.Usage })));
+const Audit = lazy(() => import('./CompanyPages').then((m) => ({ default: m.Audit })));
+const Tenants = lazy(() => import('./PlatformPages').then((m) => ({ default: m.Tenants })));
+const System = lazy(() => import('./PlatformPages').then((m) => ({ default: m.System })));
+const Credentials = lazy(() =>
+  import('../saas/CredentialsPage').then((m) => ({ default: m.Credentials })),
+);
+const Operations = lazy(() =>
+  import('../operations/OperationsPage').then((m) => ({ default: m.Operations })),
+);
+const Users = lazy(() => import('../users/UsersPage').then((m) => ({ default: m.Users })));
+const Backups = lazy(() => import('../backups/BackupsPage').then((m) => ({ default: m.Backups })));
+const Settings = lazy(() =>
+  import('../settings/SettingsPage').then((m) => ({ default: m.SettingsView })),
+);
 export const Admin = observer(function Admin({ section }: { section: AdminSection }) {
-  const app = useApplication();
-  if (app.session.user?.role !== 'admin')
+  const app = useApplication(),
+    user = app.session.user;
+  if (!user || !canAccessAdmin(section, user))
     return (
       <EmptyState
-        title="Нужна роль администратора"
-        description="Выберите документы или диалоги в меню рабочего пространства."
+        title="Раздел недоступен"
+        description={
+          adminSections[section].scope === 'platform'
+            ? 'Общие API-ключи и состояние системы доступны владельцу платформы.'
+            : 'Настройки компании доступны её администратору. Материалы и диалоги находятся в меню компании.'
+        }
       />
     );
-  if (!canAccessAdmin(section, app.session.user))
+  const definition = adminSections[section],
+    tab = app.navigation.tab;
+  if (!canAccessAdminTab(section, tab, user))
     return (
       <EmptyState
-        title="Раздел владельца платформы"
-        description="Управление компаниями, сервером и подключениями доступно только владельцу платформы. Настройки вашей компании находятся в остальных разделах меню."
+        title="Подключения настраивает владелец платформы"
+        description="Выбирайте разрешённые модели на вкладке «Назначение моделей»."
       />
     );
-  const definition = adminSections[section];
-  const company =
-    app.session.tenants.find((t) => t.id === app.session.user?.tenant)?.name ?? 'Компания';
-  const Page = pages[section];
+  const company = app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Компания';
+  const tabs = Object.fromEntries(
+    Object.entries(definition.tabs).filter(([key]) => canAccessAdminTab(section, key, user)),
+  );
+  const content =
+    section === 'models' ? (
+      <Models />
+    ) : section === 'users' ? (
+      <Users />
+    ) : section === 'usage' ? (
+      <Usage />
+    ) : section === 'credentials' ? (
+      <Credentials />
+    ) : section === 'system' ? (
+      tab === 'companies' ? (
+        <Tenants />
+      ) : (
+        <System />
+      )
+    ) : tab === 'backups' ? (
+      <Backups />
+    ) : tab === 'audit' ? (
+      <Audit />
+    ) : tab === 'processing' ? (
+      <Settings />
+    ) : (
+      <Operations />
+    );
   return (
     <div id="admin-body" className="page-content">
       <div
@@ -55,19 +83,44 @@ export const Admin = observer(function Admin({ section }: { section: AdminSectio
       >
         <span>
           {definition.scope === 'platform'
-            ? 'Платформа · доступ владельца'
+            ? 'Вся платформа · все компании'
             : 'Компания · ' + company}
         </span>
         <span>
-          {definition.scope === 'platform' && section === 'connections'
-            ? 'Каталог моделей: ' + company
-            : definition.scope === 'company'
-              ? 'Изменения относятся только к этой компании'
-              : 'Общие настройки установки'}
+          {definition.scope === 'platform'
+            ? 'Общая область управления'
+            : 'Изменения относятся только к этой компании'}
         </span>
       </div>
+      {section === 'maintenance' && (
+        <PageHeader
+          title="Обслуживание"
+          description="Задания и обслуживание данных выбранной компании."
+        />
+      )}
       <Suspense fallback={<Loading />}>
-        <Page key={section + app.session.user.tenant} />
+        {Object.keys(tabs).length > 1 ? (
+          <Tabs
+            label={definition.name}
+            tabs={tabs}
+            selected={tab}
+            onChange={(tab) => app.selectTab(tab)}
+          >
+            <div
+              key={
+                section +
+                ':' +
+                tab +
+                ':' +
+                (definition.scope === 'company' ? user.tenant : 'platform')
+              }
+            >
+              {content}
+            </div>
+          </Tabs>
+        ) : (
+          <div key={section + ':' + user.tenant}>{content}</div>
+        )}
       </Suspense>
     </div>
   );

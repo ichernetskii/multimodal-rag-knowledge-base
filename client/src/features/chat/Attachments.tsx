@@ -1,26 +1,25 @@
 import { observer } from 'mobx-react-lite';
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { api } from '../../shared/api/client';
 import { useApplication } from '../../shared/lib/application-context';
-import { useLoad, useModal } from '../../shared/lib/hooks';
+import { useLoad, useModal, usePolling } from '../../shared/lib/hooks';
 import { Button } from '../../shared/ui/Button';
 import { Loading } from '../../shared/ui/Feedback';
 import { DocumentView } from '../documents/DocumentDialog';
+import { Pagination } from '../../shared/ui/DataTable';
 export const Attachments = observer(function Attachments({
   conversation,
 }: {
   conversation: string;
 }) {
   const app = useApplication(),
-    modal = useModal();
+    modal = useModal(),
+    [page, setPage] = useState(1);
   const load = useLoad(
-    (signal) => api('documents.list', { scope: { conversation }, pageSize: 100 }, { signal }),
-    [conversation],
+    (signal) => api('documents.list', { scope: { conversation }, page, pageSize: 20 }, { signal }),
+    [conversation, page, app.jobs.documentEpoch],
   );
-  useEffect(() => {
-    const timer = setInterval(load.reload, 5000);
-    return () => clearInterval(timer);
-  }, [load.reload]);
+  usePolling(load.reload);
   if (load.error) return <Loading error={load.error} retry={load.reload} />;
   if (!load.data?.items.length) return null;
   return (
@@ -54,8 +53,14 @@ export const Attachments = observer(function Attachments({
           {doc.processing?.error && <span role="status">{doc.processing.error}</span>}
         </div>
       ))}
-      {load.data.total > 100 && (
-        <p>Показаны первые 100 вложений. Остальные доступны в библиотеке документов.</p>
+      {load.data.total > 20 && (
+        <Pagination
+          page={page}
+          pageSize={20}
+          total={load.data.total}
+          onChange={setPage}
+          loading={load.loading}
+        />
       )}
     </details>
   );

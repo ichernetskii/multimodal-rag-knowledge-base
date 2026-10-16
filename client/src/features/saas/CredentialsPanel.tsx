@@ -46,6 +46,11 @@ export function CredentialsPanel({
     audit.reload();
   };
   const old = editing && editing !== 'new' ? editing : null;
+  const editKey = (value: typeof editing) => {
+    if (!app.unsaved.confirmDiscard('page')) return false;
+    setEditing(value);
+    return true;
+  };
   return (
     <section className="panel admin-credentials">
       <div className="section-heading">
@@ -65,8 +70,7 @@ export function CredentialsPanel({
           <Button
             className="primary"
             onClick={() => {
-              setEditing('new');
-              setDeleting(null);
+              if (editKey('new')) setDeleting(null);
             }}
           >
             + Добавить API-ключ
@@ -82,9 +86,10 @@ export function CredentialsPanel({
         <div className="admin-credential-form">
           <div className="section-heading">
             <h3>{old ? 'Изменить ключ «' + old.label + '»' : 'Добавить API-ключ'}</h3>
-            <Button onClick={() => setEditing(null)}>Закрыть</Button>
+            <Button onClick={() => editKey(null)}>Закрыть</Button>
           </div>
           <Form
+            protectChanges
             autoComplete="off"
             key={old ? old.id + ':' + old.revision : 'new'}
             label={old ? 'Сохранить изменения ключа' : 'Сохранить API-ключ'}
@@ -194,8 +199,7 @@ export function CredentialsPanel({
               <div className="actions">
                 <Button
                   onClick={() => {
-                    setEditing(c);
-                    setDeleting(null);
+                    if (editKey(c)) setDeleting(null);
                   }}
                 >
                   Изменить / заменить
@@ -228,8 +232,7 @@ export function CredentialsPanel({
                       : 'Удалить из зашифрованного хранилища'
                   }
                   onClick={() => {
-                    setDeleting(c);
-                    setEditing(null);
+                    if (editKey(null)) setDeleting(c);
                   }}
                 >
                   Удалить

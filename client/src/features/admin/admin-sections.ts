@@ -1,119 +1,63 @@
 import type { Principal } from '../../shared/api/contracts.generated';
 import type { IconName } from '../../shared/ui/Icon';
+
+/** Navigation describes the scope of an operation, independently from the selected tenant. */
 export const adminSections = {
-  overview: {
-    name: 'Обзор управления',
-    group: 'Начало',
+  models: {
+    name: 'AI и модели',
     scope: 'company',
-    icon: 'overview',
-    description: 'Состояние компании и быстрый доступ к основным задачам.',
-  },
-  assistant: {
-    name: 'Помощник и модели',
-    group: 'Компания',
-    scope: 'company',
-    icon: 'chat',
-    description: 'Выбор модели ответа, распознавание речи и поведение помощника.',
-  },
-  collections: {
-    name: 'Базы знаний и доступ',
-    group: 'Компания',
-    scope: 'company',
-    icon: 'collections',
-    description: 'Базы знаний и разрешения на их материалы.',
+    icon: 'connections',
+    description: 'Назначения задач и подключённые модели этой компании.',
+    tabs: { assignments: 'Назначение моделей', connections: 'Подключённые модели' },
   },
   users: {
-    name: 'Команда и роли',
-    group: 'Компания',
+    name: 'Команда и доступ',
     scope: 'company',
     icon: 'users',
-    description: 'Сотрудники, приглашения и группы доступа.',
+    description: 'Участники, приглашения и группы доступа этой компании.',
+    tabs: {},
   },
   usage: {
     name: 'Расходы и лимиты',
-    group: 'Компания',
     scope: 'company',
     icon: 'usage',
-    description: 'Расходы AI, бюджет и доступные ресурсы компании.',
+    description: 'Использование AI, бюджет и ресурсы этой компании.',
+    tabs: {},
   },
-  indexes: {
-    name: 'Поисковый индекс',
-    group: 'База знаний',
-    scope: 'company',
-    icon: 'search',
-    description: 'Модель поиска и безопасное переключение нового индекса.',
-  },
-  sync: {
-    name: 'Синхронизация',
-    group: 'База знаний',
-    scope: 'company',
-    icon: 'sync',
-    description: 'Подключённые папки и изменения материалов.',
-  },
-  quality: {
-    name: 'Качество ответов',
-    group: 'База знаний',
-    scope: 'company',
-    icon: 'quality',
-    description: 'Отзывы и контрольные вопросы для проверки ответов.',
-  },
-  operations: {
-    name: 'Задания и очереди',
-    group: 'Обслуживание',
+  maintenance: {
+    name: 'Обслуживание',
     scope: 'company',
     icon: 'operations',
-    description: 'Обработка материалов, ответы и ошибки заданий.',
+    description: 'Задания, резервные копии, журнал, обработка и хранение.',
+    tabs: {
+      jobs: 'Задания',
+      backups: 'Резервные копии',
+      audit: 'Журнал действий',
+      processing: 'Обработка и хранение',
+    },
   },
-  backups: {
-    name: 'Резервные копии',
-    group: 'Обслуживание',
-    scope: 'company',
-    icon: 'backups',
-    description: 'Создание, проверка и восстановление копии компании.',
-  },
-  audit: {
-    name: 'Журнал действий',
-    group: 'Обслуживание',
-    scope: 'company',
-    icon: 'audit',
-    description: 'История изменений и действий в выбранной компании.',
-  },
-  settings: {
-    name: 'Параметры обработки',
-    group: 'Обслуживание',
-    scope: 'company',
-    icon: 'settings',
-    description: 'Файлы, мультимедиа, хранение и управление приёмом запросов.',
-  },
-  tenants: {
-    name: 'Компании клиентов',
-    group: 'Платформа · только владелец',
+  credentials: {
+    name: 'API-ключи',
     scope: 'platform',
-    icon: 'tenants',
-    description: 'Создание и состояние компаний в общей установке.',
-  },
-  connections: {
-    name: 'AI-подключения и ключи',
-    group: 'Платформа · только владелец',
-    scope: 'platform',
-    icon: 'connections',
-    description: 'Каталог разрешённых моделей и настройка серверных ключей.',
+    icon: 'shield',
+    description: 'Общий реестр ключей поставщиков для всех компаний.',
+    tabs: {},
   },
   system: {
-    name: 'Состояние сервера',
-    group: 'Платформа · только владелец',
+    name: 'Состояние системы',
     scope: 'platform',
-    icon: 'operations',
-    description: 'PostgreSQL, Redis, S3, обработчики и ресурсы сервера.',
+    icon: 'settings',
+    description: 'Зависимости установки и управление доступом компаний.',
+    tabs: { health: 'Состояние системы', companies: 'Компании' },
   },
 } as const satisfies Record<
   string,
   {
     name: string;
-    group: string;
     scope: 'company' | 'platform';
     icon: IconName;
     description: string;
+    tabs: Record<string, string>;
   }
 >;
 export type AdminSection = keyof typeof adminSections;
@@ -126,14 +70,29 @@ export const roleNames = {
   user: 'Пользователь',
 } as const;
 export function canAccessAdmin(section: AdminSection, user: Pick<Principal, 'role' | 'operator'>) {
-  return user.role === 'admin' && (adminSections[section].scope === 'company' || user.operator);
+  return adminSections[section].scope === 'platform' ? user.operator : user.role === 'admin';
+}
+export function canAccessAdminTab(
+  section: AdminSection,
+  tab: string,
+  user: Pick<Principal, 'role' | 'operator'>,
+) {
+  return (
+    canAccessAdmin(section, user) &&
+    (section !== 'models' || tab !== 'connections' || user.operator)
+  );
 }
 export function adminGroups(user: Pick<Principal, 'role' | 'operator'>) {
-  const groups = new Map<string, AdminSection[]>();
-  for (const section of Object.keys(adminSections) as AdminSection[])
-    if (canAccessAdmin(section, user)) {
-      const group = adminSections[section].group;
-      groups.set(group, [...(groups.get(group) ?? []), section]);
-    }
-  return [...groups].map(([name, sections]) => ({ name, sections }));
+  return (['company', 'platform'] as const)
+    .map((scope) => ({
+      scope,
+      name: scope === 'company' ? 'Компания' : 'Платформа · все компании',
+      sections: (Object.keys(adminSections) as AdminSection[]).filter(
+        (section) => adminSections[section].scope === scope && canAccessAdmin(section, user),
+      ),
+    }))
+    .filter((group) => group.sections.length);
+}
+export function defaultAdminTab(section: AdminSection) {
+  return Object.keys(adminSections[section].tabs)[0] ?? '';
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { api } from '../../shared/api/client';
 import type {
@@ -32,6 +32,7 @@ export const Documents = observer(function Documents() {
   const app = useApplication(),
     modal = useModal(),
     [query, setQuery] = useState(''),
+    [question, setQuestion] = useState(''),
     [sort, setSort] = useState<'name' | 'updated' | 'state'>('updated'),
     [state, setState] = useState<DocumentRecord['state'] | ''>(''),
     [page, setPage] = useState(1),
@@ -41,6 +42,8 @@ export const Documents = observer(function Documents() {
     [searching, setSearching] = useState(false),
     [searchError, setSearchError] = useState(''),
     q = useDebouncedValue(query);
+  const activeSearch = useRef<AbortController | null>(null);
+  useEffect(() => () => activeSearch.current?.abort(), []);
   const load = useLoad(
     (signal) =>
       api(
@@ -67,6 +70,15 @@ export const Documents = observer(function Documents() {
     5000,
     load.data?.items.some((doc) => doc.processing && !terminal.has(doc.processing.status)) ?? false,
   );
+  useEffect(() => {
+    activeSearch.current?.abort();
+    setSearching(false);
+    setHits(undefined);
+    setSearchError('');
+  }, [collection]);
+  useEffect(() => {
+    setSelected({});
+  }, [collection, q, state]);
   const count = Object.keys(selected).length;
   async function bulk(operation: ActionInputs['documents.bulk']['operation']) {
     await api('documents.bulk', { ids: Object.keys(selected), revisions: selected, operation });
@@ -76,14 +88,21 @@ export const Documents = observer(function Documents() {
   }
   const available =
     load.data?.items.filter((d) => canEditDocument(d, app.session.user, app.bases.items)) ?? [];
+  const editable = app.bases.items.some((base) => app.bases.canEdit(base));
   return (
-    <div className="page-content">
+    <div className="materials-page">
       <PageHeader
         eyebrow="БАЗА ЗНАНИЙ"
-        title="Документы"
-        description="Ищите по библиотеке, открывайте исходные разделы и управляйте версиями документов."
+        title="Материалы"
+        description={
+          editable
+            ? 'Загрузите файлы, проверьте обработку и опубликуйте. Вопросы пользователей используют только разрешённые опубликованные материалы.'
+            : app.session.user?.role === 'admin'
+              ? 'Сначала создайте базу знаний на вкладке «Базы и доступ», затем загрузите материалы.'
+              : 'Читайте доступные опубликованные материалы и находите нужные сведения. Чтобы добавить или исправить материал, обратитесь к редактору базы.'
+        }
         actions={
-          app.bases.items.some((c) => app.bases.canEdit(c)) && (
+          editable && (
             <Button
               className="primary"
               onClick={() => modal(<Upload collection={collection} after={load.reload} />)}
@@ -93,7 +112,7 @@ export const Documents = observer(function Documents() {
           )
         }
       />
-      {app.session.user?.role === 'editor' && (
+      {app.session.user?.role === 'editor' && editable && (
         <details className="panel compact-panel">
           <summary>Управление названиями баз</summary>
           <div className="actions">
@@ -132,20 +151,14 @@ export const Documents = observer(function Documents() {
       <section className="panel">
         <div className="filter-bar">
           <label className="search-field">
-            <span>Название или текст документа</span>
+            <span>Найти по названию</span>
             <input
               type="search"
-              placeholder="Например, инструкция или код ошибки…"
+              placeholder="Название материала…"
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setPage(1);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  document.getElementById('document-fulltext')?.click();
-                }
               }}
             />
           </label>
@@ -157,23 +170,6 @@ export const Documents = observer(function Documents() {
               setSelected({});
             }}
           />
-          <Button
-            id="document-fulltext"
-            disabled={searching || !query.trim()}
-            onClick={async () => {
-              setSearching(true);
-              setSearchError('');
-              try {
-                setHits(await api('search', { question: query, scope: { collection } }));
-              } catch (error) {
-                setSearchError(error instanceof Error ? error.message : 'Ошибка поиска');
-              } finally {
-                setSearching(false);
-              }
-            }}
-          >
-            {searching ? 'Поиск…' : 'Найти по тексту'}
-          </Button>
         </div>
         <div className="filter-bar secondary">
           <Select
@@ -294,7 +290,9 @@ export const Documents = observer(function Documents() {
                           ? 'Нужна проверка версии'
                           : statuses[d.processing.status]}
                         {d.processing.paused ? ' · пауза' : ''}
-                        {d.processing.error ? ' · ' + d.processing.error : ''}
+                        {d.processing.error
+                          ? ' · ' + (d.processing.message || d.processing.error)
+                          : ''}
                       </small>
                     )}
                   </>,
@@ -349,6 +347,65 @@ export const Documents = observer(function Documents() {
             </>
           )}
         </div>
+      </section>
+      <section className="panel material-content-search">
+        <h2>Найти в содержимом базы знаний</h2>
+        <p className="muted">
+          Поиск по словам и смыслу в опубликованных материалах выбранной базы. Ответ AI не
+          генерируется; внешняя модель поиска может использовать бюджет компании.
+        </p>
+        <label>
+          Что найти
+          <input
+            type="search"
+            value={question}
+            maxLength={4000}
+            onChange={(event) => setQuestion(event.target.value)}
+            placeholder="Фраза, вопрос или код"
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                document.getElementById('document-fulltext')?.click();
+              }
+            }}
+          />
+        </label>
+        <Button
+          id="document-fulltext"
+          disabled={searching || !question.trim()}
+          onClick={async () => {
+            activeSearch.current?.abort();
+            const controller = new AbortController();
+            activeSearch.current = controller;
+            setSearching(true);
+            setSearchError('');
+            try {
+              const hits = await api(
+                'search',
+                { question, scope: { collection } },
+                { signal: controller.signal },
+              );
+              if (!controller.signal.aborted) setHits(hits);
+            } catch (error) {
+              if (!controller.signal.aborted)
+                setSearchError(error instanceof Error ? error.message : 'Ошибка поиска');
+            } finally {
+              if (activeSearch.current === controller) setSearching(false);
+            }
+          }}
+        >
+          {searching ? 'Поиск…' : 'Найти фрагменты'}
+        </Button>
+        {searching && (
+          <Button
+            onClick={() => {
+              activeSearch.current?.abort();
+              setSearching(false);
+            }}
+          >
+            Остановить поиск
+          </Button>
+        )}
       </section>
       {searchError && <Loading error={searchError} />}{' '}
       {hits && (

@@ -10,10 +10,11 @@ COPY server/src server/src
 COPY tooling/server tooling/server
 COPY server/tsconfig*.json server/
 RUN node .yarn/releases/yarn-4.18.1.cjs workspace @local-rag/server build
-FROM dependencies AS media-build
+FROM node:24.19.0-bookworm-slim@sha256:a9f5f7c91a432850b2a8a7797adf5eadb6c733ceed61167806cee7ea7fbc29df AS media-build
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates cmake g++ make pkg-config zlib1g-dev && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/server/dist/config/paths.js /app/server/dist/config/media-runtime.js server/dist/config/
 COPY --from=build /app/server/dist/infrastructure/media-runtime server/dist/infrastructure/media-runtime
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates cmake g++ make pkg-config zlib1g-dev && rm -rf /var/lib/apt/lists/*
 ENV MEDIA_RUNTIME_DIR=/opt/local-rag/media CMAKE_BIN=cmake MEDIA_BUILD_THREADS=2
 RUN node --input-type=module -e "import {prepareMediaRuntime} from './server/dist/infrastructure/media-runtime/installer.js';await prepareMediaRuntime()"
 FROM dependencies AS production-dependencies

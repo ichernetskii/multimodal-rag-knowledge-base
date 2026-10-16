@@ -22,7 +22,7 @@ import { embeddingIdentity } from '../models/ai-service.js';
 import { schemaSignature } from '../../infrastructure/database/postgres-schema.js';
 import { string, revision, strings, object } from '../../shared/input.js';
 import type { Input } from '../../shared/input.js';
-import { requireValue } from '../../shared/errors.js';
+import { AppError, requireValue } from '../../shared/errors.js';
 import { extractionHealth } from '../../infrastructure/extraction/health.js';
 import { mediaCommand, mediaProcess } from '../../infrastructure/extraction/media-process.js';
 import { defaultWhisperModel } from '../../config/media-runtime.js';
@@ -418,15 +418,30 @@ export class Administration {
       statfs(this.s.config.tempDir),
     ]);
     const settings = await this.s.identity.settings();
-    const probe = async (name: 'ffmpeg' | 'ffprobe' | 'whisper') =>
-      mediaProcess(
-        mediaCommand(name),
-        [name === 'whisper' ? '--help' : '-version'],
-        AbortSignal.timeout(5000),
-      ).then(
-        () => true,
-        () => false,
-      );
+    const probe = async (name: 'ffmpeg' | 'ffprobe' | 'whisper') => {
+      try {
+        const output = await mediaProcess(
+          mediaCommand(name),
+          [name === 'whisper' ? '--help' : name === 'ffmpeg' ? '-encoders' : '-version'],
+          AbortSignal.timeout(5000),
+        );
+        if (name === 'ffmpeg' && !output.includes('libx264'))
+          return {
+            ok: false,
+            message:
+              'FFmpeg собран без H.264 (libx264). Выполните yarn prepare:media или пересоберите образ.',
+          };
+        return { ok: true, message: '' };
+      } catch (error) {
+        return {
+          ok: false,
+          message:
+            error instanceof AppError
+              ? error.message
+              : 'Инструмент не запускается. Проверьте установку и путь к исполняемому файлу.',
+        };
+      }
+    };
     const [ffmpeg, ffprobe, whisper, model, extraction] = await Promise.all([
       probe('ffmpeg'),
       probe('ffprobe'),
@@ -438,7 +453,22 @@ export class Administration {
       extractionHealth(settings.ocrLanguage),
     ]);
     return {
-      media: { ffmpeg, ffprobe, whisper, model },
+      media: {
+        ffmpeg: ffmpeg.ok,
+        ffprobe: ffprobe.ok,
+        whisper: whisper.ok,
+        model,
+        issues: Object.fromEntries<string>(
+          (
+            [
+              ['ffmpeg', ffmpeg.message],
+              ['ffprobe', ffprobe.message],
+              ['whisper', whisper.message],
+              ['model', model ? '' : 'Не найдены веса Whisper. Выполните yarn prepare:media.'],
+            ] as const
+          ).filter(([, message]) => message),
+        ),
+      },
       extraction,
       dependencies: {
         embedding: profiles.some((p) => p.role === 'embedding' && p.enabled),

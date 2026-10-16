@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { api } from '../../shared/api/client';
-import { useLoad } from '../../shared/lib/hooks';
+import { useLoad, usePolling } from '../../shared/lib/hooks';
 import { useApplication } from '../../shared/lib/application-context';
 import { Button } from '../../shared/ui/Button';
 import { Loading, PageHeader } from '../../shared/ui/Feedback';
@@ -22,13 +22,8 @@ export function Operations() {
     load = useLoad((signal) => api('operations', {}, { signal })),
     jobs = useLoad((signal) => api('jobs.list', { pageSize: 100 }, { signal }));
   const [filter, setFilter] = useState('all');
-  useEffect(() => {
-    const t = setInterval(() => {
-      load.reload();
-      jobs.reload();
-    }, 5000);
-    return () => clearInterval(t);
-  }, [load.reload, jobs.reload]);
+  usePolling(load.reload);
+  usePolling(jobs.reload);
   const data = load.data;
   return (
     <>

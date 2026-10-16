@@ -36,15 +36,18 @@ ALTER TABLE documents ADD COLUMN collection_id uuid GENERATED ALWAYS AS (nullif(
  ADD FOREIGN KEY(tenant_id,owner_id) REFERENCES memberships(tenant_id,user_id),
  ADD CHECK((collection_id IS NULL) <> (conversation_id IS NULL));
 ALTER TABLE versions ADD COLUMN document_id uuid GENERATED ALWAYS AS ((body->>'document')::uuid) STORED,
+ ADD COLUMN created_at bigint GENERATED ALWAYS AS ((body->>'created')::bigint) STORED,
+ ADD COLUMN version_state text GENERATED ALWAYS AS (body->>'state') STORED,
  ADD FOREIGN KEY(tenant_id,document_id) REFERENCES documents ON DELETE CASCADE;
 ALTER TABLE conversations ADD COLUMN owner_id uuid GENERATED ALWAYS AS ((body->>'owner')::uuid) STORED,
  ADD FOREIGN KEY(tenant_id,owner_id) REFERENCES memberships(tenant_id,user_id);
 ALTER TABLE turns ADD COLUMN conversation_id uuid GENERATED ALWAYS AS ((body->>'conversation')::uuid) STORED,
  ADD FOREIGN KEY(tenant_id,conversation_id) REFERENCES conversations ON DELETE CASCADE;
 CREATE INDEX documents_collection ON documents(tenant_id,collection_id);
-CREATE INDEX versions_document ON versions(tenant_id,document_id);
+CREATE INDEX versions_document ON versions(tenant_id,document_id,created_at DESC) INCLUDE(version_state);
 CREATE INDEX turns_conversation ON turns(tenant_id,conversation_id,(body->>'created'));
 CREATE INDEX jobs_status ON jobs(tenant_id,(body->>'status'),(body->>'kind'));
+CREATE INDEX jobs_document_recent ON jobs(tenant_id,(body->'payload'->>'document'),((body->>'created')::bigint) DESC,id DESC);
 CREATE TABLE assets(tenant_id uuid NOT NULL REFERENCES tenants ON DELETE CASCADE,id uuid NOT NULL,document_id uuid,version_id uuid,object_key text NOT NULL UNIQUE,name text NOT NULL,mime text NOT NULL,bytes bigint NOT NULL CHECK(bytes>0),sha256 text NOT NULL CHECK(length(sha256)=64),created bigint NOT NULL,PRIMARY KEY(tenant_id,id));
 CREATE TABLE source_fragments(tenant_id uuid NOT NULL,id uuid NOT NULL,document_id uuid NOT NULL,version_id uuid NOT NULL,body jsonb NOT NULL,PRIMARY KEY(tenant_id,id),FOREIGN KEY(tenant_id,version_id) REFERENCES versions ON DELETE CASCADE);
 CREATE TABLE chunks(tenant_id uuid NOT NULL,id uuid NOT NULL,index_id text NOT NULL,document_id uuid NOT NULL,version_id uuid NOT NULL,source_id uuid NOT NULL,text text NOT NULL,embedding vector NOT NULL,dimensions integer NOT NULL,fts tsvector GENERATED ALWAYS AS(to_tsvector('simple',text)) STORED,PRIMARY KEY(tenant_id,index_id,id),FOREIGN KEY(tenant_id,version_id) REFERENCES versions ON DELETE CASCADE,FOREIGN KEY(tenant_id,source_id) REFERENCES source_fragments ON DELETE CASCADE);

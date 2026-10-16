@@ -262,14 +262,17 @@ export const actionFields = {
   'conversations.save': ['id', 'revision', 'title', 'draft', 'selected'],
   diagnostics: [],
   'documents.bulk': ['ids', 'revisions', 'operation'],
-  'documents.compare': ['id', 'left', 'right'],
-  'documents.correct': ['id', 'revision', 'version', 'page', 'text'],
+  'documents.compare': ['id', 'left', 'right', 'page', 'offset', 'limit'],
+  'documents.correct': ['id', 'revision', 'version', 'page', 'text', 'range'],
   'documents.delete': ['id', 'revision'],
   'documents.limits': [],
   'documents.list': ['query', 'sort', 'state', 'scope', 'page', 'pageSize'],
   'documents.preview': ['collection', 'conversation', 'files'],
   'documents.publish': ['id', 'revision', 'version', 'acknowledge', 'activate'],
   'documents.read': ['id', 'version'],
+  'documents.page': ['id', 'version', 'page', 'offset', 'limit'],
+  'documents.find': ['id', 'version', 'query', 'page', 'pageSize'],
+  'documents.revise': ['id', 'revision', 'version'],
   'documents.restore': ['id', 'revision', 'version'],
   'documents.update': ['id', 'revision', 'name', 'state'],
   'documents.upload': ['upload'],
@@ -357,8 +360,23 @@ export interface VersionSummary {
 }
 export interface DocumentDetails {
   document: DocumentRecord;
-  version: Version;
+  version: Omit<Version, 'pages'>;
+  pages: { number: number; method: Page['method']; warnings: string[]; characters: number }[];
   versions: VersionSummary[];
+  processing?: DocumentListItem['processing'];
+}
+export interface DocumentPage extends Omit<Page, 'text' | 'sections' | 'preparedText'> {
+  text: string;
+  offset: number;
+  nextOffset: number;
+  totalCharacters: number;
+  preparedText?: Omit<NonNullable<Page['preparedText']>, 'text'>;
+}
+export interface DocumentMatch {
+  page: number;
+  offset: number;
+  length: number;
+  snippet: string;
 }
 export interface DocumentPreview {
   name: string;
@@ -375,13 +393,14 @@ export interface DocumentListItem extends DocumentRecord {
     paused?: boolean;
     reviewRequired?: boolean;
     error?: string;
+    message?: string;
     diagnostic?: string;
   } | null;
 }
 export interface SourceDetails {
   document: DocumentRecord;
   version: VersionSummary & { name: string };
-  page: Page;
+  page: DocumentPage;
   source: Source;
 }
 export interface TurnVariant {
@@ -417,7 +436,13 @@ export interface ModelHealth {
   models: string[];
 }
 export interface Diagnostics {
-  media: { ffmpeg: boolean; ffprobe: boolean; whisper: boolean; model: boolean };
+  media: {
+    ffmpeg: boolean;
+    ffprobe: boolean;
+    whisper: boolean;
+    model: boolean;
+    issues: Record<string, string>;
+  };
   extraction: {
     pdf: boolean;
     ocr: boolean;
@@ -574,6 +599,9 @@ export interface ActionInputs {
   };
   'documents.limits': Record<string, never>;
   'documents.read': { id: string; version?: string };
+  'documents.page': { id: string; version: string; page: number; offset?: number; limit?: number };
+  'documents.find': PageQuery & { id: string; version: string; query: string };
+  'documents.revise': { id: string; revision: number; version: string };
   'documents.preview': {
     collection?: string;
     conversation?: string;
@@ -602,13 +630,21 @@ export interface ActionInputs {
     revisions: Record<string, number>;
     operation: 'archive' | 'exclude' | 'delete';
   };
-  'documents.compare': { id: string; left: string; right: string };
+  'documents.compare': {
+    id: string;
+    left: string;
+    right: string;
+    page?: number;
+    offset?: number;
+    limit?: number;
+  };
   'documents.correct': {
     id: string;
     revision: number;
     version: string;
     page: number;
     text: string;
+    range?: { start: number; end: number };
   };
   'documents.restore': { id: string; revision: number; version: string };
   'documents.publish': {
@@ -734,12 +770,15 @@ export interface ActionResults {
   'documents.list': ListPage<DocumentListItem>;
   'documents.limits': { maxBytes: number; maxDocuments: number; supported: string[] };
   'documents.read': DocumentDetails;
+  'documents.page': DocumentPage;
+  'documents.find': ListPage<DocumentMatch> & { limited: boolean };
+  'documents.revise': Job;
   'documents.preview': DocumentPreview[];
   'documents.upload': UploadResult;
   'documents.update': DocumentRecord;
   'documents.delete': { ok: boolean };
   'documents.bulk': { count: number };
-  'documents.compare': { left: Page[]; right: Page[] };
+  'documents.compare': { left: DocumentPage | null; right: DocumentPage | null; pages: number[] };
   'documents.correct': DocumentRecord;
   'documents.restore': DocumentRecord;
   'documents.publish': Job;

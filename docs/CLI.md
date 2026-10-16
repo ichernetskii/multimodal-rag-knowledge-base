@@ -64,3 +64,9 @@ After login use `yarn cli models status` or `yarn cli models status <profile-id>
 Google-расшифровка использует обычный `models save`: provider=google, role=transcription, input=[text,audio], secretRef активного Google-ключа, модель Gemini с аудиовходом и актуальные ставки. Затем `settings save` выбирает её id в transcriptionProfile с текущей revision настроек. Команды используют те же бюджет, права и проверки, что UI; они не переключают модель автоматически при ошибке Whisper.
 
 При `indexes build` недостающие описания/расшифровки готовятся автоматически выбранными в настройках компании моделями обработки. Готовый текст повторно не генерируется для другой embedding-модели. Перед `indexes activate` проверьте текст через `review` и результаты поиска; сбой подготовки не переключает текущий индекс.
+
+## Окна текста и поиск внутри материала
+
+`yarn cli review DOCUMENT_UUID --page 2 --offset 12000` returns metadata and one bounded window, not all text of every version. Use nextOffset for the next window. `yarn cli api documents.page input.json` allows an explicit limit, and `yarn cli api documents.find input.json` returns literal matches with snippets and positions. These operations use the same read/edit/version checks as the browser. For a window correction pass range={start,end} in documents.correct; omitting range deliberately replaces the whole page.
+
+`yarn cli revise DOCUMENT_UUID [--version VERSION_UUID]` создаёт отдельную версию опубликованного материала для исправления обработки и дожидается копирования. Затем используйте review, documents.correct и publish. Оригинал и производные файлы копируются на сервере; повторных вызовов распознавания нет. До публикации пользователи видят прежний материал.

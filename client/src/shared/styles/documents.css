@@ -247,7 +247,8 @@ pre {
   margin: 20px auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  line-height: 1.8;
+  line-height: 1.9;
+  font-size: 15px;
 }
 .document-find button {
   display: block;
@@ -297,4 +298,108 @@ pre {
 }
 .chat-attachments input {
   width: auto;
+}
+
+dialog:has(.document-view),
+dialog:has(.document-comparison) {
+  width: min(1180px, calc(100vw - 32px));
+}
+.document-reader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  margin: 24px 0;
+}
+.document-reader-media {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.document-reader > section {
+  min-width: 0;
+}
+.document-reader-text mark {
+  background: #fff1a8;
+  color: #302907;
+  scroll-margin-block: 80px;
+}
+.document-version-bar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.document-version-bar label {
+  margin: 0;
+  flex: 1 1 280px;
+}
+.document-page-bar > label {
+  max-width: 200px;
+  margin: 0;
+}
+.document-page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.document-page-meta .badge {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.document-text-pager {
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.document-find {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  margin: 20px 0;
+}
+.document-find-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+.document-find-form label {
+  flex: 1;
+  margin: 0;
+}
+.document-find-form button {
+  width: auto;
+  margin: 0;
+}
+.document-find button > span {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+}
+.document-find .pagination button {
+  width: auto;
+  margin: 0;
+}
+.document-publication {
+  border-top: 1px solid var(--line);
+  padding-top: 24px;
+  margin-top: 24px;
+}
+.model-provider-group {
+  margin-top: 28px;
+}
+.model-provider-group > h3 {
+  font-size: 17px;
+}
+@media (max-width: 800px) {
+  .document-reader-media {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .document-find-form {
+    flex-wrap: wrap;
+  }
+  .document-find-form label {
+    flex-basis: 100%;
+  }
 }

@@ -209,10 +209,19 @@ try {
   await step('PDF/OCR, image, audio and video with real bundled tools', async () => {
     for (const name of ['text.pdf', 'scan.pdf', 'mixed.pdf', 'tables.pdf']) {
       const pdf = await upload(name, await readFile('examples/knowledge-base/pdf/' + name), kb.id);
-      assert.ok(pdf.version.pages.length > 0);
-      assert.ok(pdf.version.pages.some((page) => page.media?.kind === 'image'));
+      const pages = await Promise.all(
+        pdf.pages.map((page) =>
+          api('documents.page', {
+            id: pdf.document.id,
+            version: pdf.version.id,
+            page: page.number,
+          }),
+        ),
+      );
+      assert.ok(pages.length > 0);
+      assert.ok(pages.some((page) => page.media?.kind === 'image'));
       if (name === 'scan.pdf' || name === 'mixed.pdf')
-        assert.ok(pdf.version.pages.some((page) => page.method === 'ocr'));
+        assert.ok(pages.some((page) => page.method === 'ocr'));
     }
     await upload('label.png', await readFile('examples/knowledge-base/media/label.png'), kb.id);
     const profiles = await api('models.list', {});
@@ -228,18 +237,29 @@ try {
       await readFile('examples/knowledge-base/media/jfk.wav'),
       kb.id,
     );
-    assert.match(audio.version.pages.map((p) => p.text).join(' '), /country/i);
+    assert.match(
+      (await api('documents.page', { id: audio.document.id, version: audio.version.id, page: 1 }))
+        .text,
+      /country/i,
+    );
     const video = await upload(
       'inspection.mp4',
       await readFile('examples/knowledge-base/media/inspection.mp4'),
       kb.id,
     );
-    assert.ok(video.version.pages.some((p) => p.media?.kind === 'video'));
-    assert.ok(video.version.pages.some((p) => p.media?.kind === 'audio'));
-    assert.ok(
-      video.version.pages.some(
-        (p) => p.media?.kind === 'video' && (p.media.startMs ?? 0) === 12000,
+    const videoPages = await Promise.all(
+      video.pages.map((page) =>
+        api('documents.page', {
+          id: video.document.id,
+          version: video.version.id,
+          page: page.number,
+        }),
       ),
+    );
+    assert.ok(videoPages.some((p) => p.media?.kind === 'video'));
+    assert.ok(videoPages.some((p) => p.media?.kind === 'audio'));
+    assert.ok(
+      videoPages.some((p) => p.media?.kind === 'video' && (p.media.startMs ?? 0) === 12000),
     );
   });
   await step(
@@ -281,6 +301,52 @@ try {
       assert.ok(materials.items.every((document) => document.state === 'published'));
     },
   );
+  await step('published correction stays isolated until review and activation', async () => {
+    const before = await api('documents.read', { id: document!.document.id });
+    await wait(
+      (
+        await api('documents.revise', {
+          id: before.document.id,
+          revision: before.document.revision,
+          version: before.version.id,
+        })
+      ).id,
+    );
+    const candidate = await api('documents.read', { id: before.document.id });
+    assert.equal(candidate.version.state, 'review');
+    assert.equal(candidate.document.activeVersion, before.version.id);
+    const source = await api('documents.page', {
+      id: before.document.id,
+      version: before.version.id,
+      page: 1,
+    });
+    const correction = await api('documents.correct', {
+      id: before.document.id,
+      revision: candidate.document.revision,
+      version: candidate.version.id,
+      page: 1,
+      text: source.text + '\nReviewed correction fixture.',
+    });
+    assert.equal(
+      (await api('documents.page', { id: before.document.id, version: before.version.id, page: 1 }))
+        .text,
+      source.text,
+    );
+    await wait(
+      (
+        await api('documents.publish', {
+          id: before.document.id,
+          revision: correction.revision,
+          version: candidate.version.id,
+          acknowledge: true,
+        })
+      ).id,
+    );
+    assert.equal(
+      (await api('documents.read', { id: before.document.id })).document.activeVersion,
+      candidate.version.id,
+    );
+  });
   await step('Redis outage leaves PostgreSQL queue and search usable', async () => {
     await compose(['stop', 'redis']);
     try {
@@ -328,5 +394,5 @@ try {
   if (process.env.KEEP_DOCKER_TEST !== '1') {
     await compose(['down', '--volumes', '--remove-orphans']);
     await rm(directory, { recursive: true, force: true });
-  } else console.log('Retained isolated test project: ' + project);
+  } else console.log('Retained isolated test project: ' + project + '\nBrowser: ' + origin);
 }

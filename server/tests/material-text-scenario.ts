@@ -144,8 +144,13 @@ export async function materialTextScenario(app: Application, owner: Principal) {
     await wait((await call('indexes.build', { profile: textModel.id })).id);
     assert.equal(captions, 1);
     const detail = await call('documents.read', { id: first.doc.id });
-    assert.match(detail.version.pages[0]!.text, /12 Nm/);
-    assert.equal(detail.version.pages[0]!.preparedText?.profile, caption.id);
+    const preparedPage = await call('documents.page', {
+      id: first.doc.id,
+      version: detail.version.id,
+      page: 1,
+    });
+    assert.match(preparedPage.text, /12 Nm/);
+    assert.equal(preparedPage.preparedText?.profile, caption.id);
     const raw = await run(() => app.s.db.get<StoredVersion>('version', first.version.id));
     assert.equal(raw?.pages[0]!.text, first.doc.name);
     assert.equal(raw?.hash, first.version.hash);
@@ -183,6 +188,28 @@ export async function materialTextScenario(app: Application, owner: Principal) {
     assert.equal(captions, 2);
     assert.equal((await run(() => app.documents.activeIndex())).profile, another.id);
     assert.ok((await call('search', { question: 'E-42 12 Nm' })).length);
+    settings = await call('settings.read', {});
+    await call('settings.save', {
+      revision: settings.revision,
+      settings: { generationProfile: noVision.id, answerMaxImages: 0 },
+    });
+    const conversation = await call('conversations.create', { title: 'Caption fallback' });
+    const answer = await call('answers.create', {
+      conversation: conversation.id,
+      revision: conversation.revision,
+      question: 'E-42 12 Nm',
+      scope: { collection: base.id },
+      attachments: [],
+      idempotencyKey: randomUUID(),
+    });
+    await wait(answer.job.id);
+    const history = await call('conversations.read', { id: conversation.id });
+    assert.equal(
+      history.turns[0]!.sources.length,
+      2,
+      'Binary-media limits must not discard prepared text sources.',
+    );
+    assert.ok(history.turns[0]!.sources.every((source) => source.text.includes('12 Nm')));
   } finally {
     for (const key of await app.s.storage.keys('tenants/' + tenant.id + '/'))
       await app.s.storage.remove(key);

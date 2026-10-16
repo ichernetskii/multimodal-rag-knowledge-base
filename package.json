@@ -17,7 +17,7 @@
     "build:client": "yarn workspace @local-rag/client build",
     "build:server": "yarn workspace @local-rag/server build",
     "start": "node tooling/start.ts",
-    "typecheck": "tsc --noEmit && yarn workspace @local-rag/server typecheck && yarn workspace @local-rag/client typecheck",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tooling/testing/tsconfig.json && yarn workspace @local-rag/server typecheck && yarn workspace @local-rag/client typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier . --write",
@@ -37,12 +37,13 @@
     "infra:down": "node tooling/infra.ts down",
     "dev:reset": "node tooling/infra.ts reset",
     "seed": "yarn cli seed",
-    "test:integration": "yarn workspace @local-rag/server test:integration",
+    "test:integration": "node --import tsx tooling/testing/integration.ts",
     "docker:up": "node tooling/infra.ts app",
     "docker:down": "node tooling/infra.ts app-down",
     "installation:backup": "node --import tsx tooling/installation.ts backup",
     "installation:restore": "node --import tsx tooling/installation.ts restore",
-    "demo:import": "node --import tsx tooling/import-demo.ts"
+    "demo:import": "node --import tsx tooling/import-demo.ts",
+    "test:workspace": "node --import tsx tooling/testing/workspace.ts"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

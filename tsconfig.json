@@ -15,5 +15,6 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["eslint.config.ts", "tooling/**/*.ts", "client/scripts/**/*.ts"]
+  "include": ["eslint.config.ts", "tooling/**/*.ts", "client/scripts/**/*.ts"],
+  "exclude": ["tooling/testing"]
 }

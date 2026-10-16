@@ -28,7 +28,7 @@ interface Manifest {
   assets: { key: string; original: string; sha256: string; bytes: number }[];
   mac: string;
 }
-const backupFormat = schemaSignature + ':tenant-data-v2';
+const backupFormat = schemaSignature + ':tenant-data-v3';
 const partLimit = 128 * 1024 * 1024;
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const tables = [
@@ -58,7 +58,24 @@ const restoreOrder = [
   'evaluations',
 ];
 export class Backups {
+  private readonly columnNames = new Map<string, string[]>();
   constructor(readonly s: Services) {}
+  private async columns(table: string) {
+    const cached = this.columnNames.get(table);
+    if (cached) return cached;
+    const rows = await this.s.db.query<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND is_generated='NEVER' ORDER BY ordinal_position",
+      [table],
+    );
+    const columns = rows.map((row) => row.column_name);
+    requireValue(
+      columns.length > 0 && columns.every((column) => /^[a-z_][a-z_0-9]*$/u.test(column)),
+      'BACKUP_SCHEMA',
+      'Backup table columns are unavailable.',
+    );
+    this.columnNames.set(table, columns);
+    return columns;
+  }
   private mac(value: Omit<Manifest, 'mac'>) {
     return createHmac('sha256', Buffer.from(this.s.config.encryptionKey, 'hex'))
       .update(JSON.stringify(value))
@@ -185,6 +202,9 @@ export class Backups {
         );
         manifest.tenantData = tenant.rows[0]!;
         for (const table of ['users', 'memberships', ...tables]) {
+          const projection = (await this.columns(table))
+            .map((column) => '"' + column + '"')
+            .join(',');
           const batch =
             table === 'versions'
               ? 1
@@ -213,13 +233,13 @@ export class Backups {
                 : table === 'memberships'
                   ? (
                       await client.query<Record<string, unknown>>(
-                        'SELECT * FROM memberships WHERE tenant_id=$1 AND user_id::text>$2 ORDER BY user_id LIMIT 250',
+                        `SELECT ${projection} FROM memberships WHERE tenant_id=$1 AND user_id::text>$2 ORDER BY user_id LIMIT 250`,
                         [user.tenant, cursor],
                       )
                     ).rows
                   : (
                       await client.query<Record<string, unknown>>(
-                        `SELECT * FROM ${table} WHERE tenant_id=$1 AND id::text>$2 ORDER BY id LIMIT ${batch}`,
+                        `SELECT ${projection} FROM ${table} WHERE tenant_id=$1 AND id::text>$2 ORDER BY id LIMIT ${batch}`,
                         [user.tenant, cursor],
                       )
                     ).rows;
@@ -360,21 +380,10 @@ export class Backups {
             [row.id, row.login, row.password],
           );
         const insert = async (table: string, row: Record<string, unknown>) => {
-          const generated =
-            table === 'documents'
-              ? ['collection_id', 'conversation_id', 'owner_id']
-              : table === 'versions'
-                ? ['document_id']
-                : table === 'conversations'
-                  ? ['owner_id']
-                  : table === 'turns'
-                    ? ['conversation_id']
-                    : table === 'chunks'
-                      ? ['fts']
-                      : [];
-          const columns = Object.keys(row).filter((k) => !generated.includes(k));
+          const allowed = await this.columns(table);
+          const columns = Object.keys(row);
           requireValue(
-            columns.every((k) => /^[a-z_][a-z_0-9]*$/u.test(k)),
+            columns.every((k) => allowed.includes(k)),
             'BACKUP_CORRUPT',
             'Invalid column.',
           );

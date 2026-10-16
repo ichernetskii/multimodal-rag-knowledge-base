@@ -2,12 +2,7 @@ import { Component, lazy, Suspense, useEffect, useState, useRef, type ReactNode 
 import { observer } from 'mobx-react-lite';
 import { runInAction } from 'mobx';
 import { Admin } from '../features/admin/AdminPage';
-import {
-  adminNames,
-  adminSections,
-  adminGroups,
-  roleNames,
-} from '../features/admin/admin-sections';
+import { adminNames, adminSections, roleNames } from '../features/admin/admin-sections';
 import { Account } from '../features/auth/AccountDialog';
 import { Auth } from '../features/auth/LoginPage';
 import { useApplication } from '../shared/lib/application-context';
@@ -18,9 +13,12 @@ import { Icon } from '../shared/ui/Icon';
 import { ModalProvider } from '../shared/ui/Modal';
 import { ApplicationProvider } from './ApplicationProvider';
 import type { ApplicationStore } from './application-store';
+import { WorkspaceNavigation } from './navigation/WorkspaceNavigation';
 const Chat = lazy(() => import('../features/chat/ChatPage').then((m) => ({ default: m.Chat })));
 const Documents = lazy(() =>
-  import('../features/documents/DocumentsPage').then((m) => ({ default: m.Documents })),
+  import('../features/knowledge-bases/KnowledgeWorkspace').then((m) => ({
+    default: m.KnowledgeWorkspace,
+  })),
 );
 const ConversationSidebar = lazy(() =>
   import('../features/chat/ConversationSidebar').then((m) => ({ default: m.ConversationSidebar })),
@@ -144,8 +142,11 @@ const Shell = observer(function Shell() {
       app.view === 'admin'
         ? adminNames[app.navigation.section]
         : app.view === 'documents'
-          ? 'Библиотека документов'
+          ? 'База знаний'
           : 'Диалоги';
+  const platform =
+    app.view === 'admin' && adminSections[app.navigation.section].scope === 'platform';
+  const company = app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Компания';
   return (
     <div className={'app-shell' + (sidebar ? ' sidebar-open' : '')}>
       {sidebar && (
@@ -161,7 +162,7 @@ const Shell = observer(function Shell() {
           href="/chat"
           onClick={(event) => {
             event.preventDefault();
-            app.navigation.navigate('chat');
+            app.navigate('chat');
           }}
         >
           <span className="brand-symbol">
@@ -171,41 +172,7 @@ const Shell = observer(function Shell() {
             Knowledge Workspace<small>БАЗА ЗНАНИЙ КОМПАНИИ</small>
           </span>
         </a>
-        <label className="tenant-selector">
-          Компания
-          <select
-            aria-label="Компания"
-            value={user.tenant}
-            onChange={(e) => void app.execute(() => app.switchCompany(e.target.value))}
-          >
-            {app.session.tenants.map((t) => (
-              <option key={t.id} value={t.id} disabled={t.blocked}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <nav className="workspace-nav" aria-label="Рабочее пространство">
-          {(['chat', 'documents'] as const).map((view) => (
-            <button
-              key={view}
-              aria-current={app.view === view ? 'page' : undefined}
-              onClick={() => app.navigation.navigate(view)}
-            >
-              <Icon name={view} />
-              <span>{view === 'chat' ? 'Диалоги' : 'Документы'}</span>
-            </button>
-          ))}
-          {user.role === 'admin' && (
-            <button
-              aria-current={app.view === 'admin' ? 'page' : undefined}
-              onClick={() => app.navigation.navigate('admin', 'overview')}
-            >
-              <Icon name="settings" />
-              <span>Администрирование</span>
-            </button>
-          )}
-        </nav>
+        <WorkspaceNavigation />
         {app.view === 'chat' && (
           <div className="sidebar-conversations">
             <Suspense fallback={<Loading />}>
@@ -213,36 +180,9 @@ const Shell = observer(function Shell() {
             </Suspense>
           </div>
         )}
-        {user.role === 'admin' && app.view === 'admin' && (
-          <nav className="admin-navigation" aria-label="Администрирование">
-            {adminGroups(user).map((group) => (
-              <details
-                className="admin-nav-group"
-                key={group.name}
-                open={
-                  group.name === 'Начало' ||
-                  group.name === 'Компания' ||
-                  group.sections.includes(app.navigation.section)
-                }
-              >
-                <summary>{group.name}</summary>
-                {group.sections.map((section) => (
-                  <button
-                    key={section}
-                    aria-current={app.navigation.section === section ? 'page' : undefined}
-                    onClick={() => app.navigation.navigate('admin', section)}
-                  >
-                    <Icon name={adminSections[section].icon} />
-                    <span>{adminNames[section]}</span>
-                  </button>
-                ))}
-              </details>
-            ))}
-          </nav>
-        )}
         <div className="sidebar-footer">
           <div className="local-indicator">
-            <span /> {app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Компания'}
+            <span /> {platform ? 'Вся платформа' : company}
           </div>
           <div className="account-row">
             <button className="account-button" onClick={() => modal(<Account />)}>
@@ -280,21 +220,37 @@ const Shell = observer(function Shell() {
             <Icon name="menu" />
           </button>
           <div className="breadcrumb">
-            <span>{app.view === 'admin' ? 'Управление' : 'Рабочее пространство'}</span>
+            <span>{platform ? 'Вся платформа' : company}</span>
             <Icon name="arrow" size={14} />
             <strong>{title}</strong>
           </div>
-          <span className="workspace-tag">
-            <Icon name="shield" size={14} />{' '}
-            {user.operator ? 'Владелец платформы' : roleNames[user.role]}
-          </span>
+          {platform ? (
+            <span className="workspace-tag">
+              <Icon name="shield" size={14} /> Все компании
+            </span>
+          ) : (
+            <label className="tenant-selector header-tenant-selector">
+              <span>Компания</span>
+              <select
+                aria-label="Компания"
+                value={user.tenant}
+                onChange={(event) => void app.execute(() => app.switchCompany(event.target.value))}
+              >
+                {app.session.tenants.map((tenant) => (
+                  <option key={tenant.id} value={tenant.id} disabled={tenant.blocked}>
+                    {tenant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </header>
         <main
           id="main"
           tabIndex={-1}
           className={app.view === 'chat' ? 'chat-main' : 'content-main'}
         >
-          <ErrorBoundary key={app.view + app.navigation.section}>
+          <ErrorBoundary key={user.tenant + app.view + app.navigation.section}>
             <Suspense fallback={<Loading />}>
               {app.view === 'chat' ? (
                 <Chat sidebar={() => setSidebar(!sidebar)} />

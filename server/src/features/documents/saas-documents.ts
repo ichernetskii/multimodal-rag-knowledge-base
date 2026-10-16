@@ -9,13 +9,12 @@ import type {
   ModelProfile,
   IndexBuild,
   Source,
-  DocumentListItem,
   Settings,
 } from '../../contracts/public.js';
 import type { Asset, StoredUpload, StoredVersion } from '../../domain/entities.js';
 import type { AIInput } from '../../application/ports/ai.js';
 import { requireValue } from '../../shared/errors.js';
-import { string, number, revision, scope, supported } from '../../shared/input.js';
+import { string, number, revision, scope, supported, object } from '../../shared/input.js';
 import type { Input } from '../../shared/input.js';
 import { mimeType, supportedExtensions } from '../../shared/media-types.js';
 import { TokenDocumentChunker } from '../../infrastructure/indexing/token-chunker.js';
@@ -51,7 +50,7 @@ export class Documents {
   async canRead(user: Principal, doc: DocumentRecord) {
     if (doc.conversation) return doc.owner === user.id;
     try {
-      await this.collection(user, doc.collection);
+      await this.document(user, doc.id);
       return true;
     } catch {
       return false;
@@ -62,8 +61,41 @@ export class Documents {
     requireValue(doc, 'NOT_FOUND', 'Document not found.', 404);
     if (doc.conversation)
       requireValue(doc.owner === user.id, 'NOT_FOUND', 'Document not found.', 404);
-    else await this.collection(user, doc.collection, edit);
+    else {
+      await this.collection(user, doc.collection, edit);
+      if (!edit && !(await this.canEdit(user, doc)))
+        requireValue(
+          doc.state === 'published' && doc.activeVersion,
+          'NOT_FOUND',
+          'Document not found.',
+          404,
+        );
+    }
     return doc;
+  }
+  async canEdit(user: Principal, doc: DocumentRecord) {
+    if (doc.conversation) return doc.owner === user.id;
+    if (user.role === 'admin') return true;
+    if (user.role !== 'editor') return false;
+    const collection = await this.collection(user, doc.collection);
+    return collection.grants.some(
+      (grant) =>
+        grant.access === 'edit' &&
+        (grant.subject === user.id || user.groups.some((id) => grant.subject === 'group:' + id)),
+    );
+  }
+  async readableVersion(
+    user: Principal,
+    doc: DocumentRecord,
+    version: Pick<StoredVersion, 'document' | 'state'> | undefined,
+  ) {
+    requireValue(version?.document === doc.id, 'NOT_FOUND', 'Version not found.', 404);
+    requireValue(
+      version.state === 'ready' || (await this.canEdit(user, doc)),
+      'NOT_FOUND',
+      'Version not found.',
+      404,
+    );
   }
   async conversation(user: Principal, id: string) {
     const c = await this.s.db.get<{ id: string; owner: string }>('conversation', id);
@@ -323,10 +355,12 @@ export class Documents {
   }
   async asset(user: Principal, docId: string, versionId: string, assetId?: string) {
     const doc = await this.document(user, docId);
-    const v = versionId
-      ? await this.s.db.get<StoredVersion>('version', versionId)
+    const selected = versionId || doc.activeVersion;
+    const v = selected
+      ? await this.s.db.get<StoredVersion>('version', selected)
       : (await this.s.db.list<StoredVersion>('version', 'document_id=$2', [doc.id], 1))[0];
     requireValue(v?.document === doc.id, 'NOT_FOUND', 'Document version not found.', 404);
+    await this.readableVersion(user, doc, v);
     const rows = await this.s.db.query<Asset>(
       'SELECT * FROM assets WHERE tenant_id=$1 AND id=$2 AND version_id=$3',
       [user.tenant, assetId ?? v.original, v.id],
@@ -391,80 +425,6 @@ export class Documents {
       throw error;
     }
   }
-  async details(user: Principal, id: string, versionId = '') {
-    const document = await this.document(user, id);
-    const versions = await this.s.db.list<StoredVersion>('version', 'document_id=$2', [id], 1000);
-    const v =
-      versions.find((v) => v.id === (versionId || document.activeVersion)) ??
-      (!versionId ? versions[0] : undefined);
-    requireValue(v, 'NOT_FOUND', 'Version not found.', 404);
-    const { original, ...version } = v;
-    void original;
-    return {
-      document,
-      version: { ...version, pages: version.pages.map(presentPage) },
-      versions: versions.map((v) => ({
-        id: v.id,
-        created: v.created,
-        state: v.state,
-        hash: v.hash,
-      })),
-    };
-  }
-  async list(user: Principal, p: Input) {
-    const page = Math.max(1, Math.trunc(number(p, 'page', 1))),
-      pageSize = Math.min(100, Math.max(1, Math.trunc(number(p, 'pageSize', 25)))),
-      selection = await this.scope(user, (p.scope ?? {}) as Input),
-      collections = (await this.allowedCollections(user)).map((v) => v.id);
-    const values: unknown[] = [user.id, collections];
-    let where =
-      '((conversation_id IS NOT NULL AND owner_id=$2) OR (collection_id=ANY($3::uuid[])))';
-    const add = (v: unknown) => {
-      values.push(v);
-      return '$' + (values.length + 1);
-    };
-    if (selection.collection) where += ` AND collection_id=${add(selection.collection)}`;
-    if (selection.conversation) where += ` AND conversation_id=${add(selection.conversation)}`;
-    if (p.query) where += ` AND body->>'name' ILIKE ${add('%' + string(p, 'query') + '%')}`;
-    if (p.state) where += ` AND body->>'state'=${add(p.state)}`;
-    const docs = await this.s.db.list<DocumentRecord>(
-      'document',
-      where,
-      values,
-      pageSize,
-      (page - 1) * pageSize,
-    );
-    const items: DocumentListItem[] = [];
-    for (const doc of docs) {
-      const versions = await this.s.db.list<StoredVersion>(
-        'version',
-        'document_id=$2',
-        [doc.id],
-        1,
-      );
-      const [job] = await this.s.db.list<Job>(
-        'job',
-        "body->'payload'->>'document'=$2",
-        [doc.id],
-        1,
-      );
-      items.push({
-        ...doc,
-        versionCount: await this.s.db.count('version', 'document_id=$2', [doc.id]),
-        updated: versions[0]?.created ?? 0,
-        processing: job
-          ? {
-              id: job.id,
-              status: job.status,
-              reviewRequired: Boolean(job.result.reviewRequired),
-              error: job.error,
-              diagnostic: job.diagnostic,
-            }
-          : null,
-      });
-    }
-    return { items, total: await this.s.db.count('document', where, values), page, pageSize };
-  }
   async publish(user: Principal, p: Input) {
     return this.s.db.transaction(async () => {
       await this.s.db.lock('document-review:' + string(p, 'id'));
@@ -518,8 +478,39 @@ export class Documents {
       const page = version.pages.find((page) => page.number === pageNumber);
       requireValue(page, 'NOT_FOUND', 'Page not found.', 404);
       const settings = await this.s.identity.settings();
-      const text = string(p, 'text', '', settings.maxTextCharacters);
+      let text = string(p, 'text', '', settings.maxTextCharacters);
+      if (p.range !== undefined) {
+        const range = object(p, 'range');
+        const start = number(range, 'start'),
+          end = number(range, 'end');
+        const original = presentPage(page).text;
+        requireValue(
+          Number.isSafeInteger(start) &&
+            Number.isSafeInteger(end) &&
+            start >= 0 &&
+            end >= start &&
+            end <= original.length,
+          'INVALID_INPUT',
+          'Invalid correction range.',
+        );
+        const splitsCharacter = (position: number) => {
+          const before = original.charCodeAt(position - 1),
+            after = original.charCodeAt(position);
+          return before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff;
+        };
+        requireValue(
+          !splitsCharacter(start) && !splitsCharacter(end),
+          'INVALID_INPUT',
+          'A correction range cannot split a Unicode character.',
+        );
+        text = original.slice(0, start) + text + original.slice(end);
+      }
       requireValue(text.trim(), 'INVALID_INPUT', 'Corrected text must not be empty.');
+      requireValue(
+        !/[\uD800-\uDFFF]/u.test(text),
+        'INVALID_INPUT',
+        'Corrected text contains an incomplete Unicode character.',
+      );
       requireValue(
         version.pages.reduce(
           (total, item) => total + (item === page ? text.length : item.text.length),

@@ -15,11 +15,24 @@ export class KnowledgeBases {
 
   async list(user: Principal) {
     const collections = await this.documents.allowedCollections(user);
+    const editable = collections
+      .filter(
+        (collection) =>
+          user.role === 'admin' ||
+          (user.role === 'editor' &&
+            collection.grants.some(
+              (grant) =>
+                grant.access === 'edit' &&
+                (grant.subject === user.id ||
+                  user.groups.some((id) => grant.subject === 'group:' + id)),
+            )),
+      )
+      .map((collection) => collection.id);
     const counts = new Map(
       (
         await this.s.db.query<{ collection_id: string; count: string }>(
-          'SELECT collection_id,count(*) FROM documents WHERE tenant_id=$1 AND collection_id=ANY($2::uuid[]) GROUP BY collection_id',
-          [user.tenant, collections.map((c) => c.id)],
+          "SELECT collection_id,count(*) FROM documents WHERE tenant_id=$1 AND collection_id=ANY($2::uuid[]) AND (collection_id=ANY($3::uuid[]) OR body->>'state'='published' AND body->>'activeVersion'<>'') GROUP BY collection_id",
+          [user.tenant, collections.map((c) => c.id), editable],
         )
       ).map((row) => [row.collection_id, Number(row.count)]),
     );

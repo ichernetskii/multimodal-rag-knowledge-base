@@ -1,12 +1,38 @@
 import { spawn } from 'node:child_process';
 import { serverExecutable } from '../../config/paths.js';
-import { managedMediaCommand } from '../../config/media-runtime.js';
+import { managedMediaCommand, mediaRuntimeDirectory } from '../../config/media-runtime.js';
 import { AppError } from '../../shared/errors.js';
-export const mediaCommand = (name: 'ffmpeg' | 'ffprobe' | 'whisper') =>
-  serverExecutable(
-    process.env[{ ffmpeg: 'FFMPEG_BIN', ffprobe: 'FFPROBE_BIN', whisper: 'WHISPER_BIN' }[name]] ||
-      managedMediaCommand(name),
-  );
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { mediaBuildVersion } from '../media-runtime/manifest.js';
+export function mediaCommand(name: 'ffmpeg' | 'ffprobe' | 'whisper') {
+  const custom =
+    process.env[{ ffmpeg: 'FFMPEG_BIN', ffprobe: 'FFPROBE_BIN', whisper: 'WHISPER_BIN' }[name]];
+  if (custom) return serverExecutable(custom);
+  let receipt: { version?: string; platform?: string; arch?: string };
+  try {
+    receipt = JSON.parse(
+      readFileSync(join(mediaRuntimeDirectory(), 'receipt.json'), 'utf8'),
+    ) as typeof receipt;
+  } catch {
+    throw new AppError(
+      'MEDIA_TOOL_UNAVAILABLE',
+      'Медиатулы не установлены. Выполните yarn prepare:media или пересоберите серверный Docker-образ.',
+      503,
+    );
+  }
+  if (
+    receipt.version !== mediaBuildVersion ||
+    receipt.platform !== process.platform ||
+    receipt.arch !== process.arch
+  )
+    throw new AppError(
+      'MEDIA_RUNTIME_OUTDATED',
+      'Версия медиатулов не соответствует приложению. Выполните yarn prepare:media или пересоберите серверный Docker-образ.',
+      503,
+    );
+  return managedMediaCommand(name);
+}
 
 /** No shell; bounded pipes, deadline and immediate process termination on cancellation. */
 export function mediaProcess(

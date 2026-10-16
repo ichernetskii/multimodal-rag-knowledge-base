@@ -3,6 +3,9 @@ import { credentialScenario } from './credential-scenario.js';
 import { billingScenario } from './billing-scenario.js';
 import { transcriptionScenario } from './transcription-scenario.js';
 import { materialTextScenario } from './material-text-scenario.js';
+import { documentReaderScenario } from './document-reader-scenario.js';
+import { attachmentScenario } from './attachment-scenario.js';
+import { revisionScenario } from './revision-scenario.js';
 import assert from 'node:assert/strict';
 import { randomUUID, createHash } from 'node:crypto';
 import { openApplication } from '../src/app/bootstrap.js';
@@ -18,7 +21,7 @@ import { terminal } from '../src/contracts/public.js';
 
 void test(
   'SaaS: durable jobs, multipart S3, citations, tenant/ACL isolation, backup and restore',
-  { skip: process.env.RUN_INTEGRATION !== '1', timeout: 120000 },
+  { skip: process.env.RUN_INTEGRATION !== '1', timeout: 300000 },
   async () => {
     process.loadEnvFile(new URL('../../.env', import.meta.url));
     const config = loadDeployment({
@@ -78,6 +81,8 @@ void test(
       await billingScenario(app, user, other);
       await transcriptionScenario(app, user);
       await materialTextScenario(app, user);
+      await documentReaderScenario(app, user);
+      await revisionScenario(app, user);
       const kb = await call('collections.save', { name: 'Personnel', grants: [] });
       const renames = await Promise.allSettled([
         call('collections.rename', { id: kb.id, revision: kb.revision, name: 'Personnel A' }),
@@ -150,7 +155,11 @@ void test(
         ),
         /not found/i,
       );
-      const originalPage = detail.version.pages[0]!;
+      const originalPage = await call('documents.page', {
+        id: detail.document.id,
+        version: detail.version.id,
+        page: 1,
+      });
       const corrected = await call('documents.correct', {
         id: detail.document.id,
         revision: detail.document.revision,
@@ -161,7 +170,16 @@ void test(
       const reviewed = await call('documents.read', { id: detail.document.id });
       assert.equal(reviewed.version.hash, detail.version.hash);
       assert.equal(reviewed.version.acknowledged, false);
-      assert.match(reviewed.version.pages[0]!.text, /Q-204/);
+      assert.match(
+        (
+          await call('documents.page', {
+            id: detail.document.id,
+            version: reviewed.version.id,
+            page: 1,
+          })
+        ).text,
+        /Q-204/,
+      );
       await assert.rejects(
         call('documents.correct', {
           id: detail.document.id,
@@ -258,6 +276,7 @@ void test(
       });
       const evaluation = await call('quality.run', {});
       await wait(evaluation.id);
+      await attachmentScenario(app, user, wait);
       const connector = await call('sync.save', {
         collection: kb.id,
         path: 'Local folder',
@@ -403,7 +422,17 @@ void test(
         1_000_000,
       );
       const restoredLarge = await call('documents.read', { id: largeDocument.document.id });
-      assert.equal(restoredLarge.version.pages[0]?.text.length, 4_500_000);
+      const largePage = await call('documents.page', {
+        id: largeDocument.document.id,
+        version: restoredLarge.version.id,
+        page: 1,
+      });
+      assert.equal(largePage.totalCharacters, 4_500_000);
+      assert.equal(largePage.text.length, 12000);
+      assert.ok(
+        JSON.stringify(restoredLarge).length < 10000,
+        'Metadata does not download the entire extracted text.',
+      );
       assert.ok((await call('search', { question: 'vacation' })).length);
       assert.deepEqual(await call('collections.list', {}, other), []);
       const profiles = await call('models.list', {}),

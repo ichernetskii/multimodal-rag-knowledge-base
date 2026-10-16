@@ -17,6 +17,7 @@ export function Form({
   disabled = false,
   className = '',
   autoComplete,
+  protectChanges = false,
 }: {
   children: ReactNode;
   submit: (data: FormData) => Promise<unknown>;
@@ -25,31 +26,44 @@ export function Form({
   disabled?: boolean;
   className?: string;
   autoComplete?: string;
+  protectChanges?: boolean;
 }) {
   const app = useApplication(),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(),
     errorId = useId(),
+    form = useRef<HTMLFormElement>(null),
     errorSummary = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (error !== undefined) errorSummary.current?.focus();
   }, [error]);
+  useEffect(() => () => app.unsaved.clear(errorId), [app, errorId]);
   return (
     <form
+      ref={form}
       className={className}
       autoComplete={autoComplete}
       aria-busy={busy || undefined}
       aria-describedby={error ? errorId : undefined}
+      onChange={() => {
+        if (protectChanges)
+          app.unsaved.mark(errorId, form.current?.closest('dialog') ? 'dialog' : 'page');
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         if (busy) return;
         const data = new FormData(event.currentTarget);
+        // Values are submitted now; failed saves restore the leave-page protection.
+        app.unsaved.clear(errorId);
         setBusy(true);
         setError(undefined);
         void submit(data)
+          .then(() => app.unsaved.clear(errorId))
           .catch((e: unknown) => {
             setError(e);
-            app.handleError(e, false);
+            if (protectChanges && form.current?.isConnected)
+              app.unsaved.mark(errorId, form.current.closest('dialog') ? 'dialog' : 'page');
+            app.handleError(e, !form.current?.isConnected);
           })
           .finally(() => setBusy(false));
       }}
