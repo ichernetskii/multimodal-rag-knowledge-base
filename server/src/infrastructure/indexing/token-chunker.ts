@@ -113,7 +113,7 @@ export class TokenDocumentChunker implements DocumentChunker {
           requireValue(
             chunks.length < (options.maxChunks ?? 50_000),
             'CHUNK_LIMIT',
-            'Документ превышает лимит фрагментов. Разделите документ или измените лимит.',
+            'The document exceeds the fragment limit. Split it or adjust the limit.',
           );
           const embeddingInput = this.formatter.document(document.name, section.title, text);
           const tokens = encode(best);

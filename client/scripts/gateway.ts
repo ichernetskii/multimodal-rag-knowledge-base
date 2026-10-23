@@ -82,7 +82,7 @@ export function createClientServer(options: { apiUrl: string; directory?: string
     try {
       handle(req, res);
     } catch {
-      error(res, 500, 'ASSET_ERROR', 'Не удалось прочитать файл клиента.');
+      error(res, 500, 'ASSET_ERROR', 'Could not read the client file.');
     }
   });
   function handle(req: IncomingMessage, res: ServerResponse) {
@@ -91,7 +91,7 @@ export function createClientServer(options: { apiUrl: string; directory?: string
     try {
       url = new URL(req.url ?? '/', 'http://client');
     } catch {
-      error(res, 400, 'INVALID_URL', 'Некорректный адрес.');
+      error(res, 400, 'INVALID_URL', 'Invalid address.');
       return;
     }
     if (url.pathname === '/_client/health') {
@@ -104,18 +104,18 @@ export function createClientServer(options: { apiUrl: string; directory?: string
       return;
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') {
-      error(res, 405, 'METHOD_NOT_ALLOWED', 'Метод не поддерживается.');
+      error(res, 405, 'METHOD_NOT_ALLOWED', 'Method not supported.');
       return;
     }
     let candidate: string;
     try {
       candidate = resolve(directory, '.' + decodeURIComponent(url.pathname));
     } catch {
-      error(res, 400, 'INVALID_URL', 'Некорректный адрес.');
+      error(res, 400, 'INVALID_URL', 'Invalid address.');
       return;
     }
     if (candidate !== directory && !candidate.startsWith(directory + sep)) {
-      error(res, 404, 'NOT_FOUND', 'Файл не найден.');
+      error(res, 404, 'NOT_FOUND', 'File not found.');
       return;
     }
     let asset =
@@ -125,7 +125,7 @@ export function createClientServer(options: { apiUrl: string; directory?: string
           ? resolve(directory, 'index.html')
           : '';
     if (!asset || !existsSync(asset) || !realpathSync(asset).startsWith(directory + sep)) {
-      error(res, 404, 'NOT_FOUND', 'Файл не найден.');
+      error(res, 404, 'NOT_FOUND', 'File not found.');
       return;
     }
     const mime = types[extname(asset)] ?? 'application/octet-stream',
@@ -161,7 +161,7 @@ export function createClientServer(options: { apiUrl: string; directory?: string
       return;
     }
     const stream = createReadStream(asset);
-    stream.on('error', () => error(res, 500, 'ASSET_ERROR', 'Не удалось прочитать файл.'));
+    stream.on('error', () => error(res, 500, 'ASSET_ERROR', 'Could not read the file.'));
     res.on('close', () => stream.destroy());
     stream.pipe(res);
   }
@@ -184,7 +184,12 @@ export function createClientServer(options: { apiUrl: string; directory?: string
       );
     upstream.setTimeout(660_000, () => upstream.destroy(new Error('Upstream timeout')));
     upstream.on('error', () =>
-      error(res, 502, 'SERVER_UNAVAILABLE', 'Сервер приложения недоступен. Повторите подключение.'),
+      error(
+        res,
+        502,
+        'SERVER_UNAVAILABLE',
+        'The application server is unavailable. Please reconnect.',
+      ),
     );
     req.on('aborted', () => upstream.destroy());
     res.on('close', () => upstream.destroy());

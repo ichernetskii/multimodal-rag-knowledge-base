@@ -1,22 +1,19 @@
-# Развёртывание и эксплуатация
+# Deployment and recovery
 
-## Docker Compose
+## Production Docker installation
 
-Установите Docker Engine и Compose plugin по официальной инструкции для дистрибутива. Не открывайте наружу PostgreSQL, Redis, S3 или Docker socket. На macOS используйте Docker Desktop; его Linux VM — часть работы контейнеров, а не отдельный клиентский сервер.
-
-Скопируйте исходники/lockfile, установите Node.js для команд настройки или создайте приватный .env по примеру. На новой машине:
+Install Docker Engine/Compose v2, or Docker Desktop on macOS. Keep PostgreSQL, Redis, S3, and the Docker socket private. Install Node.js for repository configuration commands.
 
 ```sh
 yarn install --immutable
 yarn configure --production
-# Edit .env: TLS_DOMAIN, DOCKER_PUBLIC_ORIGIN and RAG_PUBLIC_ORIGIN.
-# After bootstrap, add provider API keys in the owner admin.
+# Edit .env: TLS_DOMAIN, DOCKER_PUBLIC_ORIGIN, RAG_PUBLIC_ORIGIN.
 docker compose --env-file .env -p local-rag-saas-app -f compose.yaml -f compose.production.yaml --profile app up -d --build --wait
 ```
 
-Задайте реальный домен и DNS, указывающий на сервер, откройте 80/443. Caddy выпускает и хранит TLS-сертификаты; Nginx отдаёт клиент и проксирует API/SSE без буферизации. compose.production.yaml убирает публикацию HTTP-порта клиента. Не используйте демонстрационные секреты и seed в production.
+Point a real domain at the server and expose ports 80/443. Caddy obtains TLS certificates; nginx serves assets and proxies API/SSE without buffering. The production overlay removes the client's public HTTP mapping. Do not run development seed or use example credentials in production.
 
-Создайте первого оператора через stdin:
+Create the first operator through stdin:
 
 ```sh
 read -s OPERATOR_PASSWORD
@@ -24,58 +21,61 @@ printf '%s' "$OPERATOR_PASSWORD" | docker compose --env-file .env -p local-rag-s
 unset OPERATOR_PASSWORD
 ```
 
-В админке владельца добавьте ключ в реестр API-ключей и выберите его в профиле модели. Настройте актуальные цены, модель и лимиты, выполните проверку подключения. Сохранение, замена и отключение ключей сразу применяются к новым вызовам API и воркеров. Значения ключей шифруются в PostgreSQL; APP_ENCRYPTION_KEY храните отдельно от БД. Полный снимок установки содержит зашифрованный реестр, копия компании — нет. Не вводите ключ в поле имени модели или endpoint. Для Ollama добавьте endpoint в AI_ALLOWED_ENDPOINTS; контейнерный API не видит localhost вашего Mac как свой localhost. Можно направить его на выделенный сервер моделей, host.docker.internal или опциональный Compose-профиль.
+Add provider keys through platform administration, then configure profiles with actual models, current tariffs, and limits. Rotation/disable affects new calls without restart. Keys are encrypted in PostgreSQL; protect `APP_ENCRYPTION_KEY` separately. A full database dump includes encrypted credentials; company backups exclude them. Do not enter a secret as a model name or endpoint.
 
-Все контейнеры server используют read-only root и временный /tmp; API и workers работают непривилегированным пользователем node. S3/PostgreSQL имеют постоянные тома; Redis — вытесняемый кеш без обязательного persistence. Изменение лимита компании не меняет жёсткие memory/CPU пределы контейнера. Масштабируйте workers по очередям и отслеживайте connection budget PostgreSQL: каждый API/worker имеет свои pools.
+Ollama endpoints must be allowed by `AI_ALLOWED_ENDPOINTS`. Container localhost refers to that container, not the host. Use a reachable dedicated model server, `host.docker.internal` where supported, or the optional Compose model service.
 
-PDF/OCR helpers в образе находятся в `server/resources/extraction/`; каталог `server/scripts` больше не используется. Сборка копирует необходимые ресурсы отдельно от TypeScript. Учебный корпус `examples/knowledge-base` и `.artifacts/` исключены из build context: это не production-данные. Чтобы загрузить демонстрацию, запускайте [импорт через API](../examples/knowledge-base/README.md) из checkout с выбранной CLI-компанией.
+Server containers use read-only roots, temporary `/tmp`, and the unprivileged `node` user. PostgreSQL/S3 have persistent volumes; Redis is disposable. Company limits do not change container CPU/memory caps. Account for a connection pool per API/worker process when scaling queues.
 
-## Состояние и обновление
+Required PDF/OCR resources are copied from `server/resources/extraction`. Sample documents and `.artifacts/` are excluded from image build context. Import [sample data](../examples/knowledge-base/README.md) from a checkout through the public API if needed.
 
-/health/live проверяет процесс; /health/ready — соединение PostgreSQL и состояние кеша. Административная диагностика отдельно проверяет S3, workers, FFmpeg/Whisper/PDF/OCR. Не путайте liveness с доступностью платной модели. Задания/операции показывают очередь, ошибки, бюджет и активные workers. OpenTelemetry включается OTEL_EXPORTER_OTLP_ENDPOINT; SQL параметры и тексты документов не включены в enhanced reporting.
+## Health and updates
 
-При проблеме материала проверьте его задание/diagnostic ID, состояние worker, затем соответствующий PDF/OCR/media runtime и назначенную модель. При проблеме ответа отдельно проверяйте модель генерации, активный поисковый индекс, опубликованные источники, права и бюджет. Доступный HTTP endpoint модели сам по себе не подтверждает готовность поиска. Пользовательский порядок действий приведён в [USAGE](USAGE.md).
+`/health/live` checks the process. `/health/ready` checks PostgreSQL and cache state. Owner diagnostics separately inspect S3, workers, FFmpeg, Whisper, PDF, and OCR. A live HTTP endpoint does not establish model or search readiness. OpenTelemetry is optional through `OTEL_EXPORTER_OTLP_ENDPOINT`; enhanced SQL parameter/document text capture is disabled.
 
-Перед несовместимым обновлением сохраните копию, остановите приложение и подготовьте новую совместимую установку. Схема версии 7 привязана к текущему контракту: старые базы/копии отклоняются, автоматической миграции нет. Данные разработки пересоздаются guarded reset. Не пытайтесь заменить только API, оставив клиент и workers другого релиза.
+For a material failure inspect the job/diagnostic ID, worker, processing runtime, assigned model, and budget. For an answer failure also check the active index, publication, grants, and generation profile. See [usage](USAGE.md).
 
-## Резервная копия компании
+Before an incompatible update preserve a backup, stop the application, and prepare a compatible installation. Current schema version 7 rejects old schemas/backups without migration. Recreate only disposable development resources. Deploy client, API, and workers from the same revision.
 
-В админке или CLI: backup.create → дождаться задания → backup.verify → backup.restore → дождаться восстановления. Копия находится в S3, включает consistent PostgreSQL snapshot и отдельные копии immutable assets. HMAC с APP_ENCRYPTION_KEY и SHA-256 защищают текущий формат/целостность. Restore закрывает операции только целевой компании, отменяет её активные задания, не заменяет глобальные пароли и не затрагивает другие компании. Недоступные источники скрываются из истории.
+## Company backup
 
-Автоматические backup/cleanup запускает maintenance worker. backupIntervalHours=0 отключает плановое копирование; backupDays задаёт retention. Очистка удаляет просроченные незавершённые загрузки, историю/задания/аудит по срокам и отложенные S3-объекты. Не храните единственную аварийную копию на том же диске.
+Use `backup.create`, wait, run `backup.verify`, then `backup.restore` and wait for its maintenance job. The S3 backup contains a consistent PostgreSQL snapshot and independent immutable object copies. HMAC with `APP_ENCRYPTION_KEY` and SHA-256 protect format and integrity.
 
-## Полная аварийная копия установки
+Restoration blocks the target company and fences its jobs. It does not replace global passwords or another company's data. Current usage, owner entitlements, prices, and model catalog are retained. If an old embedding profile is unavailable, select a current profile and rebuild. Restoring a backup cannot undo provider expenses.
 
-Только оператор, для локального S3 в Compose. Команда останавливает API, workers и storage на время снимка, PostgreSQL остаётся для pg_dump. Она не требует установленного на хосте PostgreSQL.
+The maintenance worker schedules backups/cleanup. `backupIntervalHours=0` disables scheduled backups; `backupDays` controls retention. Expired uploads, history/jobs/audits, and pending object deletions are cleaned according to settings. Keep disaster recovery copies on separate protected storage.
+
+## Whole-installation snapshot
+
+Operator-only, for local S3 in Compose. The tool pauses API/workers/storage while PostgreSQL remains available for `pg_dump`; no host PostgreSQL installation is required.
 
 ```sh
-# Docker CLI must be in PATH; INSTALLATION_PROJECT defaults to local-rag-saas-app.
+# INSTALLATION_PROJECT defaults to local-rag-saas-app.
 yarn installation:backup /secure/new-snapshot-directory
-# Store private .env separately; protect snapshot files as confidential data.
-# Restore only into the selected, initialized installation with the same private .env:
+# Back up the private .env separately.
 yarn installation:restore /secure/new-snapshot-directory --confirm-replace-installation
 ```
 
-Снимок содержит postgres.dump, storage.tar и manifest.json со схемой/хешами. Секреты не копируются автоматически. Доступ к каталогу — 0700, файлы — 0600; перемещайте копию в отдельное защищённое хранилище. Restore заменяет выбранную установку; используйте только доверенные операторские snapshots текущего формата. Для внешнего S3 нужна согласованная стратегия snapshot/versioning у поставщика, локальный filesystem script для него неприменим.
+Snapshots contain `postgres.dump`, `storage.tar`, and a checksummed `manifest.json`. Directories use mode 0700 and files 0600. Restore replaces the selected initialized installation and requires its matching private `.env`. Accept only trusted current-format operator snapshots. External S3 needs a provider-specific consistent snapshot/versioning strategy; the filesystem snapshot tool does not cover it.
 
-При аварии после отправки AI-запроса провайдер мог списать деньги. Такие задания сохраняются с неопределённым результатом; проверьте usage у поставщика перед ручным retry. Redis outage не требует восстановления бизнес-данных. Длительная недоступность PostgreSQL/S3 должна сопровождаться остановкой приёма/восстановлением зависимости, а не созданием нового tenant с теми же именами.
+A crash after sending an AI request can leave billing uncertain. Check the provider before manual retry. Redis outage needs no business-data restore. Recover PostgreSQL/S3 rather than creating duplicate company identities after an outage.
 
-## Локальные модели
+## Local model deployment and transfer
 
-Для сервера моделей можно добавить Ollama рядом с приложением. На Linux GPU подключается отдельно средствами NVIDIA/ROCm; на Mac контейнер не получает Metal автоматически. На Mac для Metal укажите доступный host endpoint, а обработчики/whisper.cpp остаются серверными компонентами продукта. Требуемые модели загружаются в выбранный runtime; их availability проверяйте models.check. Замена провайдера генерации не перестраивает vectors; смена embedding space требует indexes.build/activate.
+A local installation adds `compose.local-ai.yaml`; public HTTPS also adds `compose.production.yaml`:
 
-Обычная копия компании использует формат tenant-data-v3. При восстановлении сохраняются текущий журнал расходов, квоты оператора и каталог моделей. Старые расходы не обнуляются; цены и отозванные подключения не возвращаются из копии. Если прежний embedding-профиль больше недоступен, оператор выбирает доступный профиль и перестраивает индекс. Полный операторский снимок установки сохраняет все таблицы и предназначен для аварийного восстановления, а не для отката бюджета компании.
+```sh
+docker compose --env-file .env -f compose.yaml -f compose.local-ai.yaml -f compose.production.yaml --profile app up -d --build --wait --wait-timeout 3600
+```
 
-## Перенос локальных моделей
+`yarn docker:up` selects the local overlay when `LOCAL_AI=1`. GPU acceleration on Linux requires a suitable NVIDIA/ROCm runtime and override. The portable default is CPU. Docker on macOS does not automatically provide Metal; a reachable native Ollama endpoint can use host acceleration.
 
-A local deployment uses compose.yaml plus compose.local-ai.yaml; add compose.production.yaml for the public HTTPS gateway. For example: `docker compose --env-file .env -f compose.yaml -f compose.local-ai.yaml -f compose.production.yaml --profile app up -d --build --wait --wait-timeout 3600`. `yarn docker:up` selects the local overlay automatically when LOCAL_AI=1; domain/HTTPS configuration remains an operator deployment choice.
+Preserve private `.env`, data snapshots, and deployment files. Ollama/Whisper software comes from versioned images. Qwen/EmbeddingGemma weights live in `ollama-data`; database/S3 snapshots exclude that volume. For an offline move, stop Ollama and export/import the model volume separately, or allow the new initializer to download weights. Existing volumes reuse installed weights. Record model digests for reproducibility and rebuild embedding indexes if downloaded model weights change.
 
-Keep the private .env, PostgreSQL and S3 snapshots, and the repository/deployment files. Ollama software and Whisper executable/weights come from versioned images. Qwen/EmbeddingGemma weights live in the Compose project's ollama-data volume. Database/S3 installation snapshots do not include that model volume: stop Ollama, export/import the volume separately for an offline move, or let the initializer download the models on the new server. Existing volumes are reused without pulling updated tags. If downloading tags again yields different weights, rebuild embedding indexes before serving retrieval against them. Model digests shown by `ollama list` should be recorded for a reproducible transfer.
+Moving the source folder alone does not move customer data, secrets, or volumes. The destination needs Docker/Compose, sufficient RAM/disk, and Internet for first downloads; no manual host installation of Ollama/FFmpeg/Whisper is needed for the container route.
 
-Moving only the source folder does not transfer customer data, private .env or Docker volumes. No manual installation of Ollama, FFmpeg or Whisper on the destination host is needed. Docker/Compose, adequate RAM/disk and (for initial downloads) Internet are required. Linux NVIDIA acceleration additionally requires a compatible GPU/runtime and a GPU Compose override; the default portable deployment is CPU.
+## Strict formats and media runtime
 
-## Обновление текущего формата разработки
+Tenant snapshots use the current writable-column format; generated metadata columns recalculate on restore. Old signatures fail without conversion. A failed check never authorizes erasing an existing installation: recreate only disposable test/development resources or keep the matching old installation separately.
 
-The schema and tenant backup format are strict. Current tenant snapshots include writable columns only; PostgreSQL generated metadata columns are recalculated on restore. Older schema signatures or tenant-data formats are rejected without migration. A failed format check is not permission to erase an existing installation. Recreate only an explicitly disposable development/test installation, or retain the old installation with its matching code until its data is handled separately.
-
-Native `yarn prepare:media` replaces only a runtime directory bearing the managed ownership receipt. It builds the current FFmpeg with H.264 (libx264) and pinned Whisper, verifies downloads and reuses valid weights. Docker installs the same tools while building the image. System diagnostics rejects outdated managed versions and reports missing tools/weights or an incompatible custom FFmpeg. Explicit FFMPEG_BIN/FFPROBE_BIN/WHISPER_BIN overrides remain operator deployment settings. They do not turn a missing codec into a ready capability.
+Native `yarn prepare:media` replaces only a directory with its managed ownership receipt. It builds current H.264-enabled FFmpeg and pinned Whisper, verifies downloads, and reuses valid weights. Docker installs the same tools during image build. Diagnostics rejects obsolete receipts or missing codecs. Explicit `FFMPEG_BIN`, `FFPROBE_BIN`, and `WHISPER_BIN` overrides remain deployment choices and must satisfy the same requirements.

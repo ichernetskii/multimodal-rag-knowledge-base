@@ -21,15 +21,15 @@ export function Source({ source }: { source: SourceData }) {
     );
   return (
     <>
-      <p className="eyebrow">ИСТОЧНИК ОТВЕТА</p>
+      <p className="eyebrow">ANSWER SOURCE</p>
       <h2>{s.name}</h2>
       <div className="source-meta">
-        <Badge>Страница {s.page}</Badge>
+        <Badge>Page {s.page}</Badge>
         <span>{s.section}</span>
-        <span>Версия от {date(d.version.created)}</span>
+        <span>Version from {date(d.version.created)}</span>
       </div>
       <MediaPreview document={s.document} version={s.version} media={p.media} />
-      <h3>Использованный фрагмент</h3>
+      <h3>Passage used</h3>
       <div className="source-text">
         {at >= 0 ? (
           <>
@@ -46,7 +46,7 @@ export function Source({ source }: { source: SourceData }) {
       </div>
       <div className="actions source-links">
         <a className="button-link" href={url + '&download=1'}>
-          Скачать оригинал
+          Download original
         </a>
         <a
           className="button-link"
@@ -57,13 +57,13 @@ export function Source({ source }: { source: SourceData }) {
           target="_blank"
           rel="noopener"
         >
-          Открыть оригинал ↗
+          Open original ↗
         </a>
       </div>
       {d.version.name.toLowerCase().endsWith('.pdf') && (
         <iframe
           className="source-preview"
-          title={'PDF: ' + s.name + ', страница ' + s.page}
+          title={'PDF: ' + s.name + ', page ' + s.page}
           src={url + '#page=' + s.page}
         />
       )}

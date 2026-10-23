@@ -30,9 +30,7 @@ export function errorResponse(error: unknown) {
     status: disk ? 507 : 500,
     error: {
       code: disk ? 'DISK_FULL' : 'INTERNAL',
-      message: disk
-        ? 'Недостаточно места на диске.'
-        : 'Техническая ошибка. Используйте идентификатор для диагностики.',
+      message: disk ? 'Not enough disk space.' : 'Technical error. Use the ID for diagnostics.',
       diagnostic: randomUUID(),
     },
   };

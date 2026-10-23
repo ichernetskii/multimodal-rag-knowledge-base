@@ -39,7 +39,7 @@ export const ModalProvider = observer(function ModalProvider({
       <dialog
         id="dialog"
         ref={dialog}
-        aria-label="Диалоговое окно"
+        aria-label={'Dialog'}
         onCancel={(event) => {
           event.preventDefault();
           replace(null);
@@ -62,7 +62,7 @@ export const ModalProvider = observer(function ModalProvider({
           id="close-dialog"
           className="icon-button modal-close"
           onClick={() => replace(null)}
-          aria-label="Закрыть окно"
+          aria-label={'Close dialog'}
         >
           ×
         </button>

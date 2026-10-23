@@ -33,4 +33,4 @@ await isolatedDatabase(async (_app, config) => {
   });
   process.exitCode = code ?? 1;
 });
-console.log('Изолированная тестовая база и её файлы удалены.');
+console.log('Isolated test database and files removed.');

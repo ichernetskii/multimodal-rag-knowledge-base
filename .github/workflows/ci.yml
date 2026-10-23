@@ -3,6 +3,17 @@ on:
   push:
   pull_request:
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan complete Git history
+        run: >-
+          docker run --rm -v "$PWD:/repo:ro" -w /repo
+          ghcr.io/gitleaks/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+          git . --log-opts=--all --redact=100
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -22,6 +33,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+      - run: node .yarn/releases/yarn-4.18.1.cjs install --immutable
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -30,6 +45,8 @@ jobs:
           push: false
           load: true
           tags: local-rag-server:dev
+          cache-from: type=gha,scope=server
+          cache-to: type=gha,mode=max,scope=server
       - run: docker run --rm --entrypoint node local-rag-server:dev server/dist/interfaces/cli/main.js --help
       - uses: docker/build-push-action@v6
         with:
@@ -38,8 +55,16 @@ jobs:
           push: false
           load: true
           tags: local-rag-client:dev
+          cache-from: type=gha,scope=client
+          cache-to: type=gha,mode=max,scope=client
       - run: docker run --rm --entrypoint nginx local-rag-client:dev -t
       - name: SaaS deployment acceptance
         run: |
           node tooling/configure.ts
           node tooling/test-docker.ts --no-build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-acceptance
+          path: .artifacts/verification/docker.json
+          if-no-files-found: ignore

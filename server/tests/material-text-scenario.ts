@@ -26,6 +26,7 @@ export async function materialTextScenario(app: Application, owner: Principal) {
       JSON.stringify({
         message: { content: 'AX-100 service label: E-42, torque 12 Nm.' },
         done: true,
+        done_reason: 'stop',
         prompt_eval_count: 100,
         eval_count: 20,
       }) + '\n',

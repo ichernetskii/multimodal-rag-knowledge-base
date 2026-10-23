@@ -3,8 +3,8 @@ export function Loading({ error = '', retry }: { error?: string; retry?: () => v
   return (
     <div className={error ? 'inline-error' : 'loading'} role={error ? 'alert' : 'status'}>
       {!error && <span className="spinner" aria-hidden="true" />}
-      {error || 'Загрузка…'}
-      {error && retry && <button onClick={retry}>Повторить</button>}
+      {error || 'Loading…'}
+      {error && retry && <button onClick={retry}>Retry</button>}
     </div>
   );
 }

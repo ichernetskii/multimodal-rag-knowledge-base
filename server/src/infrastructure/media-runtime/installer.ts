@@ -58,7 +58,7 @@ async function requireOwnedDirectory(directory: string) {
   }
   if (!owned)
     throw new Error(
-      'MEDIA_RUNTIME_DIR занят каталогом без метки установки Local RAG. Выберите новый пустой путь; существующие данные не изменены.',
+      'MEDIA_RUNTIME_DIR contains a directory without the Local RAG installation marker. Choose a new empty path; existing data was not changed.',
     );
 }
 async function toolsReady(directory: string) {
@@ -112,16 +112,15 @@ async function run(command: string, args: string[], cwd: string, signal: AbortSi
       signal.removeEventListener('abort', abort);
       reject(
         new Error(
-          `Не удалось запустить ${command}: ${error.message}. Для нативной сборки нужны C/C++ compiler, make и tar; готовая поставка Docker включает инструменты.`,
+          `Could not start ${command}: ${error.message}. Native builds require a C/C++ compiler, make, and tar; the Docker image includes these tools.`,
         ),
       );
     });
     child.once('close', (code) => {
       signal.removeEventListener('abort', abort);
-      if (signal.aborted)
-        reject(new Error('Подготовка медиа отменена или превысила лимит времени.'));
+      if (signal.aborted) reject(new Error('Media preparation was cancelled or timed out.'));
       else if (code !== 0)
-        reject(new Error(`Сборка ${command} завершилась с кодом ${code}:\n${tail}`));
+        reject(new Error(`Build of ${command} finished with code ${code}:\n${tail}`));
       else resolve();
     });
   });
@@ -134,13 +133,13 @@ async function buildTools(
 ) {
   await requireOwnedDirectory(directory);
   if (!['darwin', 'linux'].includes(process.platform) || !['x64', 'arm64'].includes(process.arch))
-    throw new Error('Для этой ОС/архитектуры используйте Docker/WSL2.');
+    throw new Error('Use Docker/WSL2 for this OS/architecture.');
   const cache = serverPath('.cache/media-downloads');
   await mkdir(cache, { recursive: true, mode: 0o700 });
   const ffmpeg = join(cache, 'ffmpeg-9.0.2.tar.gz'),
     whisper = join(cache, 'whisper-1.9.1.tar.gz'),
     x264 = join(cache, 'x264-baee400.tar.gz');
-  log('Подготовка исходников FFmpeg и whisper.cpp (SHA-256).');
+  log('Preparing FFmpeg and whisper.cpp sources (SHA-256).');
   await downloadVerified(x264, x264Source, { offline, signal });
   await downloadVerified(ffmpeg, ffmpegSource, { offline, signal });
   await downloadVerified(whisper, whisperSource, { offline, signal });
@@ -183,7 +182,7 @@ async function buildTools(
     );
     await run('make', ['-j', threads], x264Dir, signal);
     await run('make', ['install'], x264Dir, signal);
-    log('Сборка собственного FFmpeg (первый запуск может занять несколько минут).');
+    log('Building FFmpeg (the first run may take several minutes).');
     await run(
       './configure',
       [
@@ -219,7 +218,7 @@ async function buildTools(
     await run('make', ['-j', threads, 'ffmpeg', 'ffprobe'], ffmpegDir, signal);
     for (const name of ['ffmpeg', 'ffprobe'])
       await copyFile(join(ffmpegDir, name), join(bin, name));
-    log('Сборка собственной whisper.cpp (CPU).');
+    log('Building whisper.cpp (CPU).');
     await run(
       cmake,
       [
@@ -304,16 +303,14 @@ export async function prepareMediaRuntime(options: PrepareMediaOptions = {}) {
       !(await toolsReady(directory)) ||
       (!options.toolsOnly && !(await matchesAsset(modelPath, whisperSmall)))
     )
-      throw new Error(
-        'Управляемый media runtime отсутствует или повреждён. Выполните yarn prepare:media.',
-      );
+      throw new Error('The managed media runtime is missing or damaged. Run yarn prepare:media.');
     return { directory, modelPath, changed: false };
   }
   if (
     (await toolsReady(directory)) &&
     (options.toolsOnly || (await matchesAsset(modelPath, whisperSmall)))
   ) {
-    log('Серверный media runtime проверен; скачивание не требуется.');
+    log('Server media runtime verified; no download needed.');
     return { directory, modelPath, changed: false };
   }
   await mkdir(dirname(modelPath), { recursive: true, mode: 0o700 });
@@ -354,13 +351,13 @@ export async function prepareMediaRuntime(options: PrepareMediaOptions = {}) {
     }
     if (!options.toolsOnly) {
       if (!(await matchesAsset(modelPath, whisperSmall)))
-        log('Подготовка Whisper small multilingual (488 МБ, SHA-256).');
+        log('Preparing Whisper small multilingual (488 MB, SHA-256).');
       changed = (await downloadVerified(modelPath, whisperSmall, { offline, signal })) || changed;
     }
     log(
       changed
-        ? 'Серверный media runtime подготовлен.'
-        : 'Серверный media runtime проверен; скачивание не требуется.',
+        ? 'Server media runtime is ready.'
+        : 'Server media runtime verified; no download needed.',
     );
     return { directory, modelPath, changed };
   } finally {

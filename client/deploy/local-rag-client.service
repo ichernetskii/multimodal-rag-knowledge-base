@@ -1,5 +1,5 @@
 [Unit]
-Description=Local RAG client gateway
+Description=Multimodal RAG Knowledge Base client gateway
 After=network.target
 
 [Service]

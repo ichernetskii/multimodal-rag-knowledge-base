@@ -13,12 +13,14 @@ export const Sync = observer(function Sync() {
   return (
     <>
       <PageHeader
-        title="Синхронизация папок"
-        description="CLI читает папку на компьютере клиента и отправляет изменения через API. Сервер не обращается к диску клиента."
+        title={'Folder sync'}
+        description={
+          'The CLI reads a folder on the client computer and uploads changes through the API. The server cannot access the client disk.'
+        }
       />
       <section className="panel">
         <Form
-          label="Создать подключение"
+          label={'Create connection'}
           disabled={!bases.length}
           submit={async (f) => {
             await api('sync.save', {
@@ -30,9 +32,9 @@ export const Sync = observer(function Sync() {
             load.reload();
           }}
         >
-          <Field label="Название / путь папки на компьютере клиента" name="path" required />
+          <Field label={'Folder name / path on the client computer'} name="path" required />
           <label>
-            База знаний
+            Knowledge base
             <select name="collection" required>
               {bases.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -42,15 +44,15 @@ export const Sync = observer(function Sync() {
             </select>
           </label>
           <label>
-            Если файл удалён локально
+            When a local file is deleted
             <select name="policy">
-              <option value="keep">Сохранить в базе</option>
-              <option value="exclude">Исключить из поиска</option>
-              <option value="delete">Удалить из базы</option>
+              <option value="keep">Keep in the knowledge base</option>
+              <option value="exclude">Exclude from search</option>
+              <option value="delete">Delete from the knowledge base</option>
             </select>
           </label>
           <Field
-            label="Интервал проверки, минут"
+            label={'Check interval, minutes'}
             name="intervalMinutes"
             type="number"
             value={5}
@@ -64,10 +66,10 @@ export const Sync = observer(function Sync() {
           <article key={c.id}>
             <h2>{c.path}</h2>
             <p>
-              Следующая проверка клиентом: {new Date(c.nextRun).toLocaleString()} · Файлов:{' '}
+              Next client check: {new Date(c.nextRun).toLocaleString()} · Files:{' '}
               {Object.keys(c.mapping).length}
             </p>
-            <p>На компьютере с папкой выполните:</p>
+            <p>Run this on the computer with the folder:</p>
             <pre>
               <code>yarn cli sync {c.id} /path/to/folder --watch</code>
             </pre>
@@ -77,7 +79,7 @@ export const Sync = observer(function Sync() {
                 load.reload();
               }}
             >
-              Отключить синхронизацию
+              Disconnect sync
             </Button>
           </article>
         ))}

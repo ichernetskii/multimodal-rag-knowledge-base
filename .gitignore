@@ -87,5 +87,5 @@ Desktop.ini
 *.p12
 *.pfx
 
-# Generated verification runs; keep curated reports in docs/verification.
+# Generated verification runs, private reports, and publication working files.
 .artifacts/

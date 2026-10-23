@@ -7,8 +7,10 @@ export function Credentials() {
   return (
     <>
       <PageHeader
-        title="API-ключи"
-        description="Общий зашифрованный реестр поставщиков. Изменения действуют для использующих ключ моделей во всех компаниях."
+        title={'API keys'}
+        description={
+          'Shared encrypted provider registry. Changes apply to models using the key across all companies.'
+        }
       />
       <CredentialsPanel
         credentials={keys.data ?? []}

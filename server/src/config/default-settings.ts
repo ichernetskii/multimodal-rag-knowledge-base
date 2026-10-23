@@ -152,7 +152,7 @@ export function initialProfiles(config: DeploymentConfig): ModelProfile[] {
     {
       ...base,
       id: profileIds.googleTranscription,
-      name: 'Google Gemini · расшифровка записей',
+      name: 'Google Gemini · recording transcription',
       role: 'transcription',
       provider: 'google',
       model: 'gemini-3.8-flash',

@@ -15,25 +15,25 @@ import { Source } from '../documents/SourceDialog';
 import { RunCard } from './RunCard';
 import { statuses } from '../jobs/job-status';
 const reasons = {
-  wrong_source: 'Неверный источник',
-  outdated: 'Устаревшая информация',
-  no_answer: 'Нет ответа',
-  irrelevant_answer: 'Неподходящий ответ',
-  other: 'Другая причина',
+  wrong_source: 'Incorrect source',
+  outdated: 'Outdated information',
+  no_answer: 'No answer',
+  irrelevant_answer: 'Unhelpful answer',
+  other: 'Other reason',
 } as const;
 const tabs = {
-  feedback: 'Обратная связь',
-  unanswered: 'Без ответа',
-  checks: 'Контрольные вопросы',
-  runs: 'Результаты проверок',
+  feedback: 'Feedback',
+  unanswered: 'Unanswered',
+  checks: 'Test questions',
+  runs: 'Evaluation results',
 } as const;
 function CheckEditor({ check, done }: { check?: CheckQuestion; done: () => void }) {
   const app = useApplication(),
     [documents, setDocuments] = useState(check?.documents ?? []);
   return (
     <>
-      <p className="eyebrow">КОНТРОЛЬ КАЧЕСТВА</p>
-      <h2>{check ? 'Изменить контрольный вопрос' : 'Новый контрольный вопрос'}</h2>
+      <p className="eyebrow">QUALITY CONTROL</p>
+      <h2>{check ? 'Edit test question' : 'New test question'}</h2>
       <Form
         submit={async (f) => {
           await api('quality.save', {
@@ -50,29 +50,37 @@ function CheckEditor({ check, done }: { check?: CheckQuestion; done: () => void 
           done();
         }}
       >
-        <Field label="Вопрос" name="question" type="textarea" value={check?.question} required />
+        <Field
+          label={'Question'}
+          name="question"
+          type="textarea"
+          value={check?.question}
+          required
+        />
         <Select
-          label="База знаний"
+          label={'Knowledge base'}
           name="collection"
           value={check?.scope.collection ?? ''}
           options={[
-            ['', 'Все доступные'],
+            ['', 'All available'],
             ...app.bases.items.map((c) => [c.id, c.name] as [string, string]),
           ]}
         />
         <DocumentPicker selected={documents} onChange={setDocuments} />
         <Field
-          label="Ожидаемые ключевые факты"
+          label={'Expected key facts'}
           name="facts"
           type="textarea"
           value={check?.facts.join('\n')}
-          hint="По одному факту на строку. Проверка ищет эти фразы в ответе без учёта регистра."
+          hint={
+            'One fact per line. Evaluation looks for these phrases in the answer, ignoring case.'
+          }
         />
         <Check
-          label="Ожидается отказ при отсутствии информации"
+          label={'Expect refusal when information is missing'}
           name="refuse"
           checked={check?.refuse}
-          hint="Для такого вопроса источники и ключевые факты необязательны."
+          hint={'Sources and key facts are optional for this type of question.'}
         />
       </Form>
     </>
@@ -93,19 +101,21 @@ export const Quality = observer(function Quality() {
         done={() => {
           modal(null);
           load.reload();
-          app.notify('Контрольный вопрос сохранён.');
+          app.notify('Test question saved.');
         }}
       />,
     );
   return (
     <>
       <PageHeader
-        eyebrow="ПРОВЕРКА ОТВЕТОВ"
-        title="Качество"
-        description="Разбирайте обратную связь и проверяйте ответы после изменения модели, поиска или документов."
+        eyebrow={'ANSWER EVALUATION'}
+        title={'Quality'}
+        description={
+          'Review feedback and evaluate answers after changing models, search, or documents.'
+        }
         actions={
           <>
-            <Button onClick={() => edit()}>+ Контрольный вопрос</Button>
+            <Button onClick={() => edit()}>+ Test question</Button>
             <Button
               className="primary"
               disabled={!d?.totals.checks}
@@ -116,15 +126,15 @@ export const Quality = observer(function Quality() {
                 setTab('runs');
                 setPage(1);
                 load.reload();
-                app.notify('Проверка добавлена в очередь.');
+                app.notify('Evaluation queued.');
               }}
             >
-              Запустить проверку
+              Run evaluation
             </Button>
           </>
         }
       />
-      <div className="tabs" role="tablist" aria-label="Контроль качества">
+      <div className="tabs" role="tablist" aria-label={'Quality control'}>
         {(Object.keys(tabs) as (keyof typeof tabs)[]).map((key) => (
           <button
             key={key}
@@ -171,21 +181,21 @@ export const Quality = observer(function Quality() {
             <EmptyState
               title={
                 tab === 'feedback'
-                  ? 'Здесь появится обратная связь'
+                  ? 'Feedback will appear here'
                   : tab === 'unanswered'
-                    ? 'Неотвеченных вопросов пока нет'
+                    ? 'No unanswered questions yet'
                     : tab === 'checks'
-                      ? 'Добавьте контрольные вопросы'
-                      : 'Проверки ещё не запускались'
+                      ? 'Add test questions'
+                      : 'No evaluations run yet'
               }
               description={
                 tab === 'feedback'
-                  ? 'Пользователи могут оценить ответ и указать причину ошибки.'
+                  ? 'Users can rate answers and explain issues.'
                   : tab === 'unanswered'
-                    ? 'Отказы, уточнения и технические ошибки сохраняются для разбора.'
+                    ? 'Refusals, clarifications, and technical errors are saved for review.'
                     : tab === 'checks'
-                      ? 'Задайте ожидаемые источники и факты, чтобы сравнивать результаты изменений.'
-                      : 'Создайте контрольные вопросы и запустите проверку.'
+                      ? 'Set expected sources and facts to compare results after changes.'
+                      : 'Create test questions and run an evaluation.'
               }
             />
           </section>
@@ -206,17 +216,17 @@ export const Quality = observer(function Quality() {
                   <div className="source-chips">
                     {f.sources.map((source) => (
                       <Button key={source.chunk} onClick={() => modal(<Source source={source} />)}>
-                        {source.name} · стр. {source.page}
+                        {source.name} · p. {source.page}
                       </Button>
                     ))}
                   </div>
                   <details>
-                    <summary>Настройки и версии источников</summary>
+                    <summary>Settings &amp; source versions</summary>
                     <p>{f.sources.map((s) => s.name + ' · ' + s.version.slice(0, 8)).join(', ')}</p>
                     <pre className="json-view">
                       {f.settings
                         ? JSON.stringify(JSON.parse(f.settings), null, 2)
-                        : 'Настройки недоступны'}
+                        : 'Settings unavailable'}
                     </pre>
                   </details>
                 </section>
@@ -231,35 +241,35 @@ export const Quality = observer(function Quality() {
                     <small>{date(turn.created)}</small>
                   </div>
                   <h2>{turn.question}</h2>
-                  <p>{turn.answer || 'Ответ не сформирован.'}</p>
+                  <p>{turn.answer || 'No answer was generated.'}</p>
                 </section>
               ))}
             {tab === 'checks' && (
               <section className="panel">
                 <Table
-                  head={['Вопрос', 'Ожидания', 'Действия']}
+                  head={['Question', 'Expectations', 'Actions']}
                   rowKeys={d.checks.map((c) => c.id)}
                   rows={d.checks.map((check) => [
                     <strong>{check.question}</strong>,
                     check.refuse ? (
-                      <Badge>Отказ при отсутствии информации</Badge>
+                      <Badge>Refuse when information is missing</Badge>
                     ) : (
                       <div>
                         <span>
-                          {quantity(check.documents.length, 'источник', 'источника', 'источников')}{' '}
-                          · {quantity(check.facts.length, 'факт', 'факта', 'фактов')}
+                          {quantity(check.documents.length, 'source', 'sources')} ·{' '}
+                          {quantity(check.facts.length, 'fact', 'facts')}
                         </span>
                         <small>{check.facts.join(' · ')}</small>
                       </div>
                     ),
                     <div className="actions">
-                      <Button onClick={() => edit(check)}>Изменить</Button>
+                      <Button onClick={() => edit(check)}>Edit</Button>
                       <Button
                         className="text-danger"
                         onClick={() =>
                           modal(
                             <>
-                              <h2>Удалить контрольный вопрос?</h2>
+                              <h2>Delete this test question?</h2>
                               <p>{check.question}</p>
                               <Button
                                 className="danger"
@@ -272,13 +282,13 @@ export const Quality = observer(function Quality() {
                                   load.reload();
                                 }}
                               >
-                                Удалить вопрос
+                                Delete question
                               </Button>
                             </>,
                           )
                         }
                       >
-                        Удалить
+                        Delete
                       </Button>
                     </div>,
                   ])}
@@ -299,10 +309,10 @@ export const Quality = observer(function Quality() {
         )}
       </div>
       <div className="info-callout">
-        <strong>Проверка не меняет базу знаний</strong>
+        <strong>Evaluation does not change the knowledge base</strong>
         <p>
-          Ключевые факты проверяются по ожидаемым фразам; итоговый ответ доступен для проверки
-          человеком. Исправления вносятся через обычное управление документами.
+          Key facts are checked using expected phrases; people can review the full answer. Make
+          corrections through normal document management.
         </p>
       </div>
     </>

@@ -21,10 +21,10 @@ export function DocumentPicker({
   return (
     <div className="document-picker">
       <label className="field">
-        <span>Ожидаемые документы</span>
+        <span>Expected documents</span>
         <input
           type="search"
-          placeholder="Найти опубликованный документ…"
+          placeholder={'Find a published document…'}
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -33,10 +33,10 @@ export function DocumentPicker({
         />
       </label>
       <div className="picker-count">
-        <Badge>{selected.length} выбрано</Badge>
+        <Badge>{selected.length} selected</Badge>
         {selected.length > 0 && (
           <button type="button" onClick={() => onChange([])}>
-            Снять выбор
+            Clear selection
           </button>
         )}
       </div>
@@ -56,7 +56,7 @@ export function DocumentPicker({
             <span>{doc.name}</span>
           </label>
         ))}
-        {load.data && !load.data.items.length && <p className="muted">Документы не найдены.</p>}
+        {load.data && !load.data.items.length && <p className="muted">No documents found.</p>}
       </div>
       {load.data && (
         <Pagination

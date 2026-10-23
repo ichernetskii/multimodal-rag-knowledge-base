@@ -19,7 +19,7 @@ export const ConversationSidebar = observer(function ConversationSidebar({
   }, [query]);
   return (
     <>
-      <h2>Диалоги</h2>
+      <h2>Conversations</h2>
       <Button
         className="primary"
         onClick={async () => {
@@ -27,10 +27,10 @@ export const ConversationSidebar = observer(function ConversationSidebar({
           selected();
         }}
       >
-        + Новый диалог
+        + New conversation
       </Button>
       <label>
-        Поиск диалогов
+        Search conversations
         <input name="conversation-query" value={query} onChange={(e) => setQuery(e.target.value)} />
       </label>
       <div id="conversation-list" className="conversation-list">
@@ -50,10 +50,10 @@ export const ConversationSidebar = observer(function ConversationSidebar({
         ))}
         {app.chat.conversations.length < app.chat.conversationTotal && (
           <Button onClick={() => app.chat.loadConversations(query, app.chat.conversationPage + 1)}>
-            Показать ещё
+            Load more
           </Button>
         )}
-        {!app.chat.conversations.length && <small>Диалогов пока нет</small>}
+        {!app.chat.conversations.length && <small>No conversations yet</small>}
       </div>
     </>
   );

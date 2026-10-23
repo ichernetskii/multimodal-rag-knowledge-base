@@ -24,12 +24,12 @@ void test('processing rejects an outdated managed runtime and respects explicit 
   });
   process.env.MEDIA_RUNTIME_DIR = dir;
   delete process.env.FFMPEG_BIN;
-  assert.throws(() => mediaCommand('ffmpeg'), /не установлены/u);
+  assert.throws(() => mediaCommand('ffmpeg'), /not installed/u);
   writeFileSync(
     join(dir, 'receipt.json'),
     JSON.stringify({ version: 'outdated', platform: process.platform, arch: process.arch }),
   );
-  assert.throws(() => mediaCommand('ffmpeg'), /не соответствует/u);
+  assert.throws(() => mediaCommand('ffmpeg'), /does not match/u);
   writeFileSync(
     join(dir, 'receipt.json'),
     JSON.stringify({ version: mediaBuildVersion, platform: process.platform, arch: process.arch }),
@@ -53,14 +53,14 @@ void test('managed downloads verify content, work offline and reject corruption 
   assert.equal(await downloadVerified(path, asset, { offline: true }), false);
   assert.equal(calls, 1);
   writeFileSync(path, 'damaged');
-  await assert.rejects(downloadVerified(path, asset, { offline: true }), /повреждён/u);
+  await assert.rejects(downloadVerified(path, asset, { offline: true }), /damaged/u);
   assert.equal(calls, 1);
   t.mock.method(globalThis, 'fetch', async () => new Response('wrong-content'));
-  await assert.rejects(downloadVerified(path, asset), /сумма/u);
+  await assert.rejects(downloadVerified(path, asset), /checksum/u);
   assert.equal(readFileSync(path, 'utf8'), 'damaged');
   assert.deepEqual(readdirSync(dir), ['tool']);
   t.mock.method(globalThis, 'fetch', async () => new Response('x'.repeat(21)));
-  await assert.rejects(downloadVerified(path, asset), /лимит/u);
+  await assert.rejects(downloadVerified(path, asset), /limit/u);
   assert.deepEqual(readdirSync(dir), ['tool']);
 });
 void test('a verified runtime is reusable on a read-only deployment; tampered executables fail check', async (t) => {
@@ -96,7 +96,7 @@ void test('a verified runtime is reusable on a read-only deployment; tampered ex
   assert.equal((await prepareMediaRuntime(options)).changed, false);
   assert.deepEqual(readdirSync(dir), ['runtime']);
   writeFileSync(join(bin, 'ffmpeg'), 'modified');
-  await assert.rejects(prepareMediaRuntime({ ...options, check: true }), /повреждён/u);
+  await assert.rejects(prepareMediaRuntime({ ...options, check: true }), /damaged/u);
 });
 void test('an installer waiting on another live process can be cancelled without removing its lock', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'rag-media-lock-'));
@@ -135,7 +135,7 @@ void test('automatic installation refuses to replace unrelated directories or th
       offline: true,
       log: () => {},
     }),
-    /существующие данные не изменены/u,
+    /existing data was not changed/u,
   );
   assert.equal(readFileSync(join(unrelated, 'important.txt'), 'utf8'), 'keep');
 });

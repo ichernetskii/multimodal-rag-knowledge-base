@@ -19,7 +19,7 @@ export function ModelAvailability({
       if (!enabled)
         return {
           ok: false,
-          message: 'Профиль выключен. Он не доступен для новых назначений.',
+          message: 'This profile is disabled and cannot be assigned to new tasks.',
           at: 0,
         };
       const status = await api('models.check', { id: profile.id }, { signal });
@@ -28,16 +28,16 @@ export function ModelAvailability({
     [profile.id, profile.revision, refresh, requested],
   );
   return (
-    <div aria-label={`Доступность: ${profile.name}`}>
+    <div aria-label={`Availability: ${profile.name}`}>
       <p role="status">
         <strong>
           {!enabled
-            ? 'Выключена'
+            ? 'Disabled'
             : check.loading
-              ? 'Проверяем…'
+              ? 'Checking…'
               : check.error || !check.data?.ok
-                ? 'Недоступна'
-                : 'Доступна'}
+                ? 'Unavailable'
+                : 'Available'}
         </strong>
         {!check.loading && (
           <>
@@ -48,7 +48,7 @@ export function ModelAvailability({
         {!check.loading && check.data && check.data.at > 0 && (
           <>
             <br />
-            <small>Проверено: {new Date(check.data.at).toLocaleTimeString()}</small>
+            <small>Checked: {new Date(check.data.at).toLocaleTimeString()}</small>
           </>
         )}
       </p>
@@ -57,9 +57,9 @@ export function ModelAvailability({
         onClick={() => {
           setRequested((value) => value + 1);
         }}
-        aria-label={`Проверить доступность: ${profile.name}`}
+        aria-label={`Check availability: ${profile.name}`}
       >
-        {enabled ? 'Проверить снова' : 'Проверить подключение'}
+        {enabled ? 'Check again' : 'Check connection'}
       </Button>
     </div>
   );

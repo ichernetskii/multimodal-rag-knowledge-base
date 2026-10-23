@@ -271,7 +271,7 @@ export async function revisionScenario(app: Application, operator: Principal) {
         { id: doc.id, revision: recovered.document.revision, version: active },
         edit,
       ),
-      /уже есть версия/u,
+      /already has a version/u,
     );
     await wait(
       (
@@ -296,7 +296,7 @@ export async function revisionScenario(app: Application, operator: Principal) {
         { id: doc.id, revision: beforeQuota.document.revision, version: recovered.version.id },
         edit,
       ),
-      /Недостаточно места/u,
+      /Not enough storage/u,
     );
     const afterQuota = await call('documents.read', { id: doc.id }, edit);
     assert.equal(afterQuota.versions.length, beforeQuota.versions.length);

@@ -13,7 +13,7 @@ import type {
 } from '../../contracts/public.js';
 import type { StoredVersion } from '../../domain/entities.js';
 import type { Input } from '../../shared/input.js';
-import { string, number, strings, revision } from '../../shared/input.js';
+import { string, number, strings, revision, object } from '../../shared/input.js';
 import { requireValue } from '../../shared/errors.js';
 import { signature, estimateInput } from '../models/ai-service.js';
 import type { AIInput } from '../../application/ports/ai.js';
@@ -34,7 +34,7 @@ export class Chat {
       if (!(await this.documents.permittedSource(user, source)))
         return {
           ...turn,
-          answer: 'Доступ к источникам этого ответа отозван.',
+          answer: 'Access to the sources of this answer has been revoked.',
           sources: [],
           accessSources: [],
           redacted: true,
@@ -42,7 +42,7 @@ export class Chat {
     return turn;
   }
   async create(user: Principal, p: Input) {
-    const title = string(p, 'title', 'Новый диалог', 200);
+    const title = string(p, 'title', 'New conversation', 200);
     return this.s.db.put('conversation', {
       id: randomUUID(),
       owner: user.id,
@@ -102,7 +102,7 @@ export class Chat {
     );
     const attachments = strings(p, 'attachments');
     requireValue(attachments.length <= 3, 'ATTACHMENT_LIMIT', 'Select up to three attachments.');
-    const selection = await this.documents.scope(user, (p.scope ?? {}) as Input);
+    const selection = await this.documents.scope(user, object(p, 'scope'));
     const settings = await this.s.identity.settings(),
       model = await this.s.ai.profile(
         string(p, 'profile', settings.generationProfile),
@@ -222,7 +222,7 @@ export class Chat {
         requireValue(
           fragment,
           'ATTACHMENT_NOT_INDEXED',
-          'Вложение ещё не готово для текущей модели поиска. Дождитесь индексации.',
+          'This attachment is not ready for the current search model. Wait for indexing to finish.',
           409,
         );
         attachments.push(fragment.body);
@@ -372,9 +372,7 @@ export class Chat {
       });
     };
     if (!turn.sources.length) {
-      turn.answer = /[а-яё]/iu.test(turn.question)
-        ? 'В доступной базе знаний не найдено достаточно информации.'
-        : 'No sufficient information was found in the authorized knowledge base.';
+      turn.answer = 'There is not enough information in the accessible knowledge base.';
       await persist('no_info');
       return;
     }

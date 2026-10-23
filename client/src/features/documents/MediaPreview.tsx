@@ -31,17 +31,13 @@ export function MediaPreview({
     image = media.kind === 'image' ? media.asset : media.preview;
   return (
     <figure className="media-preview">
-      {image && (
+      {image && media.kind === 'image' && (
         <img
           loading="lazy"
           src={tenantUrl(
             `/api/documents/${encodeURIComponent(document)}/media/${encodeURIComponent(image)}?version=${encodeURIComponent(version)}`,
           )}
-          alt={
-            media.kind === 'video'
-              ? `Кадр ${mediaTime(media.startMs ?? 0)}`
-              : 'Изображение источника'
-          }
+          alt="Source image"
           onError={() => setFailed(true)}
         />
       )}{' '}
@@ -50,6 +46,13 @@ export function MediaPreview({
           key={timed}
           controls
           preload="metadata"
+          poster={
+            image
+              ? tenantUrl(
+                  `/api/documents/${encodeURIComponent(document)}/media/${encodeURIComponent(image)}?version=${encodeURIComponent(version)}`,
+                )
+              : undefined
+          }
           src={timed}
           onError={() => setFailed(true)}
         />
@@ -65,18 +68,18 @@ export function MediaPreview({
       )}
       <figcaption>
         {media.kind === 'image'
-          ? 'Исходное изображение. Сверьте надписи и детали.'
-          : `${mediaTime(media.startMs ?? 0)}${media.endMs !== undefined ? '–' + mediaTime(media.endMs) : ''} · ${media.kind === 'video' ? 'видеофрагмент; звук — в аудиосегментах и оригинале' : 'фрагмент исходной записи'}`}
+          ? 'Original image. Check labels and details.'
+          : `${mediaTime(media.startMs ?? 0)}${media.endMs !== undefined ? '–' + mediaTime(media.endMs) : ''} · ${media.kind === 'video' ? 'video segment; audio is available in audio segments and the original' : 'segment of the original recording'}`}
       </figcaption>
       {failed && (
         <p role="alert">
-          Не удалось загрузить предпросмотр. Файл может быть недоступен или не поддерживаться
-          браузером. Откройте оригинал или обновите страницу.
+          Could not load the preview. The file may be unavailable or unsupported by your browser.
+          Open the original or refresh the page.
         </p>
       )}
       {media.kind !== 'image' && media.startMs !== undefined && (
         <a href={original} target="_blank" rel="noopener">
-          Открыть это место в оригинале ↗
+          Open this position in the original ↗
         </a>
       )}
     </figure>

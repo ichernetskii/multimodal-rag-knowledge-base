@@ -23,10 +23,10 @@ import { EditDocument } from './EditDocumentDialog';
 import { Source } from './SourceDialog';
 import { Upload } from './UploadDialog';
 const stateNames: Record<DocumentRecord['state'], string> = {
-  published: 'Опубликован',
-  draft: 'Черновик',
-  excluded: 'Вне поиска',
-  archived: 'В архиве',
+  published: 'Published',
+  draft: 'Draft',
+  excluded: 'Excluded from search',
+  archived: 'Archived',
 };
 export const Documents = observer(function Documents() {
   const app = useApplication(),
@@ -92,14 +92,14 @@ export const Documents = observer(function Documents() {
   return (
     <div className="materials-page">
       <PageHeader
-        eyebrow="БАЗА ЗНАНИЙ"
-        title="Материалы"
+        eyebrow={'KNOWLEDGE BASE'}
+        title={'Materials'}
         description={
           editable
-            ? 'Загрузите файлы, проверьте обработку и опубликуйте. Вопросы пользователей используют только разрешённые опубликованные материалы.'
+            ? 'Upload files, review processing, and publish. User questions use only authorized, published materials.'
             : app.session.user?.role === 'admin'
-              ? 'Сначала создайте базу знаний на вкладке «Базы и доступ», затем загрузите материалы.'
-              : 'Читайте доступные опубликованные материалы и находите нужные сведения. Чтобы добавить или исправить материал, обратитесь к редактору базы.'
+              ? 'Create a knowledge base under Knowledge bases & access, then upload materials.'
+              : 'Read published materials you can access and find information. Ask a knowledge base editor to add or correct materials.'
         }
         actions={
           editable && (
@@ -107,14 +107,14 @@ export const Documents = observer(function Documents() {
               className="primary"
               onClick={() => modal(<Upload collection={collection} after={load.reload} />)}
             >
-              + Загрузить документы
+              + Upload documents
             </Button>
           )
         }
       />
       {app.session.user?.role === 'editor' && editable && (
         <details className="panel compact-panel">
-          <summary>Управление названиями баз</summary>
+          <summary>Manage knowledge base names</summary>
           <div className="actions">
             {app.bases.items
               .filter((c) => app.bases.canEdit(c))
@@ -124,7 +124,7 @@ export const Documents = observer(function Documents() {
                   onClick={() =>
                     modal(
                       <>
-                        <h2>Название базы</h2>
+                        <h2>Knowledge base name</h2>
                         <Form
                           submit={async (f) => {
                             await api('collections.rename', {
@@ -136,7 +136,7 @@ export const Documents = observer(function Documents() {
                             modal(null);
                           }}
                         >
-                          <Field label="Название" name="name" value={c.name} required />
+                          <Field label={'Name'} name="name" value={c.name} required />
                         </Form>
                       </>,
                     )
@@ -151,10 +151,10 @@ export const Documents = observer(function Documents() {
       <section className="panel">
         <div className="filter-bar">
           <label className="search-field">
-            <span>Найти по названию</span>
+            <span>Find by name</span>
             <input
               type="search"
-              placeholder="Название материала…"
+              placeholder={'Material name…'}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -173,13 +173,13 @@ export const Documents = observer(function Documents() {
         </div>
         <div className="filter-bar secondary">
           <Select
-            label="Сортировка"
+            label={'Sort'}
             name="doc-sort"
             value={sort}
             options={[
-              ['updated', 'Сначала новые'],
-              ['name', 'По названию'],
-              ['state', 'По состоянию'],
+              ['updated', 'Newest first'],
+              ['name', 'By name'],
+              ['state', 'By status'],
             ]}
             onChange={(value) => {
               setSort(value as typeof sort);
@@ -187,48 +187,43 @@ export const Documents = observer(function Documents() {
             }}
           />
           <Select
-            label="Состояние"
+            label={'Status'}
             name="doc-state"
-            options={[['', 'Все состояния'], ...Object.entries(stateNames)]}
+            options={[['', 'All statuses'], ...Object.entries(stateNames)]}
             onChange={(value) => {
               setState(value as typeof state);
               setPage(1);
             }}
           />
-          <span className="muted">
-            {quantity(load.data?.total ?? 0, 'документ', 'документа', 'документов')}
-          </span>
-          <Button onClick={load.reload}>Обновить</Button>
+          <span className="muted">{quantity(load.data?.total ?? 0, 'document', 'documents')}</span>
+          <Button onClick={load.reload}>Refresh</Button>
         </div>
         {count > 0 && (
           <div className="selection-bar">
-            <strong>Выбрано: {count}</strong>
+            <strong>Selected: {count}</strong>
             <div className="actions">
-              <Button onClick={() => bulk('archive')}>В архив</Button>
-              <Button onClick={() => bulk('exclude')}>Исключить из поиска</Button>
+              <Button onClick={() => bulk('archive')}>Archive</Button>
+              <Button onClick={() => bulk('exclude')}>Exclude from search</Button>
               <Button
                 className="text-danger"
                 onClick={() =>
                   modal(
                     <>
-                      <h2>
-                        Окончательно удалить{' '}
-                        {quantity(count, 'документ', 'документа', 'документов')}?
-                      </h2>
+                      <h2>Delete permanently {quantity(count, 'document', 'documents')}?</h2>
                       <p>
-                        Будут удалены оригиналы, версии и производные данные. Использованные ответы
-                        будут скрыты.
+                        Originals, versions, and derived data will be deleted. Answers using them
+                        will be hidden.
                       </p>
                       <Button className="danger" onClick={() => bulk('delete')}>
-                        Удалить документы
+                        Delete documents
                       </Button>
                     </>,
                   )
                 }
               >
-                Удалить
+                Delete
               </Button>
-              <Button onClick={() => setSelected({})}>Снять выбор</Button>
+              <Button onClick={() => setSelected({})}>Clear selection</Button>
             </div>
           </div>
         )}
@@ -239,14 +234,14 @@ export const Documents = observer(function Documents() {
           ) : (
             <>
               <Table
-                head={['Выбор', 'Документ', 'База знаний', 'Состояние', 'Действия']}
+                head={['Selection', 'Document', 'Knowledge base', 'Status', 'Actions']}
                 rowKeys={load.data.items.map((d) => d.id)}
-                empty="Документы не найдены. Загрузите файлы или измените условия поиска."
+                empty={'No documents found. Upload files or change your search filters.'}
                 rows={load.data.items.map((d) => [
                   canEditDocument(d, app.session.user, app.bases.items) ? (
                     <input
                       type="checkbox"
-                      aria-label={'Выбрать ' + d.name}
+                      aria-label={'Select ' + d.name}
                       checked={d.id in selected}
                       onChange={(e) =>
                         setSelected((previous) => {
@@ -265,12 +260,13 @@ export const Documents = observer(function Documents() {
                     <span>
                       <strong>{d.name}</strong>
                       <small>
-                        {d.versionCount} версий · {d.updated ? date(d.updated) : 'Обработка'}
+                        {quantity(d.versionCount, 'version', 'versions')} ·{' '}
+                        {d.updated ? date(d.updated) : 'Processing'}
                       </small>
                     </span>
                   </div>,
                   d.conversation
-                    ? 'Личный диалог'
+                    ? 'Private conversation'
                     : (app.bases.items.find((c) => c.id === d.collection)?.name ?? '—'),
                   <>
                     <Badge
@@ -287,9 +283,9 @@ export const Documents = observer(function Documents() {
                     {d.processing && (
                       <small className={d.processing.error ? 'error' : 'muted'}>
                         {d.processing.reviewRequired
-                          ? 'Нужна проверка версии'
+                          ? 'Version review required'
                           : statuses[d.processing.status]}
-                        {d.processing.paused ? ' · пауза' : ''}
+                        {d.processing.paused ? ' · paused' : ''}
                         {d.processing.error
                           ? ' · ' + (d.processing.message || d.processing.error)
                           : ''}
@@ -300,12 +296,12 @@ export const Documents = observer(function Documents() {
                     <Button onClick={() => modal(<DocumentView id={d.id} after={load.reload} />)}>
                       {d.processing?.reviewRequired &&
                       canEditDocument(d, app.session.user, app.bases.items)
-                        ? 'Проверить и опубликовать'
-                        : 'Открыть'}
+                        ? 'Review & publish'
+                        : 'Open'}
                     </Button>
                     {canEditDocument(d, app.session.user, app.bases.items) && (
                       <Button onClick={() => modal(<EditDocument doc={d} after={load.reload} />)}>
-                        Изменить
+                        Edit
                       </Button>
                     )}
                   </div>,
@@ -315,7 +311,7 @@ export const Documents = observer(function Documents() {
                 <label className="check">
                   <input
                     type="checkbox"
-                    aria-label="Выбрать все доступные документы страницы"
+                    aria-label={'Select all available documents on this page'}
                     disabled={!available.length}
                     checked={!!available.length && available.every((d) => d.id in selected)}
                     onChange={(e) => {
@@ -334,7 +330,7 @@ export const Documents = observer(function Documents() {
                         );
                     }}
                   />
-                  Выбрать страницу
+                  Select page
                 </label>
                 <Pagination
                   page={page}
@@ -349,19 +345,19 @@ export const Documents = observer(function Documents() {
         </div>
       </section>
       <section className="panel material-content-search">
-        <h2>Найти в содержимом базы знаний</h2>
+        <h2>Search knowledge base content</h2>
         <p className="muted">
-          Поиск по словам и смыслу в опубликованных материалах выбранной базы. Ответ AI не
-          генерируется; внешняя модель поиска может использовать бюджет компании.
+          Search published materials in the selected knowledge base by words and meaning. No AI
+          answer is generated; a remote search model may use the company budget.
         </p>
         <label>
-          Что найти
+          Search for
           <input
             type="search"
             value={question}
             maxLength={4000}
             onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Фраза, вопрос или код"
+            placeholder={'Phrase, question, or code'}
             onKeyDown={(event) => {
               if (event.key === 'Enter') {
                 event.preventDefault();
@@ -388,13 +384,13 @@ export const Documents = observer(function Documents() {
               if (!controller.signal.aborted) setHits(hits);
             } catch (error) {
               if (!controller.signal.aborted)
-                setSearchError(error instanceof Error ? error.message : 'Ошибка поиска');
+                setSearchError(error instanceof Error ? error.message : 'Search failed');
             } finally {
               if (activeSearch.current === controller) setSearching(false);
             }
           }}
         >
-          {searching ? 'Поиск…' : 'Найти фрагменты'}
+          {searching ? 'Searching…' : 'Find passages'}
         </Button>
         {searching && (
           <Button
@@ -403,7 +399,7 @@ export const Documents = observer(function Documents() {
               setSearching(false);
             }}
           >
-            Остановить поиск
+            Stop search
           </Button>
         )}
       </section>
@@ -412,23 +408,23 @@ export const Documents = observer(function Documents() {
         <section className="panel">
           <div className="section-heading">
             <div>
-              <h2>Совпадения в содержимом</h2>
-              <p>Поиск по точным словам и смыслу без генерации ответа.</p>
+              <h2>Content matches</h2>
+              <p>Exact-word and semantic search without answer generation.</p>
             </div>
-            <Button onClick={() => setHits(undefined)}>Закрыть результаты</Button>
+            <Button onClick={() => setHits(undefined)}>Close results</Button>
           </div>
           {hits.length ? (
             hits.map((source) => (
               <article className="search-hit" key={source.chunk}>
                 <Button onClick={() => modal(<Source source={source} />)}>
-                  {source.name} <span className="muted">· стр. {source.page}</span>
+                  {source.name} <span className="muted">· p. {source.page}</span>
                 </Button>
                 <small>{source.section}</small>
                 <p>{source.text.slice(0, 500)}</p>
               </article>
             ))
           ) : (
-            <p className="empty-inline">Подходящие разделы не найдены.</p>
+            <p className="empty-inline">No relevant sections found.</p>
           )}
         </section>
       )}

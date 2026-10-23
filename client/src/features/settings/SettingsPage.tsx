@@ -9,50 +9,50 @@ import { Loading, PageHeader } from '../../shared/ui/Feedback';
 import { ModelAvailability } from '../saas/ModelAvailability';
 import { AdminLink } from '../admin/AdminUI';
 const limits = {
-  maxBytes: ['Размер файла, МиБ', 1024 ** 2],
-  maxPages: ['Страниц / сегментов материала', 1],
-  maxTextCharacters: ['Извлечённого текста, символов', 1],
-  maxChunks: ['Фрагментов документа', 1],
-  maxDocuments: ['Документов', 1],
-  maxQueue: ['Принятых незавершённых заданий', 1],
-  answerConcurrency: ['Ответов одновременно', 1],
-  indexConcurrency: ['Фоновых обработок одновременно', 1],
-  storageBytes: ['Объём файлов, ГиБ', 1024 ** 3],
-  monthlyBudgetMicros: ['Бюджет AI в месяц, USD', 1e6],
-  maxOutputTokens: ['Максимальный ответ, токенов', 1],
-  contextTokens: ['Бюджет контекста, токенов', 1],
-  topK: ['Источников в ответе', 1],
-  cacheSeconds: ['Хранить кеш ответов и поиска, секунд', 1],
-  sessionHours: ['Длительность сессии, часов', 1],
-  historyDays: ['Хранить историю, дней', 1],
-  jobDays: ['Хранить задания, дней', 1],
-  tempHours: ['Хранить незавершённые загрузки, часов', 1],
-  logDays: ['Хранить журнал действий, дней', 1],
-  backupDays: ['Хранить резервные копии, дней', 1],
-  backupIntervalHours: ['Интервал копирования, часов; 0 — вручную', 1],
-  ocrTimeoutSeconds: ['OCR: секунд на страницу', 1],
-  ocrMemoryMB: ['OCR: память, МиБ', 1],
-  whisperThreads: ['Whisper: потоков CPU', 1],
-  mediaMaxSeconds: ['Длительность записи, секунд', 1],
-  mediaTimeoutSeconds: ['Таймаут обработки медиа, секунд', 1],
-  videoMaxFrames: ['Целевое число видеофрагментов', 1],
-  mediaImageMaxSide: ['Сторона изображения, пикселей', 1],
-  answerMaxImages: ['Медиафрагментов на ответ', 1],
+  maxBytes: ['File size, MiB', 1024 ** 2],
+  maxPages: ['Material pages / segments', 1],
+  maxTextCharacters: ['Extracted text, characters', 1],
+  maxChunks: ['Document chunks', 1],
+  maxDocuments: ['Documents', 1],
+  maxQueue: ['Accepted unfinished jobs', 1],
+  answerConcurrency: ['Concurrent answers', 1],
+  indexConcurrency: ['Concurrent background jobs', 1],
+  storageBytes: ['File storage, GiB', 1024 ** 3],
+  monthlyBudgetMicros: ['Monthly AI budget, USD', 1e6],
+  maxOutputTokens: ['Maximum output tokens', 1],
+  contextTokens: ['Context budget, tokens', 1],
+  topK: ['Sources per answer', 1],
+  cacheSeconds: ['Answer & search cache TTL, seconds', 1],
+  sessionHours: ['Session duration, hours', 1],
+  historyDays: ['History retention, days', 1],
+  jobDays: ['Job retention, days', 1],
+  tempHours: ['Incomplete upload retention, hours', 1],
+  logDays: ['Activity log retention, days', 1],
+  backupDays: ['Backup retention, days', 1],
+  backupIntervalHours: ['Backup interval, hours; 0 for manual', 1],
+  ocrTimeoutSeconds: ['OCR timeout per page, seconds', 1],
+  ocrMemoryMB: ['OCR memory, MiB', 1],
+  whisperThreads: ['Whisper CPU threads', 1],
+  mediaMaxSeconds: ['Recording duration, seconds', 1],
+  mediaTimeoutSeconds: ['Media processing timeout, seconds', 1],
+  videoMaxFrames: ['Target video segment count', 1],
+  mediaImageMaxSide: ['Maximum image side, pixels', 1],
+  answerMaxImages: ['Media segments per answer', 1],
 } as const;
 type NumericKey = keyof typeof limits;
 type Mode = 'assistant' | 'limits' | 'processing';
 const groups: Record<Mode, { title: string; description: string; keys: NumericKey[] }[]> = {
   assistant: [
     {
-      title: 'Ответы и поиск',
-      description: 'Применяется к новым вопросам пользователей.',
+      title: 'Answers & search',
+      description: 'Applies to new user questions.',
       keys: ['maxOutputTokens', 'contextTokens', 'topK', 'answerMaxImages', 'cacheSeconds'],
     },
   ],
   limits: [
     {
-      title: 'Ресурсы компании',
-      description: 'Генерация ответов и индексация имеют отдельные ограничения.',
+      title: 'Company resources',
+      description: 'Generation and indexing have separate limits.',
       keys: [
         'maxDocuments',
         'storageBytes',
@@ -65,13 +65,13 @@ const groups: Record<Mode, { title: string; description: string; keys: NumericKe
   ],
   processing: [
     {
-      title: 'Документы',
-      description: 'Предельный размер и объём извлекаемых данных.',
+      title: 'Documents',
+      description: 'Maximum file size and extracted data limits.',
       keys: ['maxBytes', 'maxPages', 'maxTextCharacters', 'maxChunks'],
     },
     {
-      title: 'Изображения, аудио и видео',
-      description: 'Размеры, длительность и выделенные ресурсы обработки.',
+      title: 'Images, audio & video',
+      description: 'Sizes, duration, and processing resources.',
       keys: [
         'mediaMaxSeconds',
         'mediaTimeoutSeconds',
@@ -83,8 +83,8 @@ const groups: Record<Mode, { title: string; description: string; keys: NumericKe
       ],
     },
     {
-      title: 'Хранение и сессии',
-      description: 'Сроки хранения действуют в пределах выбранной компании.',
+      title: 'Retention & sessions',
+      description: 'Retention periods apply to the selected company.',
       keys: [
         'sessionHours',
         'historyDays',
@@ -128,18 +128,18 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
     <>
       {mode === 'processing' && (
         <PageHeader
-          title="Параметры обработки"
-          description="Технические настройки компании. Изменения применяются к новым заданиям."
+          title={'Processing settings'}
+          description={'Technical settings for this company. Changes apply to new jobs.'}
         />
       )}
       {mode === 'limits' && (
         <div className="section-heading">
           <div>
-            <h2>Лимиты компании</h2>
+            <h2>Company limits</h2>
             <p>
               {operator
-                ? 'Вы можете менять бюджет и доступные компании ресурсы.'
-                : 'Вы можете уменьшить лимиты. Для увеличения обратитесь к владельцу платформы.'}
+                ? 'You can change the budget and resources available to this company.'
+                : 'You can lower limits. Ask the platform owner to raise them.'}
             </p>
           </div>
         </div>
@@ -150,10 +150,10 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
         key={mode + ':' + settings.revision}
         label={
           mode === 'assistant'
-            ? 'Сохранить настройки помощника'
+            ? 'Save assistant settings'
             : mode === 'limits'
-              ? 'Сохранить лимиты'
-              : 'Сохранить параметры обработки'
+              ? 'Save limits'
+              : 'Save processing settings'
         }
         submit={async (f) => {
           const changes: Partial<Settings> = {};
@@ -176,13 +176,13 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
           await api('settings.save', { revision: settings.revision, settings: changes });
           load.reload();
           onSaved?.();
-          app.notify('Настройки компании сохранены.');
+          app.notify('Company settings saved.');
         }}
       >
         {mode === 'assistant' && (
           <>
             <section className="panel">
-              <h2>Модели помощника</h2>
+              <h2>Assistant models</h2>
               {models.error && <Loading error={models.error} retry={models.reload} />}
               {!models.data && !models.error && <Loading />}
               {models.data &&
@@ -195,31 +195,33 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
                   />
                 ))}
               <p className="muted">
-                Проверка подтверждает доступность модели; она не оценивает качество и скорость
-                ответов. Выбор модели не устанавливает её на сервер.
+                Availability checks do not assess answer quality or speed. Selecting a model does
+                not install it on the server.
               </p>
               {operator ? (
                 <p>
                   <AdminLink to="models" tab="connections">
-                    Настроить подключённые модели
+                    Manage connected models
                   </AdminLink>
                 </p>
               ) : (
                 <p className="muted">
-                  Доступные модели и ключи провайдеров настраивает владелец платформы.
+                  The platform owner configures available models and provider keys.
                 </p>
               )}
             </section>
             <details className="panel admin-details">
-              <summary>Поведение помощника</summary>
+              <summary>Assistant behavior</summary>
               <Field
-                label="Системная инструкция"
+                label={'System instructions'}
                 name="prompt"
                 type="textarea"
                 value={settings.prompt}
                 required
                 maxLength={32000}
-                hint="Правила для всех новых ответов в этой компании. Не вводите пароли и API-ключи."
+                hint={
+                  'Rules for all new answers in this company. Do not enter passwords or API keys.'
+                }
               />
             </details>
           </>
@@ -229,7 +231,7 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
           return (
             <Container className="panel admin-details" key={group.title}>
               {mode === 'assistant' ? (
-                <summary>Параметры ответов и контекста</summary>
+                <summary>Answer &amp; context settings</summary>
               ) : (
                 <h2>{group.title}</h2>
               )}
@@ -252,27 +254,27 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
                     required
                     hint={
                       !operator && planKeys.includes(key)
-                        ? 'Увеличение доступно владельцу платформы.'
+                        ? 'Only the platform owner can increase this limit.'
                         : undefined
                     }
                   />
                 ))}
               </div>
-              {mode === 'processing' && group.title === 'Изображения, аудио и видео' && (
+              {mode === 'processing' && group.title === 'Images, audio & video' && (
                 <div className="form-grid">
                   <Field
-                    label="Языки OCR"
+                    label={'OCR languages'}
                     name="ocrLanguage"
                     value={settings.ocrLanguage}
                     required
-                    hint="Например, eng+rus. Языковые пакеты должны быть установлены на сервере."
+                    hint={'For example, eng+rus. Language packs must be installed on the server.'}
                   />
                   <Field
-                    label="Язык речи для Whisper"
+                    label={'Whisper speech language'}
                     name="whisperLanguage"
                     value={settings.whisperLanguage}
                     required
-                    hint="auto — определить автоматически, ru — русский, en — английский."
+                    hint={'auto detects the language; en is English and ru is Russian.'}
                   />
                 </div>
               )}
@@ -281,26 +283,15 @@ function SettingsForm({ mode, onSaved }: { mode: Mode; onSaved?: () => void }) {
         })}
         {mode === 'processing' && (
           <section className="panel">
-            <h2>Приостановить работу компании</h2>
-            <p>
-              Используйте на время обслуживания. Переключатели действуют только на выбранную
-              компанию.
-            </p>
+            <h2>Pause company processing</h2>
+            <p>Use during maintenance. These switches affect only the selected company.</p>
             <Check
               name="pauseIntake"
-              label="Не принимать новые задания"
+              label={'Stop accepting new jobs'}
               checked={settings.pauseIntake}
             />
-            <Check
-              name="pauseQueue"
-              label="Не запускать задания из очереди"
-              checked={settings.pauseQueue}
-            />
-            <Check
-              name="pauseIndexing"
-              label="Не запускать индексацию"
-              checked={settings.pauseIndexing}
-            />
+            <Check name="pauseQueue" label={'Pause queued jobs'} checked={settings.pauseQueue} />
+            <Check name="pauseIndexing" label={'Pause indexing'} checked={settings.pauseIndexing} />
           </section>
         )}
       </Form>
@@ -321,14 +312,14 @@ function ModelChoice({
   return (
     <div className="admin-model-choice">
       <label>
-        {name === 'generationProfile' ? 'Модель для ответов' : 'Распознавание записей'}
+        {name === 'generationProfile' ? 'Answer model' : 'Recording transcription'}
         <select name={name} value={selected} onChange={(e) => setSelected(e.target.value)}>
           {selected && !profiles.some((p) => p.id === selected) && (
             <option value={selected} disabled>
-              Текущая модель недоступна · {selected}
+              Current model is unavailable · {selected}
             </option>
           )}
-          {name === 'transcriptionProfile' && <option value="">Без отдельной расшифровки</option>}
+          {name === 'transcriptionProfile' && <option value="">No separate transcription</option>}
           {profiles
             .filter(
               (p) => p.role === (name === 'generationProfile' ? 'generation' : 'transcription'),
@@ -336,23 +327,23 @@ function ModelChoice({
             .map((p) => (
               <option key={p.id} value={p.id} disabled={!p.enabled}>
                 {p.name}
-                {p.enabled ? '' : ' · выключен'}
+                {p.enabled ? '' : ' · disabled'}
               </option>
             ))}
         </select>
       </label>
       {name === 'transcriptionProfile' && (
         <p className="muted">
-          Превращает речь из аудио и видео в текст. Whisper работает на сервере установки; Google
-          Gemini отправляет звук в Google через API и учитывает расход бюджета. Gemini сохраняет
-          исходный язык автоматически. Для поиска по исходному аудио расшифровка необязательна; для
-          текстового поиска она нужна.
+          Converts speech in audio and video to text. Whisper runs on the installation server;
+          Google Gemini sends audio to Google through its API and counts toward the budget. Gemini
+          detects and preserves the original language. Transcription is optional for searching
+          original audio, and required for text search.
         </p>
       )}
       {selected && !profile && (
         <p className="warning" role="alert">
-          Выбранная модель удалена или недоступна. Выберите разрешённую модель; если список пуст,
-          обратитесь к владельцу платформы.
+          The selected model was removed or is unavailable. Choose an allowed model; if the list is
+          empty, contact the platform owner.
         </p>
       )}
       {profile && <ModelAvailability profile={profile} />}

@@ -2810,20 +2810,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"local-rag@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "local-rag@workspace:."
-  dependencies:
-    "@eslint/js": "npm:10.0.1"
-    "@types/node": "npm:24.19.2"
-    eslint: "npm:10.12.0"
-    jiti: "npm:2.6.1"
-    prettier: "npm:3.9.10"
-    typescript: "npm:6.0.3"
-    typescript-eslint: "npm:8.71.1"
-  languageName: unknown
-  linkType: soft
-
 "locate-path@npm:^6.0.0":
   version: 6.0.0
   resolution: "locate-path@npm:6.0.0"
@@ -3484,6 +3470,20 @@ __metadata:
   checksum: 10c0/d924b57e7312b3b63ad21fc5b3dc0af5e78d61a1fc7cfb5457edaf26326bf62be5307cc87ffb6862ef1c2b33b0233cdb5d4f01c4c958cc0d660948b65a287a48
   languageName: node
   linkType: hard
+
+"multimodal-rag-knowledge-base@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "multimodal-rag-knowledge-base@workspace:."
+  dependencies:
+    "@eslint/js": "npm:10.0.1"
+    "@types/node": "npm:24.19.2"
+    eslint: "npm:10.12.0"
+    jiti: "npm:2.6.1"
+    prettier: "npm:3.9.10"
+    typescript: "npm:6.0.3"
+    typescript-eslint: "npm:8.71.1"
+  languageName: unknown
+  linkType: soft
 
 "nanoid@npm:^3.3.20":
   version: 3.3.20

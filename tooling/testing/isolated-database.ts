@@ -21,7 +21,7 @@ export async function isolatedDatabase<T>(
   const source = new URL(baseline.adminDatabaseUrl);
   if (!['localhost', '127.0.0.1', '[::1]', 'postgres'].includes(source.hostname))
     throw new Error(
-      'Изолированные тесты запускаются на локальной инфраструктуре. Настройте DATABASE_ADMIN_URL на тестовый PostgreSQL.',
+      'Isolated tests run on local infrastructure. Set DATABASE_ADMIN_URL to a test PostgreSQL instance.',
     );
   const name = 'rag_test_' + randomUUID().replaceAll('-', '');
   const admin = new Pool({ connectionString: baseline.adminDatabaseUrl, max: 1 });
@@ -46,11 +46,7 @@ export async function isolatedDatabase<T>(
     await storage.initialize();
     bucketCreated = true;
     application = await openApplication(config, true);
-    await application.s.identity.bootstrap(
-      'admin',
-      'local-development-only',
-      'Изолированная проверка',
-    );
+    await application.s.identity.bootstrap('admin', 'local-development-only', 'QA workspace');
     return await work(application, config);
   } finally {
     try {

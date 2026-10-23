@@ -23,8 +23,10 @@ export const KnowledgeWorkspace = observer(function KnowledgeWorkspace() {
   const selected = app.navigation.tab;
   const content = !Object.hasOwn(tabs, selected) ? (
     <EmptyState
-      title="Раздел недоступен"
-      description="Для управления доступом и качеством нужна роль администратора. Подключать папки можно в базах с правом редактирования."
+      title={'Section unavailable'}
+      description={
+        'Managing access and quality requires an administrator role. Folders can be connected to knowledge bases you can edit.'
+      }
     />
   ) : selected === 'collections' ? (
     <Collections />
@@ -39,15 +41,15 @@ export const KnowledgeWorkspace = observer(function KnowledgeWorkspace() {
     <div className="page-content knowledge-workspace">
       <div className="admin-scope">
         <span>
-          Компания ·{' '}
-          {app.session.tenants.find((tenant) => tenant.id === user?.tenant)?.name ?? 'Компания'}
+          Company ·{' '}
+          {app.session.tenants.find((tenant) => tenant.id === user?.tenant)?.name ?? 'Company'}
         </span>
-        <span>Материалы доступны в соответствии с правами на базу знаний</span>
+        <span>Materials follow knowledge base access permissions</span>
       </div>
       <Suspense fallback={<Loading />}>
         {Object.keys(tabs).length > 1 ? (
           <Tabs
-            label="База знаний"
+            label={'Knowledge base'}
             tabs={tabs}
             selected={selected}
             onChange={(tab) => app.selectTab(tab)}

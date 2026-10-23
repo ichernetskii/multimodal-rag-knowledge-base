@@ -13,14 +13,14 @@ import { TeamInvitations } from './TeamInvitations';
 function UserEditor({ user, groups, done }: { user?: User; groups: Group[]; done: () => void }) {
   return (
     <>
-      <p className="eyebrow">УЧЁТНАЯ ЗАПИСЬ</p>
-      <h2>{user ? 'Изменить пользователя' : 'Новый пользователь'}</h2>
+      <p className="eyebrow">ACCOUNT</p>
+      <h2>{user ? 'Edit user' : 'New user'}</h2>
       <p className="muted">
-        Пользователь общается с документами, редактор управляет разрешёнными базами, администратор —
-        командой и настройками выбранной компании. Права владельца платформы этой ролью не выдаются.
+        Users chat with documents, editors manage permitted knowledge bases, and administrators
+        manage their company's team and settings. This role does not grant platform owner access.
       </p>
       <Form
-        label={user ? 'Сохранить изменения' : 'Создать пользователя'}
+        label={user ? 'Save changes' : 'Create user'}
         submit={async (f) => {
           const common = {
               role: option(f, 'role', ['user', 'editor', 'admin'] as const),
@@ -41,34 +41,34 @@ function UserEditor({ user, groups, done }: { user?: User; groups: Group[]; done
       >
         <div className="form-grid">
           <Field
-            label="Логин"
+            label={'Username'}
             name="login"
             value={user?.login}
             required
             readOnly={!!user}
             autoComplete="off"
-            hint={user ? 'Логин сохраняется при редактировании.' : undefined}
+            hint={user ? 'The username cannot be changed.' : undefined}
           />
           <Select
-            label="Роль"
+            label={'Role'}
             name="role"
             value={user?.role ?? 'user'}
             options={Object.entries(roleNames)}
           />
         </div>
         <Field
-          label={user ? 'Новый пароль' : 'Пароль'}
+          label={user ? 'New password' : 'Password'}
           name="password"
           type="password"
           required={!user}
           hint={
             user
-              ? 'Оставьте пустым, чтобы сохранить текущий. Минимум 12 символов.'
-              : 'Минимум 12 символов.'
+              ? 'Leave blank to keep the current password. At least 12 characters.'
+              : 'At least 12 characters.'
           }
         />
         <section className="form-section">
-          <h3>Участие в группах</h3>
+          <h3>Group membership</h3>
           {groups.length ? (
             <div className="check-grid">
               {groups.map((g) => (
@@ -82,14 +82,14 @@ function UserEditor({ user, groups, done }: { user?: User; groups: Group[]; done
               ))}
             </div>
           ) : (
-            <p className="muted">Групп пока нет. Их можно создать в этом разделе.</p>
+            <p className="muted">No groups yet. Create one in this section.</p>
           )}
         </section>
         <Check
-          label="Заблокировать вход"
+          label={'Block sign-in'}
           name="blocked"
           checked={user?.blocked}
-          hint="Активные сессии пользователя будут отозваны после сохранения."
+          hint={"The user's active sessions will be revoked when you save."}
         />
       </Form>
     </>
@@ -121,16 +121,14 @@ export function Users() {
         done={() => {
           modal(null);
           load.reload();
-          app.notify(
-            user ? 'Пользователь обновлён. Активные сессии отозваны.' : 'Пользователь создан.',
-          );
+          app.notify(user ? 'User updated. Active sessions revoked.' : 'User created.');
         }}
       />,
     );
   const editGroup = (group?: Group) =>
     modal(
       <>
-        <h2>{group ? 'Изменить группу' : 'Новая группа'}</h2>
+        <h2>{group ? 'Edit group' : 'New group'}</h2>
         <Form
           submit={async (f) => {
             await api('groups.save', {
@@ -141,68 +139,70 @@ export function Users() {
             load.reload();
           }}
         >
-          <Field label="Название группы" name="name" value={group?.name} required />
+          <Field label={'Group name'} name="name" value={group?.name} required />
         </Form>
       </>,
     );
   return (
     <>
       <PageHeader
-        eyebrow="ДОСТУП И БЕЗОПАСНОСТЬ"
-        title="Команда и роли"
-        description="Сотрудники выбранной компании, приглашения и группы доступа к базам знаний."
+        eyebrow={'ACCESS AND SECURITY'}
+        title={'Team and roles'}
+        description={
+          'Team members, invitations, and knowledge base access groups for the selected company.'
+        }
         actions={
           <Button className="primary" onClick={() => edit()}>
-            + Пользователь
+            + User
           </Button>
         }
       />
       <details className="panel admin-details">
-        <summary>Чем отличаются роли</summary>
+        <summary>How roles differ</summary>
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Роль</th>
-                <th>Возможности</th>
+                <th>Role</th>
+                <th>Permissions</th>
               </tr>
             </thead>
             <tbody>
               <tr>
-                <td>Пользователь</td>
-                <td>Чат и чтение материалов разрешённых баз знаний.</td>
+                <td>Member</td>
+                <td>Chat and read materials in permitted knowledge bases.</td>
               </tr>
               <tr>
-                <td>Редактор</td>
-                <td>Возможности пользователя и управление материалами разрешённых баз.</td>
+                <td>Editor</td>
+                <td>User permissions plus managing materials in permitted knowledge bases.</td>
               </tr>
               <tr>
-                <td>Администратор компании</td>
-                <td>Команда, доступ, настройки, расходы и обслуживание своей компании.</td>
+                <td>Company administrator</td>
+                <td>Manage the company's team, access, settings, costs, and maintenance.</td>
               </tr>
               <tr>
-                <td>Владелец платформы</td>
+                <td>Platform owner</td>
                 <td>
-                  Отдельное системное право: компании, подключения к AI, сервер и увеличение
-                  лимитов. Не назначается через форму сотрудника.
+                  Separate system permission: companies, AI connections, server, and increasing
+                  limits. Cannot be assigned through the team member form.
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
         <p>
-          Права владельца не дают автоматического доступа к личным чатам сотрудников. Доступ к
-          материалам проверяется на сервере.
+          Platform ownership does not automatically grant access to employees' private chats.
+          Material access is checked by the server.
         </p>
       </details>
       <section className="panel">
         <div className="filter-bar">
           <label className="search-field">
-            <span>Поиск по логину</span>
+            <span>Search by username</span>
             <input
               type="search"
               value={query}
-              placeholder="Найти пользователя…"
+              placeholder={'Find a user…'}
               onChange={(e) => {
                 setQuery(e.target.value);
                 setPage(1);
@@ -210,29 +210,29 @@ export function Users() {
             />
           </label>
           <Select
-            label="Роль"
+            label={'Role'}
             name="role-filter"
-            options={[['', 'Все роли'], ...Object.entries(roleNames)]}
+            options={[['', 'All roles'], ...Object.entries(roleNames)]}
             onChange={(value) => {
               setRole(value as typeof role);
               setPage(1);
             }}
           />
           <Select
-            label="Состояние"
+            label={'Status'}
             name="state-filter"
             options={[
-              ['', 'Все'],
-              ['active', 'Активные'],
-              ['blocked', 'Заблокированные'],
+              ['', 'All'],
+              ['active', 'Active'],
+              ['blocked', 'Blocked'],
             ]}
             onChange={(value) => {
               setState(value as typeof state);
               setPage(1);
             }}
           />
-          <Button onClick={load.reload} aria-label="Обновить список пользователей">
-            Обновить
+          <Button onClick={load.reload} aria-label={'Refresh user list'}>
+            Refresh
           </Button>
         </div>
         {load.error && <Loading error={load.error} retry={load.reload} />}
@@ -242,9 +242,9 @@ export function Users() {
           ) : (
             <>
               <Table
-                head={['Пользователь', 'Роль', 'Группы', 'Состояние', 'Действия']}
+                head={['Member', 'Role', 'Groups', 'Status', 'Actions']}
                 rowKeys={load.data.users.items.map((u) => u.id)}
-                empty="По этим условиям пользователи не найдены."
+                empty={'No users match these filters.'}
                 rows={load.data.users.items.map((u) => [
                   <div className="person">
                     <span className="avatar avatar-light">{u.login.slice(0, 2).toUpperCase()}</span>
@@ -257,19 +257,19 @@ export function Users() {
                       .join(', ') || '—'}
                   </span>,
                   <Badge tone={u.blocked ? 'danger' : 'success'}>
-                    {u.blocked ? 'Заблокирован' : 'Активен'}
+                    {u.blocked ? 'Blocked' : 'Active'}
                   </Badge>,
                   <div className="actions compact">
-                    <Button onClick={() => edit(u)}>Изменить</Button>
+                    <Button onClick={() => edit(u)}>Edit</Button>
                     {app.session.user?.operator && (
                       <Button
-                        title="Завершить сессии пользователя во всех компаниях"
+                        title={"End the user's sessions in all companies"}
                         onClick={async () => {
                           await api('users.revoke', { id: u.id });
-                          app.notify('Сессии пользователя ' + u.login + ' отозваны.');
+                          app.notify('Sessions for user ' + u.login + ' revoked.');
                         }}
                       >
-                        Отозвать сессии
+                        Revoke sessions
                       </Button>
                     )}
                   </div>,
@@ -289,10 +289,10 @@ export function Users() {
       <section className="panel">
         <div className="section-heading">
           <div>
-            <h2>Группы доступа</h2>
-            <p>Назначайте доступ сразу нескольким пользователям через группу.</p>
+            <h2>Access groups</h2>
+            <p>Grant access to several users at once through a group.</p>
           </div>
-          <Button onClick={() => editGroup()}>+ Группа</Button>
+          <Button onClick={() => editGroup()}>+ Group</Button>
         </div>
         {load.data?.groups.length ? (
           <div className="group-list">
@@ -300,14 +300,14 @@ export function Users() {
               <button key={g.id} onClick={() => editGroup(g)}>
                 <span className="group-icon">◉</span>
                 <strong>{g.name}</strong>
-                <span>Изменить →</span>
+                <span>Edit →</span>
               </button>
             ))}
           </div>
         ) : (
           <EmptyState
-            title="Объедините пользователей в группы"
-            description="Создайте группу и назначьте ей доступ в разделе «Базы знаний и доступ»."
+            title={'Organize users into groups'}
+            description={'Create a group and grant access under “Knowledge bases and access”.'}
           />
         )}
       </section>

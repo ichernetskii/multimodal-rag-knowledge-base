@@ -6,6 +6,10 @@ POST /api/login accepts login/password and optional cli=true; browser receives H
 
 POST /api/actions/ACTION takes a JSON object (max 1 MiB), returns the typed result. answers.create returns 202 after durable acceptance; other actions return their result or job descriptor. Errors have error.code, error.message and error.diagnostic; transport status distinguishes 401/403/404/409/413/429/503. Exact authority and revision rules are enforced server-side; tenant admin does not bypass personal conversation ownership.
 
+All JSON routes require an object: malformed JSON returns `400 INVALID_JSON`; arrays, primitives, and `null` return `400 INVALID_INPUT`. A malformed session cookie returns `401 UNAUTHENTICATED`. Search `scope` must be an object containing only `collection` and/or `conversation`.
+
+Provider redirects are rejected with `502 PROVIDER_REJECTED`; the platform owner must configure the final approved endpoint. A truncated response or output-limit stop produces `GENERATION_INCOMPLETE` (`TRANSCRIPTION_INCOMPLETE` for ASR), not a completed answer/transcript. For queued work, the job carries this code and a diagnostic ID. Inspect partial text and limits before an explicit retry, which may incur a new provider charge.
+
 Platform-only actions include secrets.list/save/delete/audit, diagnostics, tenants.create/update, models.save/delete and users.revoke. Company administrators manage their own team, settings, usage, indexes and jobs. models.list exposes no endpoint or secret reference to non-operators; it includes enabled profiles and, for company administrators, selected disabled profiles. Provider credentials never appear in API results.
 
 `collections.list` returns only accessible knowledge bases, visible grants and a `documentCount` scoped to each base. Counts are fetched together under tenant RLS. `collections.save/delete` require company admin; rename requires edit access. All three mutations serialize through the shared access lock and check the current revision, so concurrent edits cannot silently overwrite one another. Read-only collection counts exclude unpublished, archived and excluded materials. Editors with an explicit edit grant can inspect their drafts.
@@ -116,7 +120,7 @@ Only setup.status is a public action. init/bootstrap are exclusive operator CLI 
 
 Delete requires the current revision and zero references across all companies, including disabled model profiles. Saving a model reference and deleting a credential share a transaction lock. Recreating an alias receives a new global revision, preventing a stale editor from overwriting its replacement. `secrets.audit` is owner-only and never contains key values. Tenant backups exclude the credential vault and its audit; tenant restore cannot roll back credentials. Every request uses the existing same-origin/CSRF and authentication checks.
 
-## Чтение и исправление больших материалов
+## Reading and correcting large materials
 
 `documents.read` returns metadata, version summaries and page summaries; it does not embed complete page bodies or originals. Editors default to the newest pending/review version; readers default to the published active version. Readers cannot open drafts, excluded or archived shared materials, or unpublished versions by guessing identifiers. Company admin/edit grants and private-conversation ownership are checked on every page, find, comparison and asset request.
 
@@ -130,7 +134,7 @@ Browser disconnection cancels an in-flight ad hoc `search`. Accepted durable job
 
 `diagnostics.media` contains executable/model readiness booleans and issues keyed by ffmpeg, ffprobe, whisper or model. Outdated managed runtime receipts and FFmpeg builds without H.264 report an actionable installation reason instead of a false ready status.
 
-## Исправление опубликованной обработки
+## Correcting published material
 
 `documents.revise` accepts an editable document, its current revision and a ready source version. It creates a pending version and returns a durable document job. The original is copied server-side in S3 before acceptance, derived assets are copied by the worker with independent identifiers/keys. OCR, ASR and description generation are not rerun. Original hashes, media timestamps and preparation provenance are retained. Storage quota applies to copies; a quota failure before acceptance rolls back the candidate and leaves the current version/revision intact.
 

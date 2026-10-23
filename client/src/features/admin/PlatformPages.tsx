@@ -11,19 +11,21 @@ export function Tenants() {
   return (
     <>
       <PageHeader
-        title="Компании клиентов"
-        description="Общая SaaS-установка: у каждой компании свои сотрудники, документы, настройки и расходы."
+        title={'Customer companies'}
+        description={
+          'One shared installation. Each company has its own people, documents, settings, and spending.'
+        }
       />
       <div className="admin-role-note">
         <p>
-          Создание компании не выдаёт её сотрудникам права владельца платформы. Для работы с её
-          материалами переключитесь в компанию.
+          Creating a company does not grant platform owner access to its members. Switch to a
+          company to work with its materials.
         </p>
       </div>
       <section className="panel">
         <div className="section-heading">
-          <h2>Все компании</h2>
-          <Button onClick={load.reload}>Обновить</Button>
+          <h2>All companies</h2>
+          <Button onClick={load.reload}>Refresh</Button>
         </div>
         {load.error && <Loading error={load.error} retry={load.reload} />}
         <div className="admin-tenant-grid">
@@ -32,7 +34,7 @@ export function Tenants() {
               <div>
                 <h3>{t.name}</h3>
                 <Badge tone={t.blocked ? 'danger' : 'success'}>
-                  {t.blocked ? 'Приостановлена' : 'Активна'}
+                  {t.blocked ? 'Suspended' : 'Active'}
                 </Badge>
               </div>
               <div className="actions">
@@ -48,15 +50,15 @@ export function Tenants() {
                     await app.session.refresh();
                   }}
                 >
-                  {t.blocked ? 'Возобновить доступ' : 'Приостановить доступ'}
+                  {t.blocked ? 'Resume access' : 'Suspend access'}
                 </Button>
               </div>
               <details className="admin-details">
-                <summary>Изменить название</summary>
+                <summary>Rename</summary>
                 <Form
                   key={t.id + ':' + t.revision}
                   protectChanges
-                  label="Сохранить название"
+                  label={'Save name'}
                   submit={async (form) => {
                     await api('tenants.update', {
                       id: t.id,
@@ -65,11 +67,11 @@ export function Tenants() {
                     });
                     load.reload();
                     await app.session.refresh();
-                    app.notify('Название компании обновлено.');
+                    app.notify('Company name updated.');
                   }}
                 >
                   <Field
-                    label="Название компании"
+                    label={'Company name'}
                     name="companyName"
                     value={t.name}
                     required
@@ -82,31 +84,31 @@ export function Tenants() {
         </div>
       </section>
       <section className="panel">
-        <h2>Добавить компанию</h2>
+        <h2>Add company</h2>
         <p>
-          Будут созданы отдельные настройки, каталог моделей и доступ владельца платформы.
-          Сотрудников пригласите в разделе «Команда и доступ» этой компании.
+          Creates separate settings, a model catalog, and access for the platform owner. Invite
+          members from the company's Team &amp; access section.
         </p>
         <Form
-          label="Создать компанию"
+          label={'Create company'}
           submit={async (f) => {
             await api('tenants.create', { name: text(f, 'name') });
             load.reload();
             await app.session.refresh();
           }}
         >
-          <Field name="name" label="Название компании" required maxLength={200} />
+          <Field name="name" label={'Company name'} required maxLength={200} />
         </Form>
       </section>
     </>
   );
 }
 const workers: Record<string, string> = {
-  answer: 'Ответы пользователям',
-  document: 'Обработка и индексация',
-  evaluation: 'Проверка качества',
-  maintenance: 'Обслуживание и резервные копии',
-  all: 'Все типы заданий',
+  answer: 'User answers',
+  document: 'Processing & indexing',
+  evaluation: 'Quality evaluation',
+  maintenance: 'Maintenance & backups',
+  all: 'All job types',
 };
 export function System() {
   const load = useLoad((signal) => api('diagnostics', {}, { signal })),
@@ -114,11 +116,13 @@ export function System() {
   return (
     <>
       <PageHeader
-        title="Состояние системы"
-        description="Общие зависимости и вычислительные ресурсы установки. Раздел доступен только владельцу платформы."
+        title={'System health'}
+        description={
+          'Shared dependencies and compute resources. Only the platform owner can access this section.'
+        }
         actions={
           <Button disabled={load.loading} onClick={load.reload}>
-            {load.loading ? 'Проверяем…' : 'Обновить проверку'}
+            {load.loading ? 'Checking…' : 'Refresh checks'}
           </Button>
         }
       />
@@ -129,53 +133,53 @@ export function System() {
           <div className="metrics-grid">
             <Metric
               label="PostgreSQL"
-              value={d.postgres ? 'Работает' : 'Ошибка'}
-              detail="Данные компаний и очередь"
+              value={d.postgres ? 'Healthy' : 'Error'}
+              detail={'Company data & queue'}
             />
             <Metric
               label="S3"
-              value={d.storage ? 'Работает' : 'Ошибка'}
-              detail="Файлы и производные материалы"
+              value={d.storage ? 'Healthy' : 'Error'}
+              detail={'Files & derived materials'}
             />
             <Metric
               label="Redis"
-              value={d.redis ? 'Работает' : 'Недоступен'}
-              detail="Кеш; задания сохраняются в PostgreSQL"
+              value={d.redis ? 'Healthy' : 'Unavailable'}
+              detail={'Cache; jobs remain stored in PostgreSQL'}
             />
-            <Metric
-              label="Обработчики"
-              value={d.workers.length}
-              detail="Недавние сигналы работоспособности"
-            />
+            <Metric label={'Workers'} value={d.workers.length} detail={'Recent health signals'} />
           </div>
           <section className="panel">
-            <h2>Фоновые обработчики</h2>
+            <h2>Background workers</h2>
             <div className="admin-status-list">
               {d.workers.map((w) => (
                 <div key={w.kind}>
                   <strong>{workers[w.kind] ?? w.kind}</strong>
-                  <span>Сигнал: {new Date(w.lastSeen).toLocaleTimeString()}</span>
-                  <Badge tone="success">На связи</Badge>
+                  <span>Last signal: {new Date(w.lastSeen).toLocaleTimeString()}</span>
+                  <Badge tone="success">Connected</Badge>
                 </div>
               ))}
             </div>
             {!d.workers.length && (
-              <p role="alert">Нет сигналов от обработчиков. Проверьте запуск Docker-воркеров.</p>
+              <p role="alert">
+                No worker health signals. Check that the Docker workers are running.
+              </p>
             )}
           </section>
           <section className="panel">
-            <h2>Материалы и распознавание</h2>
+            <h2>Materials &amp; recognition</h2>
             <div className="admin-status-list">
               {[
                 {
-                  name: 'Текст PDF',
+                  name: 'PDF text',
                   ready: d.extraction.pdf,
-                  issue: d.extraction.pdf ? '' : 'Выполните yarn prepare:pdf на сервере.',
+                  issue: d.extraction.pdf ? '' : 'Run yarn prepare:pdf on the server.',
                 },
                 {
-                  name: 'OCR изображений',
+                  name: 'Image OCR',
                   ready: d.extraction.ocr,
-                  issue: d.extraction.ocr ? '' : 'Проверьте установку OCR и выбранный язык.',
+                  issue: d.extraction.ocr
+                    ? ''
+                    : 'Check the OCR installation and selected language.',
                 },
                 {
                   name: 'FFmpeg',
@@ -192,25 +196,24 @@ export function System() {
                   <strong>{name}</strong>
                   {!ready && <span>{issue}</span>}
                   <Badge tone={ready ? 'success' : 'danger'}>
-                    {ready ? 'Готово' : 'Требует настройки'}
+                    {ready ? 'Ready' : 'Setup required'}
                   </Badge>
                 </div>
               ))}
             </div>
           </section>
           <details className="panel admin-details">
-            <summary>Ресурсы и технические сведения</summary>
+            <summary>Resources &amp; technical details</summary>
             <p>
-              CPU: {d.hardware.cpu} · {d.hardware.cores} ядер
+              CPU: {d.hardware.cpu} · {d.hardware.cores} cores
             </p>
             <p>
-              Оперативная память контейнерного окружения:{' '}
-              {(d.hardware.totalMemory / 1024 ** 3).toFixed(1)} ГиБ, свободно{' '}
-              {(d.hardware.freeMemory / 1024 ** 3).toFixed(1)} ГиБ
+              Container environment memory: {(d.hardware.totalMemory / 1024 ** 3).toFixed(1)} GiB,
+              free {(d.hardware.freeMemory / 1024 ** 3).toFixed(1)} GiB
             </p>
-            <p>Свободное место: {(d.freeBytes / 1024 ** 3).toFixed(1)} ГиБ</p>
+            <p>Free disk space: {(d.freeBytes / 1024 ** 3).toFixed(1)} GiB</p>
             <p className="muted">
-              Лимиты Docker и серверные секреты задаются в конфигурации развёртывания.
+              Docker limits and server secrets belong in deployment configuration.
             </p>
           </details>
         </>

@@ -1,6 +1,6 @@
 import { existsSync, statSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
-import { dirname, relative, resolve } from 'node:path';
+import { basename, dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
@@ -72,6 +72,14 @@ function checkLink(file: string, destination: string) {
 
 await collect(root);
 for (const [file, source] of markdown) {
+  const companion =
+    basename(file) === 'README.md'
+      ? 'README.ru.md'
+      : basename(file) === 'README.ru.md'
+        ? 'README.md'
+        : '';
+  if (companion && !markdown.has(resolve(dirname(file), companion)))
+    errors.push(`${relative(root, file)}: missing ${companion} companion`);
   const text = prose(source);
   for (const match of text.matchAll(
     /!?\[[^\]\n]*\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+"[^"]*")?\s*\)/gu,

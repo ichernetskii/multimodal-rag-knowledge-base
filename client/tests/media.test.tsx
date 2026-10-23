@@ -30,6 +30,6 @@ it('plays prepared audio rather than seeking into a different source container',
   expect(html).toContain('1:30–1:40');
   expect(html).toMatch(/<audio[^>]+src="[^"]*\/media\/wav-segment\?version=v[^"]*"/);
   expect(html).not.toMatch(/<audio[^>]+#t=90/);
-  expect(html).toContain('фрагмент исходной записи');
+  expect(html).toContain('segment of the original recording');
   expect(html).not.toContain('<img');
 });

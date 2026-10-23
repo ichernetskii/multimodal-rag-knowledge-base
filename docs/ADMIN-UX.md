@@ -1,64 +1,54 @@
-# Админка: структура и поведение
+# Admin workspace
 
-Согласованный прототип перенесён в React. Интерфейс использует публичный API и серверные права. Учебный переключатель Demo Role отсутствует: роль берётся из сессии. Интерактивный прототип остаётся историческим макетом; он не управляет этой установкой.
+This describes the implemented React interface, not a disconnected prototype. [Usage](USAGE.md) explains everyday tasks; [verification](VERIFICATION.md) explains how to check them.
 
-## Постоянное меню и область действия
+## Navigation and scope
 
-В одном меню видны две подписанные группы. «Компания» содержит Помощник, База знаний, AI и модели, Команда, Расходы и лимиты, Обслуживание. «Платформа» содержит API-ключи и Состояние системы и доступна только оператору. Состав компании зависит от роли. Раздел не открывает другое меню и не требует кнопки возврата.
+A persistent sidebar groups company work separately from platform administration. The company selector appears only on company pages. Platform pages display **All companies**. The footer identifies the account and real role; changing scope does not rewrite navigation into a different application.
 
-На страницах компании заголовок содержит её название и переключатель доступных членств. На страницах платформы вместо переключателя указана вся платформа. Нижняя часть меню показывает настоящую учётную запись, полномочия и текущую область. Переключение компании сохраняет доступную вкладку, обновляет данные и закрывает прежние диалоги. Изменения форм защищены подтверждением при переходе, смене компании и закрытии диалога; выход из вкладки браузера использует стандартное предупреждение.
+| Authority             | Available work                                                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| User                  | Chat, published permitted materials, own personal attachments                                                          |
+| Editor                | Upload, review, correct, publish, and sync folders for bases with edit access                                          |
+| Company administrator | Bases and grants, team, model assignments, quality, costs, jobs, backups, company settings                             |
+| Platform owner        | Independent authority: provider keys, model connections, system diagnostics, company lifecycle, increased entitlements |
 
-Пути актуального интерфейса: `/knowledge/materials`, `/knowledge/collections`, `/knowledge/sources`, `/knowledge/quality`, `/admin/models/assignments`, `/admin/models/connections`, `/admin/users`, `/admin/usage`, `/admin/maintenance/jobs`, `/admin/maintenance/backups`, `/admin/maintenance/audit`, `/admin/maintenance/processing`, `/admin/credentials`, `/admin/system/health`, `/admin/system/companies`. Старые разделы не имеют алиасов. Прямой URL проверяется по текущим правам, а не только скрывается из меню.
+Editor role alone does not grant access to every base. Operator permission does not replace company membership. Private chats and attachments remain private even from company administrators. Server authorization checks every material, version, fragment, and asset.
 
-## Роли
+## AI and models
 
-| Уровень                         | Возможности                                                                                               |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Пользователь                    | Личный помощник, доступные опубликованные материалы, источники ответов                                    |
-| Редактор с edit-доступом к базе | Загрузка, проверка, исправление и публикация материалов этой базы, её папки синхронизации                 |
-| Администратор компании          | Базы и доступ, команда, назначения моделей, качество, расходы, задания, копии и параметры своей компании  |
-| Оператор платформы              | Дополнительное независимое полномочие: ключи, подключения компании, диагностика и жизненный цикл компаний |
+**Model assignments** groups answers, recording transcription, and the search index. Answer/ASR selection changes company settings. Search uses a build → review → activate workflow; a failed candidate leaves the current index active. Availability checks and index readiness are separate.
 
-Роль editor сама по себе не открывает все базы. Право оператора не подменяет членство и роль компании. Личные вложения и беседы не становятся общедоступной библиотекой даже для администратора. Отзыв edit-доступа скрывает черновики и пути синхронизации, оставляя только разрешённые опубликованные материалы.
+Saved material text survives embedding model changes. Building a text index prepares missing image descriptions through an image-capable answer model and speech through selected Whisper/Google ASR. Profile/model/time provenance is retained; existing text is reused.
 
-## AI и модели
+**Connected models** is owner-only within the company scope. Profiles are grouped by **On your server**, **External API**, and **Development & verification**. The last group contains TEST AI rather than an external provider. The provider/task determine available fields. Existing provider/task identities are fixed; copying creates a new profile.
 
-Вкладка «Назначение моделей» объединяет ответы, распознавание записей и поисковый индекс. Ответы и ASR сохраняются в настройках компании; изменение модели поиска проходит отдельный цикл построить → проверить → использовать. Доступность модели и состояние индекса показаны отдельно. Сбой нового построения сохраняет активный индекс.
+| Provider                            | Main parameters                                   | Advanced parameters                                                       |
+| ----------------------------------- | ------------------------------------------------- | ------------------------------------------------------------------------- |
+| Ollama                              | Name, task, server URL, installed model, enabled  | Context, timeout, concurrency, supported inputs                           |
+| Whisper                             | Name, bundled small model, enabled                | Company processing controls language/CPU; no endpoint                     |
+| Google / Anthropic / compatible API | Name, task, model, endpoint, shared key reference | Modalities, context, size/duration, RPM/TPM, timeout, concurrency, prices |
 
-Сохранённый текст материала не зависит от последующего выбора embedding-модели. Если при построении нового текстового индекса его не хватает, модель ответов с изображениями готовит описание, а назначенный Whisper/Google Gemini — расшифровку речи. Профиль, модель и время сохраняются. Готовый текст повторно не генерируется при каждой смене поиска. Для неподдерживаемой комбинации интерфейс показывает ошибку задания; он не обещает скрытый переход на другой платный сервис.
+A compatible API can be self-hosted. Prices support reservation and estimated accounting; they do not install a model. The owner verifies actual provider tariffs. Connection checks are not answer-quality benchmarks.
 
-Вкладка «Подключения» доступна оператору в контексте компании. Профили сгруппированы по работе на своём сервере и через API. Пользователь видит модель и доступность; оператор дополнительно управляет endpoint, разрешёнными входами и ссылкой на ключ. Изменение поставщика или задачи создаёт профиль с соответствующими исходными параметрами; для существующего профиля они фиксированы, доступно копирование.
+Shared keys have a separate platform page. Profiles reference aliases, never values. Values are submitted only on creation/rotation and cannot be retrieved after saving. Connection pages expose key state and a route to the vault without giving company administrators secret access.
 
-| Поставщик                            | Основные параметры                                                       | Дополнительные параметры                                                                      |
-| ------------------------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| Ollama                               | Название, задача, URL своего сервера, установленная модель, включённость | Контекст, таймаут, параллельность, возможности входа                                          |
-| Whisper                              | Название, small на сервере установки, включённость                       | Язык/CPU задаются в параметрах обработки компании; endpoint не нужен                          |
-| Google / Anthropic / совместимый API | Название, задача, модель, URL API, ссылка на общий ключ                  | Входные модальности, контекст, размеры/длительность, RPM/TPM, таймаут, параллельность, ставки |
+## Knowledge workspace
 
-Совместимый API может работать на собственном сервере; сама совместимость не означает облачный хостинг. Ставки нужны резервированию бюджета и учёту, а не загрузке модели. Цены проверяет оператор по своему договору. Проверка подключения не является тестом качества ответа.
+Permission-aware tabs group materials, bases/access, folders, and answer quality. Filename filtering, content retrieval, and literal find inside one document have distinct labels. Content retrieval uses the active index and is cancellable. Document find behaves like Ctrl+F and calls no AI.
 
-Общие ключи находятся в отдельной странице платформы. Профиль хранит alias, а не значение. Значение вводится при создании/ротации, затем не возвращается сервером. На странице подключения показано состояние ссылки и переход в хранилище. Назначения и доступность компании не зависят от возможности её администратора читать хранилище платформы.
+Material cards show processing status, warnings, and a next action. The reader loads one page/segment and a bounded text window. Find results show snippets and exact positions; selecting a match loads and highlights its window. Empty results and the broad-query cap are explicit.
 
-## База знаний и читатель
+Before publication an editor compares the extraction with the original, corrects the visible range, and acknowledges the review. Original files and other text remain unchanged. Published corrections use a separate candidate version with copied assets; readers retain the active version until the candidate is indexed. No repeated OCR/ASR/generation is needed for correction copies.
 
-Один workspace содержит «Материалы», «Базы и доступ», «Папки» и «Качество» по правам. Фильтр названия и поиск по содержимому имеют разные подписи. Семантический поиск обращается к текущему индексу компании; его можно остановить. Поиск внутри открытого документа аналогичен Ctrl+F и не вызывает AI.
+Lists use permission-filtered metadata in a fixed number of database queries, without full transcript bodies. Personal attachments appear only within their conversation.
 
-Карточка материала показывает обработку, предупреждения и действие. Читатель открывает одну страницу/сегмент и окно текста, а не все версии справочника. Оригинал доступен отдельно. Найденные совпадения содержат страницу и отрывок; выбор загружает нужное окно и выделяет совпадение. Показаны число результатов, ограничение при слишком широком запросе и явное отсутствие совпадений. Перелистывание окон позволяет читать и исправлять длинные TXT без загрузки всего текста в браузер.
+## Maintenance and system health
 
-До публикации редактор сравнивает извлечение с оригиналом, исправляет выделенное окно и подтверждает проверку. Исправление сохраняет остальную страницу. Оригинал и предыдущие версии не перезаписываются. Новая версия остаётся отдельной; читатели продолжают видеть опубликованную. После готовности и подтверждения индексация включает материал в поиск. Архив, исключение и отзыв доступа прекращают его выдачу.
+Company maintenance groups jobs, current-format backups/restore, audit, processing/retention, and queue pauses. Accepted jobs survive page closure. An uncertain paid call requires explicit retry after inspecting provider usage.
 
-Список материалов получает метаданные фиксированным числом запросов. Полные тексты не участвуют в ответах списка и сводках версий. Личные вложения отображаются в своей беседе, без попадания в общую библиотеку.
+System health reports storage, workers, PDF/OCR/media dependencies, and resources. One refresh checks dependencies directly. The companies tab manages company lifecycle; the company header selector changes the working membership.
 
-## Обслуживание и платформа
+Loading, empty data, disabled models, missing keys, unavailable services, and access denial have separate states. Errors carry diagnostic IDs without exposing credentials or protected content. Missing weights, obsolete media runtimes, and unsupported codecs identify an operator action.
 
-«Обслуживание» компании содержит задания с прогрессом/причиной сбоя, резервные копии с проверкой и восстановлением текущего формата, журнал действий, параметры обработки/хранения и приостановки. Принятое длительное задание сохраняется при закрытии страницы. Повтор после неопределённого исхода платного вызова требует явного действия.
-
-«Состояние системы» показывает общие хранилища, обработчики, PDF/OCR/медиа и ресурсы. Одна кнопка обновляет проверку. Причина отсутствующей зависимости указана рядом с ней; нет диалога с повторной кнопкой проверки. Вкладка компаний предназначена для создания, переименования и блокировки, а выбор рабочего членства выполняется переключателем на страницах компании.
-
-## Ошибки и проверка
-
-Различаются загрузка, отсутствие данных, выключенная модель, отсутствие ключа, недоступный сервис и отказ доступа. Серверные ошибки имеют диагностический идентификатор; ключи и содержимое чужих документов не выводятся. Ошибка нового индекса не окрашивает старый действующий поиск как готовый новый индекс. Отсутствующие веса/устаревшие медиатулы и неподдерживаемый кодек имеют конкретное действие для оператора.
-
-Вкладки доступны с клавиатуры (стрелки/Home/End, затем Enter/Space); диалоги управляют фокусом. Фактические результаты API, браузерных и Docker-проверок фиксируются в [VERIFICATION](VERIFICATION.md). Платные провайдеры и качество реальных моделей нельзя считать проверенными по TEST AI.
-
-Опубликованный текст исправляется через «Создать версию для исправлений»: сначала сервер копирует оригинал и производные файлы в независимую версию, затем редактор меняет текст и подтверждает публикацию. Текущее опубликованное содержимое не меняется до успешной индексации кандидата. Повторные OCR/ASR/описание не запускаются. Действующая версия проверки исключает создание ещё одного кандидата этой командой.
+Tabs support arrow/Home/End navigation and Enter/Space activation. Dialogs manage focus. Unsaved-form tracking stores identifiers, not field values, and protects navigation across pages, tabs, companies, and dialogs.

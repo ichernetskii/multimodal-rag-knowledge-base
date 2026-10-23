@@ -7,7 +7,7 @@ export async function writeChunk(
   signal: AbortSignal,
 ) {
   signal.throwIfAborted();
-  if (res.destroyed) throw new AppError('CLIENT_DISCONNECTED', 'Соединение закрыто.', 499);
+  if (res.destroyed) throw new AppError('CLIENT_DISCONNECTED', 'Connection closed.', 499);
   if (res.write(value)) return;
   await new Promise<void>((resolve, reject) => {
     const finish = (error?: Error) => {
@@ -19,16 +19,16 @@ export async function writeChunk(
         else resolve();
       },
       drain = () => finish(),
-      close = () => finish(new AppError('CLIENT_DISCONNECTED', 'Соединение закрыто.', 499)),
+      close = () => finish(new AppError('CLIENT_DISCONNECTED', 'Connection closed.', 499)),
       abort = () =>
         finish(
           signal.reason instanceof Error
             ? signal.reason
-            : new AppError('DOWNLOAD_CANCELLED', 'Скачивание отменено.', 499),
+            : new AppError('DOWNLOAD_CANCELLED', 'Download cancelled.', 499),
         ),
       timer = setTimeout(
         () =>
-          finish(new AppError('CLIENT_TIMEOUT', 'Клиент слишком медленно принимает данные.', 408)),
+          finish(new AppError('CLIENT_TIMEOUT', 'The client is receiving data too slowly.', 408)),
         15000,
       );
     res.once('drain', drain);

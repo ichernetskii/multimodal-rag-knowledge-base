@@ -31,11 +31,11 @@ export const Admin = observer(function Admin({ section }: { section: AdminSectio
   if (!user || !canAccessAdmin(section, user))
     return (
       <EmptyState
-        title="Раздел недоступен"
+        title={'Section unavailable'}
         description={
           adminSections[section].scope === 'platform'
-            ? 'Общие API-ключи и состояние системы доступны владельцу платформы.'
-            : 'Настройки компании доступны её администратору. Материалы и диалоги находятся в меню компании.'
+            ? 'Shared API keys and system health are available to the platform owner.'
+            : 'Company settings are available to its administrator. Find materials and conversations in the company menu.'
         }
       />
     );
@@ -44,11 +44,11 @@ export const Admin = observer(function Admin({ section }: { section: AdminSectio
   if (!canAccessAdminTab(section, tab, user))
     return (
       <EmptyState
-        title="Подключения настраивает владелец платформы"
-        description="Выбирайте разрешённые модели на вкладке «Назначение моделей»."
+        title={'Connections are managed by the platform owner'}
+        description={'Choose an approved model on the Model assignments tab.'}
       />
     );
-  const company = app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Компания';
+  const company = app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Company';
   const tabs = Object.fromEntries(
     Object.entries(definition.tabs).filter(([key]) => canAccessAdminTab(section, key, user)),
   );
@@ -82,20 +82,18 @@ export const Admin = observer(function Admin({ section }: { section: AdminSectio
         className={'admin-scope ' + (definition.scope === 'platform' ? 'admin-scope-platform' : '')}
       >
         <span>
-          {definition.scope === 'platform'
-            ? 'Вся платформа · все компании'
-            : 'Компания · ' + company}
+          {definition.scope === 'platform' ? 'Platform · all companies' : 'Company · ' + company}
         </span>
         <span>
           {definition.scope === 'platform'
-            ? 'Общая область управления'
-            : 'Изменения относятся только к этой компании'}
+            ? 'Platform administration'
+            : 'Changes apply only to this company'}
         </span>
       </div>
       {section === 'maintenance' && (
         <PageHeader
-          title="Обслуживание"
-          description="Задания и обслуживание данных выбранной компании."
+          title={'Maintenance'}
+          description={'Jobs and data maintenance for the selected company.'}
         />
       )}
       <Suspense fallback={<Loading />}>

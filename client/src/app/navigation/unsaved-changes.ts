@@ -5,7 +5,7 @@ export class UnsavedChanges {
   private forms = new Map<string, Scope>();
   constructor(
     private readonly confirm = () =>
-      window.confirm('Есть несохранённые изменения. Покинуть форму и потерять их?'),
+      window.confirm('You have unsaved changes. Leave this form and discard them?'),
   ) {
     makeAutoObservable<this, 'confirm'>(this, { confirm: false }, { autoBind: true });
   }

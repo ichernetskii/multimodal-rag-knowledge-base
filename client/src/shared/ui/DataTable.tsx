@@ -3,7 +3,7 @@ export function Table({
   head,
   rows,
   rowKeys,
-  empty = 'Записей пока нет.',
+  empty = 'No records yet.',
 }: {
   head: string[];
   rows: ReactNode[][];
@@ -60,29 +60,29 @@ export function Pagination({
 }) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <nav className="pagination" aria-label="Страницы списка">
+    <nav className="pagination" aria-label={'List pages'}>
       <span>
         {total
-          ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} из ${total}`
-          : '0 записей'}
+          ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} of ${total}`
+          : '0 records'}
       </span>
       <div>
         <button
           type="button"
           disabled={loading || page <= 1}
           onClick={() => onChange(page - 1)}
-          aria-label="Предыдущая страница"
+          aria-label={'Previous page'}
         >
           ←
         </button>
         <span>
-          Страница {page} из {pages}
+          Page {page} of {pages}
         </span>
         <button
           type="button"
           disabled={loading || page >= pages}
           onClick={() => onChange(page + 1)}
-          aria-label="Следующая страница"
+          aria-label={'Next page'}
         >
           →
         </button>

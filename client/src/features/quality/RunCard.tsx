@@ -10,7 +10,7 @@ import { Pagination, Table } from '../../shared/ui/DataTable';
 import { Source } from '../documents/SourceDialog';
 import { statuses } from '../jobs/job-status';
 const Passed = ({ ok }: { ok: boolean }) => (
-  <Badge tone={ok ? 'success' : 'danger'}>{ok ? 'Пройдено' : 'Ошибка'}</Badge>
+  <Badge tone={ok ? 'success' : 'danger'}>{ok ? 'Passed' : 'Error'}</Badge>
 );
 function Results({ job }: { job: Job }) {
   const modal = useModal(),
@@ -26,9 +26,9 @@ function Results({ job }: { job: Job }) {
       {load.data ? (
         <>
           <Table
-            head={['Вопрос', 'Источник', 'Факты', 'Ссылки', 'Отказ', 'Время']}
+            head={['Question', 'Source', 'Facts', 'Citations', 'Refusal', 'Time']}
             rowKeys={load.data.items.map((r) => r.id)}
-            empty="Готовых результатов пока нет."
+            empty={'No completed results yet.'}
             rows={load.data.items.map((result) => [
               <details>
                 <summary>{result.question}</summary>
@@ -41,13 +41,13 @@ function Results({ job }: { job: Job }) {
                 <div className="source-chips">
                   {result.sources.map((source) => (
                     <Button key={source.chunk} onClick={() => modal(<Source source={source} />)}>
-                      {source.name} · стр. {source.page}
+                      {source.name} · p. {source.page}
                     </Button>
                   ))}
                 </div>
-                <p>Ожидаемые факты: {result.expected.facts.join(' · ') || '—'}</p>
+                <p>Expected facts: {result.expected.facts.join(' · ') || '—'}</p>
                 <details>
-                  <summary>Настройки обработки</summary>
+                  <summary>Processing settings</summary>
                   <pre className="json-view">
                     {JSON.stringify(JSON.parse(result.settings), null, 2)}
                   </pre>
@@ -80,7 +80,7 @@ export function RunCard({ job }: { job: Job }) {
     <section className="panel">
       <div className="section-heading">
         <div>
-          <h2>Проверка от {date(job.created)}</h2>
+          <h2>Evaluation from {date(job.created)}</h2>
           <p>{job.id.slice(0, 8)}</p>
         </div>
         <Badge
@@ -104,14 +104,14 @@ export function RunCard({ job }: { job: Job }) {
       )}
       <div className="actions">
         <Badge>
-          Обработано: {Number(job.result.processed ?? 0)} / {Number(job.result.total ?? 0)}
+          Processed: {Number(job.result.processed ?? 0)} / {Number(job.result.total ?? 0)}
         </Badge>
-        <Badge tone="success">Пройдено: {Number(job.result.passed ?? 0)}</Badge>
+        <Badge tone="success">Passed: {Number(job.result.passed ?? 0)}</Badge>
         <Badge tone={job.result.failed ? 'danger' : 'neutral'}>
-          С ошибками: {Number(job.result.failed ?? 0)}
+          Failed: {Number(job.result.failed ?? 0)}
         </Badge>
         <Button aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? 'Скрыть результаты' : 'Посмотреть результаты'}
+          {open ? 'Hide results' : 'View results'}
         </Button>
       </div>
       {open && <Results job={job} />}

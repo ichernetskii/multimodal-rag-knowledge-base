@@ -40,8 +40,8 @@ export async function request<T = unknown>(
     throw new ApiError(
       timeout.aborted ? 'REQUEST_TIMEOUT' : 'SERVER_UNAVAILABLE',
       timeout.aborted
-        ? 'Сервер не ответил вовремя. Повторите запрос.'
-        : 'Не удалось подключиться к серверу. Проверьте подключение.',
+        ? 'The server did not respond in time. Try again.'
+        : 'Cannot reach the server. Check your connection.',
       '',
       0,
     );
@@ -52,7 +52,7 @@ export async function request<T = unknown>(
   } catch {
     throw new ApiError(
       'INVALID_RESPONSE',
-      'Сервер вернул некорректный ответ.',
+      'The server returned an invalid response.',
       '',
       response.status,
     );
@@ -62,13 +62,13 @@ export async function request<T = unknown>(
     const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : {};
     throw new ApiError(
       typeof record.code === 'string' ? record.code : 'HTTP_ERROR',
-      typeof record.message === 'string' ? record.message : 'Ошибка запроса',
+      typeof record.message === 'string' ? record.message : 'Request failed',
       typeof record.diagnostic === 'string' ? record.diagnostic : '',
       response.status,
     );
   }
   if (selected !== selectedTenant())
-    throw new ApiError('TENANT_CHANGED', 'Компания переключена.', '', 409);
+    throw new ApiError('TENANT_CHANGED', 'Company switched.', '', 409);
   return data as T;
 }
 export function api<A extends ActionName>(
@@ -123,7 +123,7 @@ export async function uploadFile(
   }
   while (session.offset < file.size) {
     if (selectedTenant() !== tenant)
-      throw new ApiError('TENANT_CHANGED', 'Компания переключена.', '', 409);
+      throw new ApiError('TENANT_CHANGED', 'Company switched.', '', 409);
     options.signal?.throwIfAborted();
     const response = await fetch('/api/uploads/' + session.id, {
       method: 'PUT',
@@ -142,7 +142,7 @@ export async function uploadFile(
     if (!response.ok)
       throw new ApiError(
         result.error?.code ?? 'UPLOAD_FAILED',
-        result.error?.message ?? 'Не удалось загрузить часть файла.',
+        result.error?.message ?? 'Could not load this part of the file.',
         result.error?.diagnostic ?? '',
         response.status,
       );

@@ -1,53 +1,70 @@
-# Текст, изображения, звук и видео
+# Multimodal processing and speech recognition
 
-Материалы и личные вложения проходят одинаковый серверный конвейер. Поддерживаемые расширения перечисляет documents.limits. Оригинал сохраняется неизменно в S3; производные изображения, клипы, звук и извлечённый текст привязаны к его версии.
+Knowledge materials and personal attachments use the same server pipeline. `documents.limits` reports supported extensions. Originals remain immutable in private S3; derived images, clips, audio, and text belong to a specific version.
 
-Готовый [учебный корпус](../examples/knowledge-base/README.md) содержит Markdown/TXT, текстовый PDF, скан, смешанный PDF, таблицу, PNG, WAV и MP4 со звуковой дорожкой. Вопросы и ожидаемые факты находятся в manifest.json. Для загрузки используйте `yarn demo:import`; ручная проверка и публикация обязательны по умолчанию. Статичное тестовое видео не проверяет понимание движения.
+The [sample corpus](../examples/knowledge-base/README.md) covers Markdown/TXT, text PDF, scanned PDF, mixed PDF, tables, PNG, WAV, and MP4. Import with `yarn demo:import`, review, and publish. Its static video does not test motion understanding.
 
-PDF: извлечение текста/OCR плюс изображение страницы. Изображения: безопасное декодирование и нормализация JPEG. Видео: ограниченные клипы с визуальным семплированием, отдельные превью и отдельные звуковые сегменты. Аудио: ограниченные mono PCM16 / 16 kHz сегменты. Видео и звук не считаются автоматически одним и тем же входом модели: визуальные и звуковые дорожки индексируются раздельно.
+## Two retrieval paths
 
-С мультимодальными Google-профилями изображения/аудио/видео передаются в Google как бинарное содержимое соответствующей модальности, закодированное транспортом API. Текстовая подпись не заменяет их содержимое. Индекс хранит векторы и ссылки на оригинал/сегмент; ответ содержит текст и ссылки/превью источников.
+The company's active embedding profile determines how search represents media:
 
-Режим задаёт активная модель поиска компании. Текстовый вопрос может находить изображение или звуковой сегмент по мультимодальным векторам: ручное описание каждого файла для этого не требуется. PDF в конвейере базы знаний передаётся как текст/OCR и изображения отдельных страниц, даже если адаптер поставщика умеет принимать PDF целиком. Наличие OCR/подписи в просмотре не означает, что поиск использует только текст. Поиск дополнительно объединяет векторные, лексические и технические совпадения с проверкой доступа до выдачи результатов.
+| Path                         | What is embedded                                        | Required processing                                                          |
+| ---------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Text embeddings              | Extracted text, image descriptions, speech transcripts  | An image-capable answer model for descriptions; selected ASR for speech      |
+| Native multimodal embeddings | Supported image/audio/video content plus available text | Media decoding; descriptions need not exist; ASR is optional unless assigned |
 
-Не следует обещать неограниченный поиск по любому медиа-запросу: текущий чат строит запрос из текста и поддерживаемого медиа первой страницы личного вложения. Модель ответа получает поддерживаемые исходные медиа источников или превью видео. Полнота поиска по длинному входному видео и качество облачного AI требуют отдельной проверки на реальном поставщике.
+A text question can retrieve an image or recording through native multimodal vectors without a manually written description. Search also combines vector, lexical, and technical-code matches, with permission filtering before results are returned. A visible transcript does not imply text-only retrieval.
 
-С текстовыми embeddings нужен явный текстовый конвейер: выбранная модель генерации описывает изображение (для видео — превью клипа), а выбранный профиль Whisper или Google Gemini расшифровывает аудио. Эти машинные описания и транскрипции требуют проверки перед публикацией. Подробный анализ движения по одному превью невозможен; выбирайте native-video профиль для таких задач. Qwen/Ollama получает поддерживаемые изображения; исходное аудио/видео не объявляется поддерживаемым, если модель их не принимает.
+PDFs are processed as text/OCR and individual page images even if a provider adapter supports a whole PDF. Images are decoded and normalized to JPEG. Audio becomes bounded mono PCM16/16 kHz segments. Video produces bounded visual clips, previews, and separate audio segments; visual and audio tracks are indexed separately.
 
-FFmpeg, whisper.cpp, SHA-проверенные исходники и small multilingual weights устанавливаются внутри серверного Docker-образа. Системные программы пользователя не нужны. Native development может подготовить управляемый runtime командами prepare:pdf / prepare:media. Выбор Whisper-профиля не означает автоматическую отправку звука третьей стороне.
+Google native profiles receive the supported binary modality encoded for the API transport. A caption does not replace its content. The index stores vectors and provenance references; answers return text with citations and media previews.
 
-Задача «Распознавание записей» (ASR) нужна для расшифровки загруженных аудиозаписей и звуковой дорожки видео; это не озвучивание ответов. Для ASR доступны Whisper small на сервере установки и Google Gemini через API. Google-профиль с ролью transcription отправляет подготовленный WAV-сегмент в Gemini и запрашивает дословную расшифровку на исходном языке. Это отдельное назначение профиля, независимо от модели embeddings и ответов. Специализированный Google Cloud Speech-to-Text API с Cloud IAM не подключён. При native-аудиопоиске ASR можно не назначать, но если он назначен, конвейер выполняет и расшифровку. Текстовым embeddings для аудио нужна расшифровка.
+The chat combines the question with supported media from the first page of a personal attachment. Answer models receive supported source media or video previews. Full retrieval coverage for a long input video and real cloud model quality require separate evaluation.
 
-Python-извлечение и рендер PDF, Swift-исходник Apple Vision лежат в `server/resources/extraction/`. Команда подготовки Python/OCR находится в `tooling/server/prepare-pdf.ts`; `.venv` и `.cache` — генерируемые зависимости, не корпус документов. Runtime-ресурсы обязательны и для source-запуска, и для собранного сервера.
+## Where descriptions and transcripts come from
 
-Размер, длительность, число страниц/фрагментов, CPU-потоки, таймауты и количество медиа в ответе ограничены. Превышения дают понятную ошибку. Команды декодеров запускаются без shell, с ограниченными протоколами, выводом и временными каталогами. Выделенные indexing workers имеют отдельный memory/CPU budget. Локальная генерация зависит от сервера моделей и его реальных возможностей; Docker на macOS не даёт контейнеру Metal GPU вашего Mac автоматически.
+A version stores the original, prepared media, and page text. Vectors are a separate representation for one embedding model. Changing models does not delete saved text.
 
-Генерация картинок на выходе не реализована этим контрактом: результат — текстовый ответ и найденные изображения/медиа. Адаптеры не выдают неподдерживаемые задачи за работающие.
+- PDF text/OCR is extracted during upload processing.
+- A text embedding profile requires an image or video-preview description. The selected image-capable answer model generates it.
+- A native profile can retain only a technical caption identifying the file/segment.
+- An assigned ASR profile transcribes audio, including when native retrieval is selected. Without ASR, native audio retrieval can use the audio itself.
 
-Встроенная сборка H.264 использует x264 и распространяется на условиях GPLv2. Тексты лицензий и соответствующие архивы исходников FFmpeg/x264/Whisper включены в runtime рядом с бинарными файлами. Инструкции сборки находятся в installer.js/installer.ts. Для нативной сборки дополнительно нужен pkg-config; Docker включает его автоматически.
+When switching from native to text search, the new index job prepares only missing descriptions/transcripts using the selected processing profiles. Existing text is reused across embedding and answer model changes. Failures leave the previous search index active; there is no silent failover to another paid provider.
 
-Короткий последний видеосегмент сохраняет минимум один кадр (`fps=1:eof_action=pass`), чтобы нормализация и создание превью не завершались ошибкой на дробном остатке секунды. Учебный MP4 содержит такой хвост; Docker-проверка также требует отдельную звуковую страницу.
+Additional text is saved in page `preparedText` with its kind, provider, profile, model, and creation time. `documents.read` exposes the saved substantive representation. Reviewer corrections take precedence. Concurrent preparation of a page is serialized and checks the current job attempt and access. A newly uploaded version is processed independently. Text embedding requests do not reupload source media.
 
-## Что сохраняется и что меняется при смене модели
+The first media chunk receives saved text alongside supported binary content; subsequent text chunks are indexed separately. A single preview cannot establish motion understanding; select a native video model for those tasks. Ollama receives supported images and is not advertised as accepting raw audio/video when it does not.
 
-Оригинал файла, подготовленные медиа и текст страницы — сохранённые данные версии. Поисковые векторы — отдельное представление этих данных для конкретной embedding-модели. Смена модели не стирает текст и не создаёт его заново. Новый индекс строится отдельно и становится активным после проверки; прежний индекс работает до активации.
+## Speech recognition
 
-При загрузке PDF текст/OCR извлекается всегда. Для изображения/видеопревью содержательное описание создаётся тогда, когда выбранной текстовой embedding-модели оно нужно. При native-поиске вместо описания может остаться только техническая подпись с именем файла и сегментом. Для аудио расшифровка выполняется при назначенном ASR-профиле, в том числе при native-поиске. Если содержательный текст уже сохранён, первый медиачанк получает его вместе с поддерживаемым бинарным медиа; последующие текстовые чанки индексируются отдельно.
+ASR transcribes recordings supplied to the knowledge base or as personal attachments. It does not speak answers or provide microphone dictation for the question field.
 
-Переход текст → native использует существующий текст и медиа; описание не пропадает. При переходе native → текст сервер автоматически готовит только недостающие описания/расшифровки перед построением чанков нового индекса. Описание изображения/видеопревью создаёт выбранная модель ответов с поддержкой изображений; речь расшифровывает выбранный ASR-профиль. Готовый текст переиспользуется и при выборе другой текстовой embedding-модели, и при замене модели ответов. Если нужная модель обработки не назначена, нет доступа или не хватает бюджета, построение отклоняется с понятной причиной, прежний поиск продолжает работать. Автоматической отправки другому поставщику при сбое нет.
+| Provider                   | Execution                                | Configuration                                                                         |
+| -------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------- |
+| Whisper small multilingual | Installation server, through whisper.cpp | Select the Whisper transcription profile; processing settings control language/CPU    |
+| Google Gemini              | Audio is sent to Google through its API  | Google `transcription` profile, enabled provider key, audio input, prices, and limits |
 
-## Исправление результата и Google-расшифровка
+Google Gemini is asked for a verbatim transcript in the original language. Its transcription assignment is independent of embedding and answer models. The specialized Google Cloud Speech-to-Text service with Cloud IAM is not implemented. A personal audio attachment can also supply native audio to retrieval; that is separate from question dictation.
 
-До публикации редактор с правом edit может исправить OCR, описание или расшифровку действием documents.correct. Оно меняет текст страницы/сегмента и её sections, сбрасывает подтверждение проверки и увеличивает revision документа. Оригинал и медиа не меняются. Во время обработки/публикации и для готовых опубликованных версий правка запрещена; для них нужна новая версия. Изменения фиксируются в аудите без содержания текста.
+The owner creates the Google profile, then a company administrator assigns it under recording transcription. `DEFAULT_TRANSCRIPTION_PROVIDER=google` applies to new companies only. It does not automatically replace an unavailable Whisper profile. Calls share budget, rate, timeout, concurrency, and usage accounting. Incomplete provider output, including a token-limit stop, is rejected rather than saved as a complete transcript. Review semantic accuracy against the original.
 
-Для Google ASR владелец добавляет профиль Google с ролью transcription, входами text/audio, актуальными входными и выходной ставками, лимитами и ссылкой на активный Google-ключ. В UI есть заготовка «Google-расшифровка». Администратор компании выбирает этот профиль в «Распознавание записей». Для новых компаний можно установить DEFAULT_TRANSCRIPTION_PROVIDER=google; существующие назначения это не меняет. Профиль не включается автоматически вместо недоступного Whisper. Запросы используют общий контроль бюджета, очереди, таймауты и журнал расходов. Незавершённый ответ Google (в том числе MAX_TOKENS) не сохраняется как полная расшифровка. Семантическая точность требует сверки с оригиналом.
+Provider references: [Gemini audio understanding](https://ai.google.dev/gemini-api/docs/audio) and [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing). Defaults in source are configuration examples, not a live price feed or a guarantee that a model is available for an account. Verify the actual model and tariff before enabling paid calls.
 
-Официальные источники: [Gemini audio understanding](https://ai.google.dev/gemini-api/docs/audio), [Gemini API pricing](https://ai.google.dev/gemini-api/docs/pricing). Начальные ставки Gemini 3.8 Flash соответствуют Standard API на 16 октября 2026 года; перед включением проверьте тариф аккаунта. Ставки не обновляются автоматически.
+## Review and correction
 
-Дополнительно созданный текст хранится в preparedText страницы версии: текст, тип description/transcript, профиль, модель, поставщик и время создания. Исходный текст страницы, оригинальный файл и старые цитаты не переписываются; documents.read показывает сохранённое содержательное представление. Новое поколение текстов не создаётся для каждой embedding-модели. Редакторские исправления имеют приоритет. Параллельные подготовки одной страницы сериализованы; запись результата проверяет актуальность попытки задания и доступ. Новая версия файла обрабатывается независимо. При текстовом поиске исходное медиа не загружается повторно в embedding-запрос.
+Before publication an authorized editor can change OCR, descriptions, and transcripts with `documents.correct`. It updates the page/range and sections, resets review acknowledgement, and increments document revision. Originals and media stay unchanged; audit excludes text. Processing and publication lock out edits.
 
-ASR применяется к загруженным аудиофайлам и дорожкам видео, как в базе знаний, так и в личных вложениях. Отдельного распознавания голоса с микрофона в поле вопроса нет. Личное аудиовложение может участвовать в мультимодальном запросе содержимым аудио; это не отдельный ASR поискового запроса.
+For published material, `documents.revise` creates an independent correction candidate by copying original and derived assets. It does not rerun OCR/ASR/generation. Edit, review, and publish that version; current search remains available until the candidate is indexed successfully. The reader uses bounded text windows and displays processing provenance.
 
-Читатель получает текст окнами; описание и расшифровка хранятся полностью на сервере и не исчезают при переключении модели. Их происхождение (профиль, модель, время) показывается отдельно. Проверка управляемых медиатулов требует текущую версию receipt; диагностика также проверяет наличие libx264 для видео. Подготовка native-окружения описана в [разработке](DEVELOPMENT.md).
+## Runtime and playback
 
-Плеер использует подготовленный MP4/WAV-фрагмент и начинает его с нуля. Таймкод в подписи и отдельная ссылка ведут к соответствующему месту полного оригинала. Это позволяет читать исходные контейнеры, которые браузер сам не воспроизводит. Видеопредпросмотр не содержит звуковой дорожки: она доступна в аудиосегментах и полном оригинале. Короткие интервалы показывают доли секунды, чтобы хвост видео не выглядел как нулевой фрагмент.
+Docker includes FFmpeg, whisper.cpp, pinned SHA-verified sources, and small multilingual weights. Native development runs `yarn prepare:pdf` and `yarn prepare:media`. Python PDF extraction/rendering and Swift Apple Vision sources live in `server/resources/extraction/`; preparation scripts live in `tooling/server/`. `.venv` and `.cache` are generated dependencies, not sample documents.
+
+Size, duration, pages, fragments, CPU threads, timeouts, and media count are bounded. Decoder commands run without a shell and use restricted protocols/output/temp paths. Indexing workers have independent CPU/memory limits. Docker on macOS does not automatically expose Metal to Linux models.
+
+The bundled H.264 build includes x264 under GPLv2. License texts and corresponding source archives for FFmpeg/x264/Whisper accompany runtime binaries. Build instructions live in the media installer. Native builds also require `pkg-config`. A short final video segment retains at least one frame with `fps=1:eof_action=pass`; the sample video covers this case.
+
+The browser plays prepared MP4/WAV segments from zero. Captions and original links retain source timestamps. Prepared video previews have a separate audio track, available as audio segments and in the full original. Fractional timestamps distinguish short tail segments.
+
+Image generation is not part of the current contract: output is a text answer with retrieved sources. Adapters reject unsupported tasks. Runtime diagnostics checks current installation receipts, executables, weights, and H.264 support; see [development](DEVELOPMENT.md).

@@ -20,12 +20,12 @@ export async function extract(
     try {
       text = new TextDecoder('utf-8', { fatal: true }).decode(bytes).replaceAll('\r\n', '\n');
     } catch {
-      throw new AppError('INVALID_ENCODING', 'Нужен документ в UTF-8.');
+      throw new AppError('INVALID_ENCODING', 'The document must use UTF-8 encoding.');
     }
     requireValue(
       text.length <= settings.maxTextCharacters,
       'EXTRACTED_TEXT_LIMIT',
-      'Документ превышает лимит извлечённого текста. Разделите документ или измените лимит.',
+      'The document exceeds the extracted text limit. Split it or adjust the limit.',
     );
     const sections = await parseText(
       ['.md', '.markdown'].includes(extname(name).toLowerCase()) ? 'markdown' : 'text',
@@ -33,7 +33,7 @@ export async function extract(
       settings.maxTextCharacters,
       signal,
     );
-    requireValue(text.trim(), 'EMPTY_DOCUMENT', 'Документ пуст.');
+    requireValue(text.trim(), 'EMPTY_DOCUMENT', 'The document is empty.');
     return [
       {
         number: 1,
@@ -47,7 +47,7 @@ export async function extract(
   requireValue(
     Buffer.from(bytes).subarray(0, 5).toString() === '%PDF-',
     'INVALID_PDF',
-    'Файл не является PDF.',
+    'This file is not a PDF.',
   );
   const directory = await mkdtemp(join(settings.dataDir, 'extract-'));
   try {
@@ -110,7 +110,7 @@ export async function extract(
         ) {
           limitError = new AppError(
             'EXTRACTED_TEXT_LIMIT',
-            'Превышен лимит извлечённого текста. Разделите документ или измените лимит.',
+            'The extracted text limit was exceeded. Split the document or adjust the limit.',
           );
           kill('SIGKILL');
           return;
@@ -130,8 +130,8 @@ export async function extract(
               limitError = new AppError(
                 item.error === 'PAGE_LIMIT' ? 'PAGE_LIMIT' : 'EXTRACTED_TEXT_LIMIT',
                 item.error === 'PAGE_LIMIT'
-                  ? 'Превышен лимит страниц PDF.'
-                  : 'Превышен лимит извлечённого текста.',
+                  ? 'The PDF page limit was exceeded.'
+                  : 'The extracted text limit was exceeded.',
               );
             }
             if (item.progress === 'ocr') onOCR();
@@ -140,7 +140,7 @@ export async function extract(
                 item.pages.reduce((total, page) => total + page.text.length, 0) <=
                   settings.maxTextCharacters,
                 'EXTRACTED_TEXT_LIMIT',
-                'Документ превышает лимит извлечённого текста.',
+                'The document exceeds the extracted text limit.',
               );
               pages = item.pages;
             }
@@ -172,7 +172,7 @@ export async function extract(
           reject(
             new AppError(
               'PDF_EXTRACTION_FAILED',
-              'Не удалось обработать PDF. Проверьте PDF_PYTHON, pdfplumber, pypdfium2 и tesseract.',
+              'Could not process the PDF. Check PDF_PYTHON, pdfplumber, pypdfium2, and tesseract.',
             ),
           );
       });

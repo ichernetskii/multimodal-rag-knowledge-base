@@ -1,4 +1,4 @@
-# Конфигурация
+# Configuration
 
 Model profiles require `inputMicrosPerMillion: {text, image, audio, video}` and `outputMicrosPerMillion`, in integer micro-USD per million tokens. All four input keys are mandatory; scalar rates and unsupported keys are rejected. Defaults are implementation values in [default-settings.ts](../server/src/config/default-settings.ts), not a live vendor price feed; operators must verify their account's current tariff before enabling cloud profiles. Unknown input allocation is charged at the highest applicable configured rate and marked estimated; missing usage reserves the full profile context. PDF may use text/image rates; video may include audio. Redis cache hits do not create usage entries. The ledger retains the tariff snapshot and per-modality allocation, unaffected by later profile changes or tenant backup restoration.
 
@@ -86,10 +86,10 @@ PDF helper paths are resolved under `server/resources/extraction`; `yarn prepare
 
 Profiles are permissions/configuration, not installers. The admin UI checks actual availability on opening and on explicit refresh. Ollama checks the named installed model, role, image capability and embedding dimensions. Whisper checks the small weights and executable. Selecting a different answer/transcription profile or starting a new index fails with a clear error when the model is unavailable. Availability is a point-in-time check, not a generation benchmark or guarantee against a later outage.
 
-## Клиент
+## Client
 
 Client development uses CLIENT_DEV_HOST/CLIENT_DEV_PORT and RAG_API_PROXY. Native static gateway uses CLIENT_HOST/CLIENT_PORT and CLIENT_API_URL. These are public routing settings; provider keys never belong in client configuration.
 
-Увеличение квот хранения/очереди/расходов/конкурентности и редактирование профилей моделей доступны оператору платформы. Администратор компании выбирает разрешённые профили, управляет материалами и может уменьшить свои лимиты.
+Only the platform owner can increase storage, queue, spending, and concurrency entitlements or edit model profiles. Company administrators select allowed profiles, manage materials, and may lower their limits.
 
 API-key rotation in the owner admin needs neither environment edits nor restarts. The global vault and its audit are excluded from company backups and included as encrypted records in full PostgreSQL installation snapshots. Keep the master key separately. Provider credentials are never returned through HTTP/CLI, written to audit or stored in Redis and job payloads.

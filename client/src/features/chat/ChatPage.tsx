@@ -43,9 +43,9 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
   if (!c)
     return (
       <div className="empty">
-        <h1>Начните диалог</h1>
+        <h1>Start a conversation</h1>
         <Button className="primary" onClick={() => app.chat.newChat()}>
-          + Новый диалог
+          + New conversation
         </Button>
       </div>
     );
@@ -55,16 +55,16 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
         (id) => app.jobs.items.find((j) => j.id === id)?.kind === 'answer',
       ) && (
         <div className="reconnect-banner" role="status">
-          Соединение прервано. Переподключаемся к сохранённому заданию…
+          Connection interrupted. Reconnecting to the saved job…
         </div>
       )}
       <div className="toolbar chat-toolbar">
-        <Button onClick={sidebar}>☰ Диалоги</Button>
+        <Button onClick={sidebar}>☰ Conversations</Button>
         <h1 title={c.title}>{c.title}</h1>
         <label>
-          Модель
+          Model
           <select
-            aria-label="Модель ответа"
+            aria-label={'Answer model'}
             value={app.chat.profile}
             onChange={(e) =>
               runInAction(() => {
@@ -72,7 +72,7 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
               })
             }
           >
-            <option value="">По настройкам компании</option>
+            <option value="">Company default</option>
             {profiles.data
               ?.filter((p) => p.role === 'generation' && p.enabled)
               .map((p) => (
@@ -86,29 +86,29 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
           onClick={() =>
             modal(
               <>
-                <h2>Название диалога</h2>
+                <h2>Conversation title</h2>
                 <Form
                   submit={async (f) => {
                     await app.chat.saveConversation({ title: text(f, 'title') });
                     modal(null);
                   }}
                 >
-                  <Field label="Название" name="title" value={c.title} />
+                  <Field label={'Name'} name="title" value={c.title} />
                 </Form>
               </>,
             )
           }
         >
-          Переименовать
+          Rename
         </Button>
         <a className="button-link" href={tenantUrl(`/api/conversations/${c.id}/export`)}>
-          Экспорт
+          Export
         </a>
         <Button
           onClick={() =>
             modal(
               <>
-                <h2>Удалить диалог и вложения?</h2>
+                <h2>Delete this conversation and its attachments?</h2>
                 <Button
                   className="danger"
                   onClick={async () => {
@@ -123,13 +123,13 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
                     modal(null);
                   }}
                 >
-                  Удалить окончательно
+                  Delete permanently
                 </Button>
               </>,
             )
           }
         >
-          Удалить
+          Delete
         </Button>
       </div>
       <KnowledgeBaseSelector
@@ -144,7 +144,7 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
         id="messages"
         className="messages"
         role="log"
-        aria-label="Сообщения"
+        aria-label={'Messages'}
         ref={messages}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -161,21 +161,21 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
               await app.chat.loadOlder();
             }}
           >
-            Показать предыдущие сообщения
+            Load earlier messages
           </Button>
         )}
         {branch.length ? (
           visible.map((t) => <TurnView key={t.id} turn={t} />)
         ) : (
           <div className="empty">
-            <h2>Начните с конкретного вопроса</h2>
-            <p>Выберите базу знаний и задайте вопрос по документам.</p>
+            <h2>Start with a specific question</h2>
+            <p>Choose a knowledge base and ask about your documents.</p>
           </div>
         )}
       </div>
       {!follow && (
         <Button className="latest" onClick={() => setFollow(true)}>
-          ↓ К последнему сообщению
+          ↓ Latest message
         </Button>
       )}
       <Attachments key={c.id} conversation={c.id} />
@@ -191,8 +191,8 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
           id="question"
           name="question"
           maxLength={5000}
-          aria-label="Сообщение"
-          placeholder="Задайте вопрос по документам…"
+          aria-label={'Message'}
+          placeholder={'Ask about your documents…'}
           value={app.chat.draft}
           onChange={(e) => app.chat.setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -204,10 +204,10 @@ export const Chat = observer(function Chat({ sidebar }: { sidebar: () => void })
         />
         <div className="actions">
           <button id="send" className="primary" disabled={app.chat.busy || !app.chat.draft.trim()}>
-            {app.chat.busy ? 'Отправка…' : 'Отправить'}
+            {app.chat.busy ? 'Sending…' : 'Send'}
           </button>
-          <Button onClick={() => modal(<Upload conversation={c.id} />)}>Прикрепить файл</Button>
-          <small>Ctrl/⌘ + Enter · вложения доступны только вам</small>
+          <Button onClick={() => modal(<Upload conversation={c.id} />)}>Attach file</Button>
+          <small>Ctrl/⌘ + Enter · attachments are private to you</small>
         </div>
       </form>
     </>

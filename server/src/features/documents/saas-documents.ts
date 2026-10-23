@@ -773,7 +773,7 @@ export class Documents {
     requireValue(
       !audio || settings.transcriptionProfile,
       'TRANSCRIPTION_REQUIRED',
-      'Для текстового поиска записи выберите распознавание: Whisper на сервере или Google Gemini через API.',
+      'For text search in recordings, select speech recognition: Whisper on the server or Google Gemini through its API.',
       409,
     );
     const profile = await this.s.ai.profile(
@@ -783,7 +783,7 @@ export class Documents {
     requireValue(
       audio || profile.input.includes('image'),
       'DESCRIPTION_MODEL_REQUIRED',
-      'Для создания описаний нужна модель ответов с поддержкой изображений. Текущий поиск продолжает работать.',
+      'An image-capable answer model is required to create descriptions. Current search continues to work.',
       409,
     );
     const asset = await this.asset(
@@ -826,7 +826,7 @@ export class Documents {
     requireValue(
       text.trim(),
       'NO_SEARCH_TEXT',
-      'Не удалось получить текст материала. Проверьте оригинал и модель обработки.',
+      'Could not extract text from this material. Check the original and the processing model.',
       409,
     );
     return {

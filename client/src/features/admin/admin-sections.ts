@@ -4,51 +4,51 @@ import type { IconName } from '../../shared/ui/Icon';
 /** Navigation describes the scope of an operation, independently from the selected tenant. */
 export const adminSections = {
   models: {
-    name: 'AI и модели',
+    name: 'AI & models',
     scope: 'company',
     icon: 'connections',
-    description: 'Назначения задач и подключённые модели этой компании.',
-    tabs: { assignments: 'Назначение моделей', connections: 'Подключённые модели' },
+    description: 'Task assignments and connected models for this company.',
+    tabs: { assignments: 'Model assignments', connections: 'Connected models' },
   },
   users: {
-    name: 'Команда и доступ',
+    name: 'Team & access',
     scope: 'company',
     icon: 'users',
-    description: 'Участники, приглашения и группы доступа этой компании.',
+    description: 'Members, invitations, and access groups for this company.',
     tabs: {},
   },
   usage: {
-    name: 'Расходы и лимиты',
+    name: 'Usage & limits',
     scope: 'company',
     icon: 'usage',
-    description: 'Использование AI, бюджет и ресурсы этой компании.',
+    description: 'AI usage, budget, and resources for this company.',
     tabs: {},
   },
   maintenance: {
-    name: 'Обслуживание',
+    name: 'Maintenance',
     scope: 'company',
     icon: 'operations',
-    description: 'Задания, резервные копии, журнал, обработка и хранение.',
+    description: 'Jobs, backups, activity, processing, and retention.',
     tabs: {
-      jobs: 'Задания',
-      backups: 'Резервные копии',
-      audit: 'Журнал действий',
-      processing: 'Обработка и хранение',
+      jobs: 'Jobs',
+      backups: 'Backups',
+      audit: 'Activity log',
+      processing: 'Processing & retention',
     },
   },
   credentials: {
-    name: 'API-ключи',
+    name: 'API keys',
     scope: 'platform',
     icon: 'shield',
-    description: 'Общий реестр ключей поставщиков для всех компаний.',
+    description: 'Shared provider credentials for all companies.',
     tabs: {},
   },
   system: {
-    name: 'Состояние системы',
+    name: 'System health',
     scope: 'platform',
     icon: 'settings',
-    description: 'Зависимости установки и управление доступом компаний.',
-    tabs: { health: 'Состояние системы', companies: 'Компании' },
+    description: 'Installation dependencies and company access management.',
+    tabs: { health: 'System health', companies: 'Companies' },
   },
 } as const satisfies Record<
   string,
@@ -65,9 +65,9 @@ export const adminNames = Object.fromEntries(
   Object.entries(adminSections).map(([key, value]) => [key, value.name]),
 ) as Record<AdminSection, string>;
 export const roleNames = {
-  admin: 'Администратор компании',
-  editor: 'Редактор',
-  user: 'Пользователь',
+  admin: 'Company administrator',
+  editor: 'Editor',
+  user: 'Member',
 } as const;
 export function canAccessAdmin(section: AdminSection, user: Pick<Principal, 'role' | 'operator'>) {
   return adminSections[section].scope === 'platform' ? user.operator : user.role === 'admin';
@@ -86,7 +86,7 @@ export function adminGroups(user: Pick<Principal, 'role' | 'operator'>) {
   return (['company', 'platform'] as const)
     .map((scope) => ({
       scope,
-      name: scope === 'company' ? 'Компания' : 'Платформа · все компании',
+      name: scope === 'company' ? 'Company' : 'Platform · all companies',
       sections: (Object.keys(adminSections) as AdminSection[]).filter(
         (section) => adminSections[section].scope === scope && canAccessAdmin(section, user),
       ),

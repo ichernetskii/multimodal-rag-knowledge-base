@@ -29,7 +29,7 @@ export async function parseText(
       timer = setTimeout(() => {
         error = new AppError(
           'TEXT_PARSE_TIMEOUT',
-          'Превышен лимит времени разбора Markdown. Разделите документ.',
+          'Markdown parsing timed out. Split the document.',
         );
         child.kill('SIGKILL');
       }, 30000);
@@ -40,7 +40,7 @@ export async function parseText(
       if (size > Math.min(128 * 1024 * 1024, maxCharacters * 8 + 65536)) {
         error = new AppError(
           'TEXT_PARSE_LIMIT',
-          'Результат разбора текста превышает лимит. Разделите документ.',
+          'Parsed text exceeds the limit. Split the document.',
         );
         child.kill('SIGKILL');
       } else parts.push(bytes);
@@ -79,7 +79,7 @@ export async function parseText(
             ? cause
             : new AppError(
                 'TEXT_PARSE_LIMIT',
-                'Не удалось разобрать Markdown в пределах ресурсов. Разделите документ.',
+                'Could not parse Markdown within resource limits. Split the document.',
               ),
         );
       }

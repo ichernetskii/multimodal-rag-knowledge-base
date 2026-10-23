@@ -62,41 +62,41 @@ export class Identity {
   }
   async createTenant(user: string, name: string) {
     requireValue(name.trim() && name.length <= 200, 'INVALID_INPUT', 'Company name is required.');
-    const id = randomUUID();
-    await this.db.query('INSERT INTO tenants(id,name,settings) VALUES($1,$2,$3)', [
-      id,
-      name.trim(),
-      JSON.stringify({
-        ...defaults(),
-        generationProfile:
-          this.config.profileDefaults.generation === 'ollama'
-            ? profileIds.ollama
-            : this.config.profileDefaults.generation === 'anthropic'
-              ? profileIds.anthropic
-              : profileIds.generation,
-        embeddingProfile:
-          this.config.profileDefaults.embedding === 'ollama'
-            ? profileIds.localEmbedding
-            : profileIds.embedding,
-        transcriptionProfile:
-          this.config.profileDefaults.transcription === 'whisper'
-            ? profileIds.whisper
-            : this.config.profileDefaults.transcription === 'google'
-              ? profileIds.googleTranscription
-              : '',
-      }),
-    ]);
-    await this.db.tenant(id, user, () =>
-      this.db.transaction(async () => {
+    return this.db.transaction(async () => {
+      const id = randomUUID();
+      await this.db.query('INSERT INTO tenants(id,name,settings) VALUES($1,$2,$3)', [
+        id,
+        name.trim(),
+        JSON.stringify({
+          ...defaults(),
+          generationProfile:
+            this.config.profileDefaults.generation === 'ollama'
+              ? profileIds.ollama
+              : this.config.profileDefaults.generation === 'anthropic'
+                ? profileIds.anthropic
+                : profileIds.generation,
+          embeddingProfile:
+            this.config.profileDefaults.embedding === 'ollama'
+              ? profileIds.localEmbedding
+              : profileIds.embedding,
+          transcriptionProfile:
+            this.config.profileDefaults.transcription === 'whisper'
+              ? profileIds.whisper
+              : this.config.profileDefaults.transcription === 'google'
+                ? profileIds.googleTranscription
+                : '',
+        }),
+      ]);
+      await this.db.tenant(id, user, async () => {
         await this.db.query(
           "INSERT INTO memberships(tenant_id,user_id,role) VALUES($1,$2,'admin')",
           [id, user],
         );
         for (const profile of initialProfiles(this.config)) await this.db.put('model', profile);
         await this.audit(user, 'tenants.create', id);
-      }),
-    );
-    return { id, name: name.trim(), role: 'admin' as const, blocked: false, revision: 1 };
+      });
+      return { id, name: name.trim(), role: 'admin' as const, blocked: false, revision: 1 };
+    });
   }
   async invite(user: Principal, login: string, role: Principal['role']) {
     this.admin(user);

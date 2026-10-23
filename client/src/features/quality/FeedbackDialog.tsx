@@ -11,7 +11,7 @@ export function Feedback({ turn }: { turn: Turn }) {
   const modal = useModal();
   return (
     <>
-      <h2>Обратная связь</h2>
+      <h2>Feedback</h2>
       <Form
         submit={async (f) => {
           await api('feedback.create', {
@@ -27,30 +27,30 @@ export function Feedback({ turn }: { turn: Turn }) {
             detail: text(f, 'detail'),
           });
           modal(null);
-          app.notify('Оценка сохранена для проверки.');
+          app.notify('Feedback saved for review.');
         }}
       >
         <Select
-          label="Оценка"
+          label={'Rating'}
           name="rating"
           value="-1"
           options={[
-            ['1', 'Полезно'],
-            ['-1', 'Проблема'],
+            ['1', 'Helpful'],
+            ['-1', 'Problem'],
           ]}
         />
         <Select
-          label="Причина"
+          label={'Reason'}
           name="reason"
           options={[
-            ['wrong_source', 'Неверный источник'],
-            ['outdated', 'Устаревшая информация'],
-            ['no_answer', 'Нет ответа'],
-            ['irrelevant_answer', 'Ответ не относится к вопросу'],
-            ['other', 'Другая причина'],
+            ['wrong_source', 'Incorrect source'],
+            ['outdated', 'Outdated information'],
+            ['no_answer', 'No answer'],
+            ['irrelevant_answer', 'Answer does not address the question'],
+            ['other', 'Other reason'],
           ]}
         />
-        <Field label="Комментарий" name="detail" type="textarea" />
+        <Field label={'Comment'} name="detail" type="textarea" />
       </Form>
     </>
   );

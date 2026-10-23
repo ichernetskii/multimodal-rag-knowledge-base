@@ -7,7 +7,11 @@ try {
   for await (const part of process.stdin) {
     const bytes = part as Buffer;
     size += bytes.byteLength;
-    requireValue(size <= 128 * 1024 * 1024, 'TEXT_PARSE_LIMIT', 'Превышен лимит разбора текста.');
+    requireValue(
+      size <= 128 * 1024 * 1024,
+      'TEXT_PARSE_LIMIT',
+      'The text parsing limit was exceeded.',
+    );
     parts.push(bytes);
   }
   const input = JSON.parse(Buffer.concat(parts, size).toString()) as {

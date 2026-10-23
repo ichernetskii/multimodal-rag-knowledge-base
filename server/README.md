@@ -11,3 +11,5 @@ No SQLite/HuggingFace embedding runtime or old API adapters remain. Do not point
 PDF extraction/rendering and Apple Vision sources live in `resources/extraction/`; these are production resources, copied into the server image. Development/build/PDF preparation commands live in root `tooling/server/`. Run them through workspace/root package scripts so paths do not depend on the caller's directory. The compiled server resolves resources relative to its server root.
 
 Reusable multimodal data lives in [examples/knowledge-base](../examples/knowledge-base/README.md). Tests consume the same checked-in inputs. Local `.cache` holds managed runtimes/weights and `.venv` holds Python dependencies; neither is sample data. No local SQLite data directory is used by this architecture.
+
+[Russian README](README.ru.md)

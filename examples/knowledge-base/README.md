@@ -1,41 +1,41 @@
-# Учебная база знаний
+# Sample knowledge base
 
-Девять фиксированных материалов для ручной проверки UI, извлечения, поиска и источников. Это вымышленные правила и сервисные данные; их нельзя принимать за инструкции реальной организации. Все входы хранятся здесь, отдельно от серверной реализации, runtime-данных и временных тестовых результатов.
+Nine fixed materials for checking the UI, extraction, retrieval, and citations. Policies and service data are fictional, not instructions for a real organization. Inputs live outside application code, runtime storage, and generated test results.
 
-## Загрузка
+## Import
 
-1. Запустите приложение и обработчики, выполните `yarn cli login admin` и `yarn cli tenant-use COMPANY_UUID`.
-2. Выполните `yarn demo:import`. Команда проверит SHA-256 всех файлов, создаст новую учебную базу в выбранной компании и загрузит материалы через публичный API. У базы изначально нет пользовательских grants; доступ выдаёт администратор компании.
-3. Откройте документы, проверьте текст, OCR, описания изображений и расшифровки. Подтвердите публикацию. Дождитесь индексации.
-4. Задайте вопросы из [manifest.json](manifest.json), откройте источники и сравните с ожидаемыми фактами. Затем проверьте отзыв доступа и личное вложение.
+1. Start the application and workers, run `yarn cli login admin`, then `yarn cli tenant-use COMPANY_UUID`.
+2. Run `yarn demo:import`. It verifies every SHA-256, creates a new sample knowledge base in the selected company, and uploads through the public API. A company administrator grants user/group access; there are no initial user grants.
+3. Open the materials, compare extracted text, OCR, image descriptions, and transcripts with the originals, then publish. Wait for indexing.
+4. Ask the questions in [manifest.json](manifest.json), inspect citations, and compare the expected facts. Also check revoked access and personal attachments.
 
-`yarn demo:import --publish` явно подтверждает публикацию учебных данных без ручной проверки. С реальными AI-профилями извлечение и индексация могут обращаться к провайдеру и расходовать бюджет. Каждый запуск создаёт новую базу; повторный запуск не заменяет существующие документы. При частичном сбое команда возвращает код 1 и сообщает базу, файл, ID задания и диагностику; принятые данные остаются для проверки. `seed` создаёт аккаунт и компании, а не скрыто публикует этот корпус.
+`yarn demo:import --publish` explicitly acknowledges publication of sample data without manual review. Configured AI profiles may contact providers and consume budget. Each run creates a new base; it does not replace existing materials. A partial failure exits with code 1 and reports the base, file, job ID, and diagnostic; accepted data remains available for inspection. `seed` creates development accounts and companies, not hidden sample publications.
 
-## Покрытие
+## Coverage
 
-| Материал                               | Проверка                                                                |
-| -------------------------------------- | ----------------------------------------------------------------------- |
-| [company.md](text/company.md)          | Markdown, заголовки, отпуск 14/21 день, расходы и оборудование          |
-| [it.txt](text/it.txt)                  | UTF-8 plain text, выдача ноутбука в первый рабочий день                 |
-| [text.pdf](pdf/text.pdf)               | PDF с текстовым слоем, E-42 / 12 Nm                                     |
-| [scan.pdf](pdf/scan.pdf)               | OCR скана, E-43 / 3 litres                                              |
-| [mixed.pdf](pdf/mixed.pdf)             | Текст и скан в одном документе, источники обеих страниц                 |
-| [tables.pdf](pdf/tables.pdf)           | Строка таблицы A-100/B / 12 Nm / E-42                                   |
-| [label.png](media/label.png)           | Изображение таблички AX-100, E-42 и 12 Nm                               |
-| [jfk.wav](media/jfk.wav)               | Английская речь, отдельный аудиоисточник и временные границы            |
-| [inspection.mp4](media/inspection.mp4) | Готовое H.264/AAC видео: табличка и речь, визуальная и звуковая дорожки |
+| Material                               | What it checks                                                    |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| [company.md](text/company.md)          | Markdown, headings, 14/21-day leave policies, expenses, equipment |
+| [it.txt](text/it.txt)                  | UTF-8 text; laptop issued on the first working day                |
+| [text.pdf](pdf/text.pdf)               | PDF text layer; E-42 / 12 Nm                                      |
+| [scan.pdf](pdf/scan.pdf)               | Scan OCR; E-43 / 3 litres                                         |
+| [mixed.pdf](pdf/mixed.pdf)             | Text and scan in one PDF; sources from both pages                 |
+| [tables.pdf](pdf/tables.pdf)           | Table row A-100/B / 12 Nm / E-42                                  |
+| [label.png](media/label.png)           | Image of the AX-100 service label                                 |
+| [jfk.wav](media/jfk.wav)               | English speech, audio source, and time boundaries                 |
+| [inspection.mp4](media/inspection.mp4) | H.264/AAC video; separate visual and audio tracks                 |
 
-Видео статично: оно проверяет обработку двух дорожек, но не понимание движения. `manifest.json` содержит модальность, размер, SHA-256, контрольный вопрос и ожидаемый факт каждого материала. Ожидаемые факты — эталон для проверки человеком, а не требование дословного ответа модели. Все пять модальностей представлены; добавлять каждое поддерживаемое расширение для этого не нужно.
+The video is static: it checks both processing paths, not motion understanding. The manifest records modality, size, SHA-256, question, and expected facts. Expected facts guide human evaluation rather than requiring a model's exact wording.
 
-## Провайдеры и ограничения
+## Providers and limits
 
-TEST AI проверяет инфраструктуру, но не читает изображение и не доказывает качество ASR/ответа. Для текстового embedding-профиля нужны vision-модель для изображения и Whisper для речи; машинные описания проверяются перед публикацией. Native multimodal профиль принимает только объявленные и реально поддерживаемые модальности. PDF/OCR требует подготовленного PDF runtime. Ошибка модели или бюджета должна оставаться видимой в документе/задании, а не заменяться статусом успешной публикации.
+TEST AI verifies infrastructure and does not establish image understanding or answer quality. Text embeddings require an image-capable answer model for descriptions and Whisper or Google Gemini for speech. Review generated representations before publication. Native multimodal profiles must declare only inputs the actual model supports. PDF/OCR requires the prepared runtime. Provider and budget failures stay visible as material/job errors.
 
-`yarn test` проверяет целостность и покрытие корпуса. `yarn test:docker` использует эти же файлы для проверки PDF/OCR, фото, Whisper и видео в собранном сервере. Изменение входа требует обновить SHA-256, размеры, ожидаемые факты и соответствующие проверки. Новые прогоны пишут результаты в игнорируемый `.artifacts/verification/`.
+`yarn test` checks corpus integrity and modality coverage. `yarn test:docker` uses these files with real PDF/OCR, image, Whisper, and video processing. When changing an input, update its hash, size, expected facts, and relevant assertions. Generated runs belong in ignored `.artifacts/verification/`.
 
-## Происхождение и воспроизводимость
+## Provenance
 
-Тексты, PDF и табличка — синтетические материалы проекта. Речь взята из тестовых материалов whisper.cpp 1.9.1; сохранена [копия MIT-лицензии](media/WHISPER-LICENSE.txt). Назначение записи — тест распознавания речи. Видео составлено из уже включённых таблички и речи, без сторонних загрузок:
+Texts, PDFs, and the label are synthetic project materials. Speech comes from whisper.cpp 1.9.1 test samples; its [MIT license](media/WHISPER-LICENSE.txt) is included. The video combines the included label and speech:
 
 ```sh
 ffmpeg -v error -loop 1 -i examples/knowledge-base/media/label.png \
@@ -44,4 +44,6 @@ ffmpeg -v error -loop 1 -i examples/knowledge-base/media/label.png \
   examples/knowledge-base/media/inspection.mp4
 ```
 
-Команда нужна только при изменении видео; для импорта и тестов используется готовый файл.
+Rebuilding the video is optional; imports and tests use the checked-in file.
+
+[Russian README](README.ru.md)

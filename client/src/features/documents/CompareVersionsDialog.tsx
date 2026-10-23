@@ -30,7 +30,7 @@ export function Compare({ data }: { data: DocumentDetails }) {
   );
   const options: [string, string][] = data.versions.map((version, index) => [
     version.id,
-    `Версия ${data.versions.length - index} · ${date(version.created)}`,
+    `Version ${data.versions.length - index} · ${date(version.created)}`,
   ]);
   const comparison = load.data;
   const total = Math.max(
@@ -39,12 +39,12 @@ export function Compare({ data }: { data: DocumentDetails }) {
   );
   return (
     <div className="document-comparison">
-      <h2>Сравнение текста двух версий</h2>
+      <h2>Compare text between versions</h2>
       <p className="muted">
-        Выберите версии. Большие страницы загружаются фрагментами; оригиналы остаются без изменений.
+        Choose two versions. Large pages load in bounded windows; originals remain unchanged.
       </p>
       <Form
-        label="Сравнить"
+        label={'Compare'}
         submit={async (form) => {
           setPage(1);
           setOffset(0);
@@ -53,12 +53,12 @@ export function Compare({ data }: { data: DocumentDetails }) {
       >
         <div className="form-grid">
           <Select
-            label="Старая версия"
+            label={'Earlier version'}
             name="left"
             options={options}
             value={data.versions[1]?.id ?? data.version.id}
           />
-          <Select label="Новая версия" name="right" options={options} value={data.version.id} />
+          <Select label={'New version'} name="right" options={options} value={data.version.id} />
         </div>
       </Form>
       {selection &&
@@ -71,7 +71,7 @@ export function Compare({ data }: { data: DocumentDetails }) {
             <>
               <div className="document-page-bar">
                 <label>
-                  Страница / сегмент
+                  Page / segment
                   <select
                     value={page}
                     onChange={(event) => {
@@ -90,15 +90,15 @@ export function Compare({ data }: { data: DocumentDetails }) {
                   tone={comparison.left?.text === comparison.right?.text ? 'success' : 'warning'}
                 >
                   {comparison.left?.text === comparison.right?.text
-                    ? 'Текст фрагмента совпадает'
-                    : 'Текст фрагмента отличается'}
+                    ? 'This text window is identical'
+                    : 'This text window differs'}
                 </Badge>
               </div>
               <div className="split">
                 {(['left', 'right'] as const).map((side) => (
                   <section key={side}>
-                    <h3>{side === 'left' ? 'Старая версия' : 'Новая версия'}</h3>
-                    <pre>{comparison[side]?.text ?? 'Страницы нет в этой версии.'}</pre>
+                    <h3>{side === 'left' ? 'Earlier version' : 'New version'}</h3>
+                    <pre>{comparison[side]?.text ?? 'This version has no such page.'}</pre>
                   </section>
                 ))}
               </div>
@@ -108,16 +108,16 @@ export function Compare({ data }: { data: DocumentDetails }) {
                     disabled={offset === 0}
                     onClick={() => setOffset(Math.max(0, offset - 12000))}
                   >
-                    ← Предыдущий фрагмент
+                    ← Previous window
                   </Button>
                   <span>
-                    {offset + 1}–{Math.min(total, offset + 12000)} из {total}
+                    {offset + 1}–{Math.min(total, offset + 12000)} of {total}
                   </span>
                   <Button
                     disabled={offset + 12000 >= total}
                     onClick={() => setOffset(offset + 12000)}
                   >
-                    Следующий фрагмент →
+                    Next window →
                   </Button>
                 </div>
               )}

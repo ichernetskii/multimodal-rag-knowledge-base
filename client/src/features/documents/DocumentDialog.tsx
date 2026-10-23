@@ -16,9 +16,9 @@ import { DocumentFind, HighlightedText } from './DocumentFind';
 import { warningNames } from './material-warnings';
 import { statuses } from '../jobs/job-status';
 const versionStates = {
-  ready: 'Проиндексирована',
-  review: 'Нужна проверка',
-  pending: 'Обработка',
+  ready: 'Indexed',
+  review: 'Review required',
+  pending: 'Processing',
 } as const;
 const windowSize = 12000;
 function PageText({
@@ -65,10 +65,10 @@ function PageText({
         <Badge tone={part.method === 'ocr' ? 'warning' : 'neutral'}>
           {
             {
-              text: 'Текст материала',
-              ocr: 'Текст после OCR',
-              vision: 'Визуальный материал',
-              speech: 'Аудиоматериал',
+              text: 'Material text',
+              ocr: 'OCR text',
+              vision: 'Visual material',
+              speech: 'Audio material',
             }[part.method]
           }
         </Badge>
@@ -81,7 +81,7 @@ function PageText({
       <div className={'document-reader' + (part.media ? ' document-reader-media' : '')}>
         {part.media && (
           <section className="document-original">
-            <h3>Оригинал</h3>
+            <h3>Original</h3>
             <MediaPreview
               document={data.document.id}
               version={data.version.id}
@@ -90,26 +90,26 @@ function PageText({
           </section>
         )}
         <section className="document-processed">
-          <h3>{part.media ? 'Сохранённый текст обработки' : 'Чтение материала'}</h3>
+          <h3>{part.media ? 'Saved processing text' : 'Read material'}</h3>
           {part.preparedText && (
             <p className="muted">
-              {part.preparedText.kind === 'transcript' ? 'Расшифровку' : 'Описание'} подготовила
-              модель {part.preparedText.model} · {date(part.preparedText.created)}.
-              {part.warnings.includes('USER_CORRECTED') ? ' Текст исправлен редактором.' : ''} Смена
-              модели поиска этот текст не пересоздаёт.
+              {part.preparedText.kind === 'transcript' ? 'Transcript' : 'Description'} prepared by
+              model {part.preparedText.model} · {date(part.preparedText.created)}.
+              {part.warnings.includes('USER_CORRECTED') ? ' Text corrected by an editor.' : ''}{' '}
+              Changing the search model does not regenerate this text.
             </p>
           )}
           {part.totalCharacters > windowSize && (
             <p className="muted" role="status">
-              Символы {part.offset + 1}–{part.nextOffset} из{' '}
-              {part.totalCharacters.toLocaleString('ru-RU')}. Большой текст загружается частями.
+              Characters {part.offset + 1}–{part.nextOffset} of{' '}
+              {part.totalCharacters.toLocaleString('en-US')}. Large text loads in bounded windows.
             </p>
           )}
           {editing ? (
             <Form
               protectChanges
               key={data.version.id + ':' + part.number + ':' + part.offset}
-              label="Сохранить исправление"
+              label={'Save correction'}
               submit={async (form) => {
                 await api('documents.correct', {
                   id: data.document.id,
@@ -122,13 +122,13 @@ function PageText({
                 setEditing(false);
                 corrected();
                 load.reload();
-                app.notify('Исправление сохранено. Проверьте текст перед публикацией.');
+                app.notify('Correction saved. Review the text before publishing.');
               }}
             >
               <label>
                 {part.totalCharacters > part.text.length
-                  ? 'Исправить этот фрагмент'
-                  : 'Исправленный текст'}
+                  ? 'Correct this text window'
+                  : 'Corrected text'}
                 <textarea
                   name="correctedText"
                   defaultValue={part.text}
@@ -136,20 +136,20 @@ function PageText({
                   required={part.totalCharacters <= part.text.length}
                 />
               </label>
-              <p className="muted">Оригинал и остальная часть текста сохранятся.</p>
+              <p className="muted">The original file and the rest of the text remain unchanged.</p>
               <Button
                 onClick={() => {
                   if (app.unsaved.confirmDiscard('dialog')) setEditing(false);
                 }}
               >
-                Отмена
+                Cancel
               </Button>
             </Form>
           ) : (
             <HighlightedText
               text={
                 part.text ||
-                'Содержательный текст ещё не создан. Мультимодальный поиск может использовать само медиа.'
+                'No meaningful text has been generated yet. Multimodal search can use the media itself.'
               }
               query={query}
               selected={Boolean(query)}
@@ -161,13 +161,13 @@ function PageText({
                 disabled={part.offset === 0 || editing}
                 onClick={() => navigate(page, Math.max(0, part.offset - windowSize))}
               >
-                ← Предыдущий фрагмент текста
+                ← Previous text window
               </Button>
               <Button
                 disabled={part.nextOffset >= part.totalCharacters || editing}
                 onClick={() => navigate(page, part.nextOffset)}
               >
-                Следующий фрагмент текста →
+                Next text window →
               </Button>
             </div>
           )}
@@ -223,14 +223,12 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
   const processing = data.processing;
   return (
     <div className="document-view">
-      <p className="eyebrow">
-        МАТЕРИАЛ · {quantity(data.versions.length, 'версия', 'версии', 'версий')}
-      </p>
+      <p className="eyebrow">MATERIAL · {quantity(data.versions.length, 'version', 'versions')}</p>
       <h2>{data.document.name}</h2>
       {load.error && <Loading error={load.error} retry={load.reload} />}
       <div className="document-version-bar">
         <label>
-          Версия материала
+          Material version
           <select
             value={v.id}
             disabled={editing}
@@ -244,7 +242,7 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
             {data.versions.map((item) => (
               <option key={item.id} value={item.id}>
                 {date(item.created)} · {versionStates[item.state]}
-                {item.id === data.document.activeVersion ? ' · используется в поиске' : ''}
+                {item.id === data.document.activeVersion ? ' · used for search' : ''}
               </option>
             ))}
           </select>
@@ -255,17 +253,17 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
           target="_blank"
           rel="noopener"
         >
-          Открыть оригинал ↗
+          Open original ↗
         </a>
         <a
           className="button-link"
           href={tenantUrl(`/api/documents/${id}?version=${v.id}&download=1`)}
         >
-          Скачать оригинал
+          Download original
         </a>
         {data.versions.length > 1 && (
           <Button disabled={editing} onClick={() => modal(<Compare data={data} />)}>
-            Сравнить версии
+            Compare versions
           </Button>
         )}
         {canEdit && (
@@ -273,21 +271,21 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
             disabled={editing}
             onClick={() => modal(<ReplaceDocument doc={data.document} after={after} />)}
           >
-            Новая версия
+            New version
           </Button>
         )}
       </div>
       {processing && !terminal.has(processing.status) && (
         <p className="info-callout" role="status">
-          {processing.message || statuses[processing.status]}. Статус обновляется автоматически.
+          {processing.message || statuses[processing.status]}. Status refreshes automatically.
         </p>
       )}
       {processing?.error && (
         <div className="inline-error" role="alert">
-          <strong>Обработка не завершена</strong>
+          <strong>Processing incomplete</strong>
           <p>{processing.message || processing.error}</p>
           <small>
-            Код: {processing.error} · ID: {processing.diagnostic}
+            Code: {processing.error} · ID: {processing.diagnostic}
           </small>
           {canEdit && (
             <Button
@@ -299,7 +297,7 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
                 after();
               }}
             >
-              Повторить обработку
+              Retry processing
             </Button>
           )}
         </div>
@@ -308,16 +306,16 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
         <>
           <div className="document-page-bar">
             <label>
-              Страница / сегмент
+              Page / segment
               <select
-                aria-label="Страница материала"
+                aria-label={'Material page'}
                 value={currentPage}
                 disabled={editing}
                 onChange={(event) => navigate(Number(event.target.value))}
               >
                 {data.pages.map((part) => (
                   <option key={part.number} value={part.number}>
-                    {part.number} из {data.pages.length}
+                    {part.number} of {data.pages.length}
                   </option>
                 ))}
               </select>
@@ -329,7 +327,7 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
                 if (findOpen) setHighlight('');
               }}
             >
-              {findOpen ? 'Закрыть поиск в тексте' : 'Найти в этом документе'}
+              {findOpen ? 'Close text search' : 'Find in this document'}
             </Button>
           </div>
           <DocumentFind
@@ -344,7 +342,7 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
           />
           {review.length > 0 && canEdit && (
             <details className="form-section">
-              <summary>Страницы и сегменты для проверки · {review.length}</summary>
+              <summary>Pages &amp; segments to review · {review.length}</summary>
               <div className="review-pages">
                 {review.map((part) => (
                   <Button
@@ -353,7 +351,7 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
                     onClick={() => navigate(part.number)}
                   >
                     {part.number}
-                    {!part.characters ? ' · нет текста' : ''}
+                    {!part.characters ? ' · no text' : ''}
                   </Button>
                 ))}
               </div>
@@ -381,12 +379,12 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
                 setAcknowledged(false);
               }}
             >
-              Исправить текст обработки
+              Correct processing text
             </Button>
           )}
           {canEdit && v.state === 'ready' && (
             <Form
-              label="Создать версию для исправлений"
+              label={'Create correction version'}
               disabled={data.versions.some((item) => item.state !== 'ready')}
               submit={async () => {
                 const job = await api('documents.revise', {
@@ -402,35 +400,35 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
                 load.reload();
                 after();
                 app.notify(
-                  'Создаётся версия для исправлений. Опубликованный материал остаётся в поиске.',
+                  'Creating a correction version. The published material remains searchable.',
                 );
               }}
             >
               <p>
-                Нашли ошибку в тексте, описании или расшифровке? Создайте отдельную версию и
-                исправьте обработку. Оригинал и медиафрагменты сохранятся без повторного
-                распознавания. Поиск переключится после проверки и публикации.
+                Found an error in text, a description, or a transcript? Create a separate version
+                and correct the processing result. The original and media segments are preserved
+                without rerunning recognition. Search switches after review and publication.
               </p>
               {data.versions.some((item) => item.state !== 'ready') && (
                 <p className="muted">
-                  Уже есть версия для обработки или проверки. Выберите её в списке версий и
-                  завершите проверку.
+                  A version is already processing or awaiting review. Select it from the version
+                  list and finish the review.
                 </p>
               )}
             </Form>
           )}
         </>
       ) : (
-        <p className="empty-inline">Текст и предпросмотр появятся после обработки материала.</p>
+        <p className="empty-inline">Text and previews appear after processing.</p>
       )}
       {canEdit && data.pages.length > 0 && (
         <section className="document-publication">
-          <h3>{v.state === 'ready' ? 'Поиск по этой версии' : 'Проверить и опубликовать'}</h3>
+          <h3>{v.state === 'ready' ? 'Search this version' : 'Review & publish'}</h3>
           {v.state === 'review' && (
             <>
               <p>
-                Сверьте текст с оригиналом. Ошибки OCR, описания и расшифровки можно исправить выше.
-                Если ошибочен сам файл, загрузите новую версию.
+                Compare the text with the original. Correct OCR, descriptions, and transcripts
+                above. If the file itself is incorrect, upload a new version.
               </p>
               <label className="check">
                 <input
@@ -439,7 +437,7 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
                   disabled={editing}
                   onChange={(event) => setAcknowledged(event.target.checked)}
                 />
-                Я проверил результат обработки по оригиналу
+                I checked the processing result against the original
               </label>
             </>
           )}
@@ -458,14 +456,14 @@ export function DocumentView({ id, after }: { id: string; after: () => void }) {
               app.jobs.watch(job);
               modal(null);
               after();
-              app.notify('Публикация и индексация поставлены в очередь.');
+              app.notify('Publication and indexing queued.');
             }}
           >
             {v.state === 'ready'
               ? v.id === data.document.activeVersion
-                ? 'Переиндексировать'
-                : 'Использовать эту версию в поиске'
-              : 'Опубликовать и включить в поиск'}
+                ? 'Reindex'
+                : 'Use this version for search'
+              : 'Publish & include in search'}
           </Button>
         </section>
       )}

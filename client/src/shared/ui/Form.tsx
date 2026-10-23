@@ -12,8 +12,8 @@ import { useApplication } from '../lib/application-context';
 export function Form({
   children,
   submit,
-  label = 'Сохранить',
-  busyLabel = 'Выполняется…',
+  label = 'Save',
+  busyLabel = 'Working…',
   disabled = false,
   className = '',
   autoComplete,
@@ -73,18 +73,15 @@ export function Form({
       </fieldset>
       {error !== undefined && (
         <div className="inline-error" id={errorId} role="alert" ref={errorSummary} tabIndex={-1}>
-          <strong>
-            {error instanceof Error ? error.message : 'Не удалось сохранить изменения.'}
-          </strong>
+          <strong>{error instanceof Error ? error.message : 'Could not save changes.'}</strong>
           {error instanceof ApiError && error.code === 'REVISION_CONFLICT' && (
             <p>
-              Данные изменились в другой вкладке или у другого пользователя. Обновите список и
-              откройте форму заново.
+              Data changed in another tab or by another user. Refresh the list and reopen the form.
             </p>
           )}
           {error instanceof ApiError && error.diagnostic && (
             <small>
-              Код: {error.code} · ID: {error.diagnostic}
+              Code: {error.code} · ID: {error.diagnostic}
             </small>
           )}
         </div>

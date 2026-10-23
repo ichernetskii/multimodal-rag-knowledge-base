@@ -246,7 +246,7 @@ export class Application {
             requireValue(
               p.state !== 'published' || doc.activeVersion,
               'VERSION_NOT_READY',
-              'Сначала откройте документ, проверьте обработанную версию и нажмите «Текст проверен · опубликовать». Состояние изменится после индексации.',
+              'Open the document, review the processed version, and click “Text reviewed · publish”. Its status will change after indexing.',
             );
             if (p.state !== 'published') await this.documents.cancelJobs(u, doc.id);
             doc.state = p.state as DocumentRecord['state'];
@@ -319,7 +319,7 @@ export class Application {
         this.search.search(
           u,
           string(p, 'question'),
-          await this.documents.scope(u, (p.scope ?? {}) as Input),
+          await this.documents.scope(u, object(p, 'scope')),
           { signal },
         ),
       'conversations.create': (u, p) => this.chat.create(u, p),

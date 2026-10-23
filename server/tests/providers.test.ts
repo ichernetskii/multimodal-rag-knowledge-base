@@ -30,14 +30,14 @@ void test('reachable Ollama without the selected model reports missing weights',
   );
   await assert.rejects(
     new CompatibleAdapter('', true).health(localGeneration, AbortSignal.timeout(1000)),
-    /не загружена в Ollama/u,
+    /not installed in Ollama/u,
   );
 });
 void test('Ollama rejects a text-only model advertised as a vision model', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => Response.json({ capabilities: ['completion'] }));
   await assert.rejects(
     new CompatibleAdapter('', true).health(localGeneration, AbortSignal.timeout(1000)),
-    /не поддерживает изображения/u,
+    /does not support images/u,
   );
 });
 void test('Ollama checks the embedding role and native vector dimensions', async (t) => {
@@ -50,12 +50,12 @@ void test('Ollama checks the embedding role and native vector dimensions', async
       { ...localEmbedding, dimensions: 1536 },
       AbortSignal.timeout(1000),
     ),
-    /Размерность/u,
+    /dimension/u,
   );
   mock.mock.mockImplementation(async () => Response.json({ capabilities: ['completion'] }));
   await assert.rejects(
     new CompatibleAdapter('', true).health(localEmbedding, AbortSignal.timeout(1000)),
-    /не поддерживает выбранную задачу/u,
+    /does not support the selected task/u,
   );
 });
 void test('Ollama embeddings request the index dimensions and reject silent input truncation', async (t) => {
@@ -93,7 +93,10 @@ void test('Google streaming transports native modalities and never places secret
       'data: ' +
         JSON.stringify({
           candidates: [
-            { content: { parts: [{ text: 'reasoning', thought: true }, { text: 'Answer [1]' }] } },
+            {
+              content: { parts: [{ text: 'reasoning', thought: true }, { text: 'Answer [1]' }] },
+              finishReason: 'STOP',
+            },
           ],
           usageMetadata: { promptTokenCount: 25, candidatesTokenCount: 4, thoughtsTokenCount: 10 },
         }) +
@@ -176,7 +179,13 @@ void test('Anthropic asks for ephemeral prompt caching and streams text', async 
           delta: { type: 'text_delta', text: 'Source [1]' },
         }) +
         '\n\ndata: ' +
-        JSON.stringify({ type: 'message_delta', usage: { output_tokens: 3 } }) +
+        JSON.stringify({
+          type: 'message_delta',
+          delta: { stop_reason: 'end_turn' },
+          usage: { output_tokens: 3 },
+        }) +
+        '\n\ndata: ' +
+        JSON.stringify({ type: 'message_stop' }) +
         '\n\n',
     );
   });

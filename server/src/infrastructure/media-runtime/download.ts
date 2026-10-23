@@ -30,7 +30,7 @@ export async function downloadVerified(
   if (await matchesAsset(path, asset)) return false;
   if (options.offline)
     throw new Error(
-      `Файл отсутствует или повреждён: ${path}. Выполните yarn prepare:media с доступом к сети.`,
+      `File is missing or damaged: ${path}. Run yarn prepare:media with network access.`,
     );
   await mkdir(dirname(path), { recursive: true, mode: 0o700 });
   const temporary = path + '.' + randomUUID() + '.tmp';
@@ -41,7 +41,7 @@ export async function downloadVerified(
     ]),
   });
   if (!response.ok || !response.body)
-    throw new Error(`Не удалось скачать ${asset.url}: HTTP ${response.status}`);
+    throw new Error(`Could not download ${asset.url}: HTTP ${response.status}`);
   const reader = response.body.getReader(),
     file = await open(temporary, 'wx', 0o600),
     digest = createHash('sha256');
@@ -51,18 +51,17 @@ export async function downloadVerified(
       const part = await reader.read();
       if (part.done) break;
       bytes += part.value.byteLength;
-      if (bytes > asset.maxBytes)
-        throw new Error('Скачиваемый файл превышает закреплённый лимит размера.');
+      if (bytes > asset.maxBytes) throw new Error('The download exceeds the pinned size limit.');
       digest.update(part.value);
       let offset = 0;
       while (offset < part.value.byteLength) {
         const result = await file.write(part.value, offset, part.value.byteLength - offset);
-        if (!result.bytesWritten) throw new Error('Не удалось записать скачиваемый файл.');
+        if (!result.bytesWritten) throw new Error('Could not write the downloaded file.');
         offset += result.bytesWritten;
       }
     }
     if (!bytes || digest.digest('hex') !== asset.sha256)
-      throw new Error('Контрольная сумма скачанного файла не совпала.');
+      throw new Error("The downloaded file's checksum does not match.");
     await file.sync();
     await file.close();
     await rename(temporary, path);

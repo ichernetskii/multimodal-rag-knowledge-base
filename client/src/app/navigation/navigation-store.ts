@@ -1,10 +1,10 @@
 import { makeAutoObservable } from 'mobx';
 import { adminNames, adminSections, type AdminSection } from '../../features/admin/admin-sections';
 export const knowledgeTabs = {
-  materials: 'Материалы',
-  collections: 'Базы и доступ',
-  sources: 'Подключённые папки',
-  quality: 'Качество ответов',
+  materials: 'Materials',
+  collections: 'Knowledge bases & access',
+  sources: 'Connected folders',
+  quality: 'Answer quality',
 } as const;
 export type View = 'chat' | 'documents' | 'admin';
 function parseRoute(path: string): {

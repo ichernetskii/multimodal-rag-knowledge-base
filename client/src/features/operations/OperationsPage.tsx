@@ -6,15 +6,15 @@ import { Button } from '../../shared/ui/Button';
 import { Loading, PageHeader } from '../../shared/ui/Feedback';
 import { statuses } from '../jobs/job-status';
 const kindNames: Record<string, string> = {
-  answer: 'Ответ пользователю',
-  document: 'Обработка документа',
-  index: 'Перестроение индекса',
-  evaluation: 'Проверка качества',
-  maintenance: 'Обслуживание',
-  backup: 'Резервное копирование',
-  restore: 'Восстановление',
-  cleanup: 'Очистка',
-  sync: 'Синхронизация',
+  answer: 'User answer',
+  document: 'Document processing',
+  index: 'Index rebuild',
+  evaluation: 'Quality evaluation',
+  maintenance: 'Maintenance',
+  backup: 'Backup',
+  restore: 'Restore',
+  cleanup: 'Cleanup',
+  sync: 'Synchronization',
 };
 const finished = ['complete', 'no_info', 'clarification', 'cancelled', 'failed', 'interrupted'];
 export function Operations() {
@@ -28,8 +28,10 @@ export function Operations() {
   return (
     <>
       <PageHeader
-        title="Задания и очереди"
-        description="Очереди и данные текущей компании. Лимиты генерации и индексации независимы."
+        title={'Jobs & queues'}
+        description={
+          'Queues and data for the current company. Generation and indexing have independent limits.'
+        }
         actions={
           <Button
             onClick={() => {
@@ -37,7 +39,7 @@ export function Operations() {
               jobs.reload();
             }}
           >
-            Обновить
+            Refresh
           </Button>
         }
       />
@@ -46,50 +48,47 @@ export function Operations() {
       ) : (
         <>
           <section className="panel">
-            <h2>Нагрузка компании</h2>
+            <h2>Company workload</h2>
             <p>
-              В очередях: {data.queue.length} · Старейшее задание:{' '}
-              {Math.round(data.queue.oldestAgeMs / 1000)} с · Файлы:{' '}
-              {(data.dataBytes / 1024 ** 2).toFixed(1)} МиБ
+              Queued: {data.queue.length} · Oldest job: {Math.round(data.queue.oldestAgeMs / 1000)}{' '}
+              s · Files: {(data.dataBytes / 1024 ** 2).toFixed(1)} MiB
             </p>
             <div className="form-grid">
               {data.queue.lanes.map((l) => (
                 <div key={l.kind}>
                   <strong>{kindNames[l.kind] ?? l.kind}</strong>
-                  <p>{l.length} заданий</p>
+                  <p>{l.length} jobs</p>
                 </div>
               ))}
             </div>
             <details className="admin-details">
-              <summary>Обслуживание данных</summary>
-              <p>
-                Удалить данные компании с истёкшим сроком хранения согласно параметрам обработки.
-              </p>
+              <summary>Data maintenance</summary>
+              <p>Remove expired company data according to processing and retention settings.</p>
               <Button
                 onClick={async () => {
                   const job = await api('cleanup');
                   app.jobs.upsert(job);
                   app.jobs.watch(job);
-                  app.notify('Очистка поставлена в очередь.');
+                  app.notify('Cleanup queued.');
                 }}
               >
-                Запустить очистку
+                Run cleanup
               </Button>
             </details>
           </section>
           <section className="panel">
             <div className="section-heading">
               <div>
-                <h2>Последние задания</h2>
-                <p>Последние 100 заданий компании. Список обновляется автоматически.</p>
+                <h2>Recent jobs</h2>
+                <p>The company's latest 100 jobs. This list refreshes automatically.</p>
               </div>
               <label>
-                Показать
+                Show
                 <select value={filter} onChange={(e) => setFilter(e.target.value)}>
-                  <option value="all">Все задания</option>
-                  <option value="active">В работе</option>
-                  <option value="failed">С ошибкой</option>
-                  <option value="complete">Завершённые</option>
+                  <option value="all">All jobs</option>
+                  <option value="active">In progress</option>
+                  <option value="failed">Failed</option>
+                  <option value="complete">Completed</option>
                 </select>
               </label>
             </div>
@@ -98,10 +97,10 @@ export function Operations() {
               <table>
                 <thead>
                   <tr>
-                    <th>Задание</th>
-                    <th>Состояние</th>
-                    <th>Ошибка / результат</th>
-                    <th>Действия</th>
+                    <th>Job</th>
+                    <th>Status</th>
+                    <th>Error / result</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -122,7 +121,7 @@ export function Operations() {
                         <td>
                           <strong>{kindNames[j.kind] ?? j.kind}</strong>
                           <details>
-                            <summary>ID задания</summary>
+                            <summary>Job ID</summary>
                             <code>{j.id}</code>
                           </details>
                         </td>
@@ -147,7 +146,7 @@ export function Operations() {
                                 jobs.reload();
                               }}
                             >
-                              Отменить
+                              Cancel
                             </Button>
                           ) : (
                             ['failed', 'interrupted'].includes(j.status) && (
@@ -159,7 +158,7 @@ export function Operations() {
                                   jobs.reload();
                                 }}
                               >
-                                Повторить отдельной попыткой
+                                Retry as a separate attempt
                               </Button>
                             )
                           )}

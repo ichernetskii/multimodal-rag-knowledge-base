@@ -429,7 +429,7 @@ export class Administration {
           return {
             ok: false,
             message:
-              'FFmpeg собран без H.264 (libx264). Выполните yarn prepare:media или пересоберите образ.',
+              'FFmpeg was built without H.264 (libx264). Run yarn prepare:media or rebuild the image.',
           };
         return { ok: true, message: '' };
       } catch (error) {
@@ -438,7 +438,7 @@ export class Administration {
           message:
             error instanceof AppError
               ? error.message
-              : 'Инструмент не запускается. Проверьте установку и путь к исполняемому файлу.',
+              : 'Cannot start the tool. Check its installation and executable path.',
         };
       }
     };
@@ -464,7 +464,7 @@ export class Administration {
               ['ffmpeg', ffmpeg.message],
               ['ffprobe', ffprobe.message],
               ['whisper', whisper.message],
-              ['model', model ? '' : 'Не найдены веса Whisper. Выполните yarn prepare:media.'],
+              ['model', model ? '' : 'Whisper weights were not found. Run yarn prepare:media.'],
             ] as const
           ).filter(([, message]) => message),
         ),

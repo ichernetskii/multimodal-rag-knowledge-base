@@ -7,32 +7,32 @@ export const Auth = observer(function Auth() {
   const invite = new URLSearchParams(location.search).get('invite');
   return (
     <main className="auth" id="main">
-      <div className="auth-mark">▤ Knowledge Workspace</div>
+      <div className="auth-mark">▤ Multimodal RAG Knowledge Base</div>
       <h1>
         {app.session.phase === 'setup'
-          ? 'Установка ещё не настроена'
-          : 'Войти в рабочее пространство'}
+          ? 'This installation has not been configured'
+          : 'Sign in to your workspace'}
       </h1>
       {app.session.phase === 'setup' ? (
         <p>
-          Оператор должен создать первую компанию и учётную запись через административную CLI. Для
-          окружения разработки предусмотрена команда заполнения демонстрационными данными.
+          An operator must create the first company and account using the administrative CLI. A demo
+          seed command is available for development environments.
         </p>
       ) : (
         <Form
-          label="Войти"
+          label={'Sign in'}
           submit={async (f) => app.session.login(text(f, 'login'), text(f, 'password'))}
         >
-          <Field label="Логин" name="login" required />
+          <Field label={'Username'} name="login" required />
           <label>
-            Пароль
+            Password
             <input type="password" name="password" autoComplete="current-password" required />
           </label>
         </Form>
       )}
       {invite && (
         <Form
-          label="Принять приглашение"
+          label={'Accept invitation'}
           submit={async (f) => {
             const r = await fetch('/api/invitations/accept', {
               method: 'POST',
@@ -41,19 +41,19 @@ export const Auth = observer(function Auth() {
             });
             const data = (await r.json()) as { login?: string; error?: { message: string } };
             if (!r.ok || !data.login)
-              throw new Error(data.error?.message ?? 'Не удалось принять приглашение');
+              throw new Error(data.error?.message ?? 'Could not accept the invitation');
             history.replaceState(null, '', '/');
             await app.session.login(data.login, text(f, 'invitePassword'));
           }}
         >
           <p>
-            Для нового аккаунта придумайте пароль от 12 символов, для существующего — введите
-            текущий.
+            For a new account, choose a password of at least 12 characters. For an existing account,
+            enter your current password.
           </p>
-          <Field label="Пароль аккаунта" name="invitePassword" type="password" required />
+          <Field label={'Account password'} name="invitePassword" type="password" required />
         </Form>
       )}
-      <p className="muted">Документы, поиск и ответы в пространстве вашей компании.</p>
+      <p className="muted">Documents, search, and answers in your company workspace.</p>
     </main>
   );
 });

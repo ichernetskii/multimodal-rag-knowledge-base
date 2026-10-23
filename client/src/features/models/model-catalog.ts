@@ -3,32 +3,32 @@ export const providerNames: Record<AIProvider, string> = {
   google: 'Google Gemini',
   anthropic: 'Anthropic Claude',
   ollama: 'Ollama',
-  'openai-compatible': 'Сервер с OpenAI API',
+  'openai-compatible': 'OpenAI-compatible server',
   whisper: 'Whisper',
-  test: 'TEST AI · проверка разработки',
+  test: 'TEST AI · development checks',
 };
 export const taskNames = {
-  generation: 'Ответы и понимание материалов',
-  embedding: 'Поиск по базе знаний',
-  transcription: 'Распознавание записей',
+  generation: 'Answers & material understanding',
+  embedding: 'Knowledge base search',
+  transcription: 'Recording transcription',
 } as const;
 export const modalityNames = {
-  text: 'Текст',
-  image: 'Изображения',
-  audio: 'Аудио',
-  video: 'Видео',
+  text: 'Text',
+  image: 'Images',
+  audio: 'Audio',
+  video: 'Video',
   pdf: 'PDF',
 } as const;
 export const numeric = {
-  dimensions: 'Размерность поискового вектора',
-  contextTokens: 'Контекст, токенов',
-  maxOutputTokens: 'Максимальный ответ, токенов',
-  maxBytes: 'Лимит медиа, байт',
-  maxSeconds: 'Лимит фрагмента, секунд',
-  concurrency: 'Одновременных вызовов',
-  requestsPerMinute: 'Запросов в минуту',
-  tokensPerMinute: 'Токенов в минуту',
-  timeoutMs: 'Таймаут, мс',
+  dimensions: 'Search vector dimensions',
+  contextTokens: 'Context tokens',
+  maxOutputTokens: 'Maximum output tokens',
+  maxBytes: 'Media limit, bytes',
+  maxSeconds: 'Segment limit, seconds',
+  concurrency: 'Concurrent calls',
+  requestsPerMinute: 'Requests per minute',
+  tokensPerMinute: 'Tokens per minute',
+  timeoutMs: 'Timeout, ms',
 } as const;
 export function providerRoles(provider: AIProvider): ModelProfile['role'][] {
   return provider === 'whisper'

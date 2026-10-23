@@ -9,11 +9,11 @@ import { Form } from '../../shared/ui/Form';
 import { Badge, Loading } from '../../shared/ui/Feedback';
 import { Table } from '../../shared/ui/DataTable';
 const labels = {
-  new: 'Новый документ',
-  update: 'Новая версия',
-  duplicate: 'Содержимое уже есть',
-  unsupported: 'Формат не поддерживается',
-  limit: 'Превышен лимит',
+  new: 'New document',
+  update: 'New version',
+  duplicate: 'Content already exists',
+  unsupported: 'Unsupported format',
+  limit: 'Limit exceeded',
 } as const;
 export const Upload = observer(function Upload({
   collection = '',
@@ -53,7 +53,7 @@ export const Upload = observer(function Upload({
     setError('');
     setChecking(true);
     try {
-      if (files.length > 100) throw new Error('Выберите до 100 файлов за одну загрузку.');
+      if (files.length > 100) throw new Error('Choose up to 100 files per upload.');
       const hashed = [];
       for (const file of files) {
         if (request !== sequence.current) return;
@@ -82,7 +82,7 @@ export const Upload = observer(function Upload({
         );
     } catch (e) {
       if (request === sequence.current)
-        setError(e instanceof Error ? e.message : 'Не удалось проверить файлы.');
+        setError(e instanceof Error ? e.message : 'Could not check the files.');
     } finally {
       if (request === sequence.current) setChecking(false);
     }
@@ -92,20 +92,20 @@ export const Upload = observer(function Upload({
   );
   return (
     <>
-      <p className="eyebrow">{conversation ? 'ВЛОЖЕНИЯ ДИАЛОГА' : 'ПОПОЛНЕНИЕ БИБЛИОТЕКИ'}</p>
-      <h2>{conversation ? 'Личные документы' : 'Загрузка документов'}</h2>
+      <p className="eyebrow">{conversation ? 'CONVERSATION ATTACHMENTS' : 'ADD TO LIBRARY'}</p>
+      <h2>{conversation ? 'Private documents' : 'Upload documents'}</h2>
       <p className="muted">
         {conversation
-          ? 'Вложения доступны только вам и остаются в этом диалоге.'
-          : 'Выберите базу и файлы. Совпадения и обновления будут показаны до загрузки.'}
+          ? 'Attachments are private to you and stay in this conversation.'
+          : 'Choose a knowledge base and files. Duplicates and updates are shown before uploading.'}
       </p>
       <Form
         label={
           uploading
-            ? 'Загрузка ' + uploading
+            ? 'Uploading ' + uploading
             : ready.length
-              ? `Загрузить · ${ready.length} файлов`
-              : 'Загрузить'
+              ? `Upload · ${ready.length} files`
+              : 'Upload'
         }
         disabled={checking || !ready.length || (!conversation && !chosen)}
         submit={async () => {
@@ -136,7 +136,7 @@ export const Upload = observer(function Upload({
                 ),
               );
             }
-            app.notify('Файлы приняты. Ход обработки доступен в списке документов.');
+            app.notify('Files accepted. Track processing in the document list.');
             modal(null);
             after?.();
           } finally {
@@ -146,7 +146,7 @@ export const Upload = observer(function Upload({
       >
         {!conversation && (
           <label className="field">
-            <span>База знаний</span>
+            <span>Knowledge base</span>
             <select
               value={chosen}
               onChange={(event) => {
@@ -171,8 +171,8 @@ export const Upload = observer(function Upload({
           <span className="upload-symbol" aria-hidden="true">
             ↑
           </span>
-          <strong>Выберите файлы</strong>
-          <span>Документы, фото, видео и аудио · до {bytes(maxBytes)} на файл</span>
+          <strong>Choose files</strong>
+          <span>Documents, images, video, and audio · up to {bytes(maxBytes)} per file</span>
           <input
             className="sr-only"
             ref={fileInput}
@@ -187,7 +187,7 @@ export const Upload = observer(function Upload({
         {error && <Loading error={error} />}{' '}
         {prepared.length > 0 && (
           <Table
-            head={['Файл', 'Размер', 'Проверка']}
+            head={['File', 'Size', 'Review']}
             rowKeys={prepared.map((item, index) => item.file.name + '-' + index)}
             rows={prepared.map((item) => [
               item.file.name,
@@ -205,17 +205,17 @@ export const Upload = observer(function Upload({
                           : 'warning'
                 }
               >
-                {item.accepted ? 'Принят' : labels[item.result.status]}
+                {item.accepted ? 'Accepted' : labels[item.result.status]}
               </Badge>,
             ])}
           />
         )}
         <div className="info-callout">
           <p>
-            Обработка выполняется в фоне моделями, назначенными для этой компании. В зависимости от
-            настроек сохраняются текст, изображения и фрагменты записи. Перед публикацией проверьте
-            результат по оригиналу. Видео анализируется по выбранным фрагментам; расшифровка речи не
-            является распознаванием всех звуков записи.
+            Processing runs in the background using this company's assigned models. Depending on
+            your settings, text, images, and recording segments are saved. Check the result against
+            the original before publication. Video is analyzed using selected segments; a speech
+            transcript does not describe every sound in a recording.
           </p>
         </div>
       </Form>

@@ -7,12 +7,16 @@ import { terminal } from '../../contracts/public.js';
 import { AppError, errorResponse, requireValue } from '../../shared/errors.js';
 import { deliveryMetrics } from '../../application/delivery-metrics.js';
 import { writeChunk } from './stream-response.js';
-const token = (req: IncomingMessage) =>
-  req.headers.authorization?.startsWith('Bearer ')
-    ? req.headers.authorization.slice(7)
-    : decodeURIComponent(
-        /(?:^|;\s*)rag_session=([^;]+)/u.exec(req.headers.cookie ?? '')?.[1] ?? '',
-      );
+const token = (req: IncomingMessage) => {
+  if (req.headers.authorization?.startsWith('Bearer ')) return req.headers.authorization.slice(7);
+  try {
+    return decodeURIComponent(
+      /(?:^|;\s*)rag_session=([^;]+)/u.exec(req.headers.cookie ?? '')?.[1] ?? '',
+    );
+  } catch {
+    throw new AppError('UNAUTHENTICATED', 'Invalid session cookie. Sign in again.', 401);
+  }
+};
 const tenant = (req: IncomingMessage, url: URL) =>
   String(req.headers['x-tenant-id'] ?? url.searchParams.get('tenant') ?? '');
 let bodyReaders = 0;
@@ -44,12 +48,19 @@ async function bytes(req: IncomingMessage, limit: number) {
     bodyReaders--;
   }
 }
-const parseJSON = (bytes: Buffer): unknown => {
+const parseJSON = (bytes: Buffer): Record<string, unknown> => {
+  let value: unknown;
   try {
-    return JSON.parse(bytes.toString() || '{}') as unknown;
+    value = JSON.parse(bytes.toString() || '{}') as unknown;
   } catch {
     throw new AppError('INVALID_JSON', 'Invalid JSON body.');
   }
+  requireValue(
+    value && typeof value === 'object' && !Array.isArray(value),
+    'INVALID_INPUT',
+    'A JSON object is required.',
+  );
+  return value as Record<string, unknown>;
 };
 const send = (res: ServerResponse, status: number, data: unknown) => {
   res.writeHead(status, {
@@ -114,7 +125,7 @@ export function createHttpServer(app: Application) {
       );
     }
     if (req.method === 'POST' && url.pathname === '/api/invitations/accept') {
-      const p = parseJSON(await bytes(req, 16384)) as Record<string, unknown>;
+      const p = parseJSON(await bytes(req, 16384));
       requireValue(
         typeof p.token === 'string' && typeof p.password === 'string',
         'INVALID_INPUT',
@@ -124,7 +135,7 @@ export function createHttpServer(app: Application) {
       return;
     }
     if (req.method === 'POST' && ['/api/login', '/api/logout'].includes(url.pathname)) {
-      const p = parseJSON(await bytes(req, 16384)) as Record<string, unknown>;
+      const p = parseJSON(await bytes(req, 16384));
       if (url.pathname === '/api/logout') {
         await s.identity.logout(token(req));
         res.setHeader('Set-Cookie', 'rag_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
@@ -146,17 +157,12 @@ export function createHttpServer(app: Application) {
     }
     if (req.method === 'POST' && url.pathname.startsWith('/api/actions/')) {
       const action = url.pathname.slice('/api/actions/'.length);
-      const p: unknown = parseJSON(await bytes(req, 1024 * 1024));
-      requireValue(
-        p && typeof p === 'object' && !Array.isArray(p),
-        'INVALID_INPUT',
-        'A JSON object is required.',
-      );
+      const p = parseJSON(await bytes(req, 1024 * 1024));
       const user =
         action === 'setup.status'
           ? undefined
           : await s.identity.principal(token(req), tenant(req, url) || undefined);
-      const result = await app.execute(action, p as Record<string, unknown>, user, signal);
+      const result = await app.execute(action, p, user, signal);
       if (
         user &&
         ![

@@ -5,23 +5,23 @@
       "kind": "text",
       "sha256": "80ae3d78817dad9a07dfc88be93975022615bb99e9a024cf3d8fcc24420797be",
       "bytes": 1339,
-      "question": "За сколько дней сотрудник на испытательном сроке должен запросить отпуск?",
-      "expected": "21 календарный день."
+      "question": "How far in advance must an employee on probation request leave?",
+      "expected": "21 calendar days."
     },
     {
       "path": "text/it.txt",
       "kind": "text",
       "sha256": "68d75409e70be4acba35341024ff3af34e0defbdf01ec146727942d9aec3131d",
       "bytes": 220,
-      "question": "Когда IT выдаёт рабочий ноутбук?",
-      "expected": "В первый рабочий день."
+      "question": "When does IT provide a work laptop?",
+      "expected": "On the first working day."
     },
     {
       "path": "pdf/text.pdf",
       "kind": "pdf",
       "sha256": "829fa158058b304629f7c1c5b7774a5b6aa535626b9a5969e43a8c76c893adea",
       "bytes": 1680,
-      "question": "Какой момент затяжки указан для E-42?",
+      "question": "What torque is specified for E-42?",
       "expected": "12 Nm."
     },
     {
@@ -29,7 +29,7 @@
       "kind": "pdf",
       "sha256": "e4a44d0ab0745df6fd734476cf8823bf881243ac1f49c599df090abd3955d095",
       "bytes": 33736,
-      "question": "Какая заправка указана для E-43?",
+      "question": "What fluid quantity is specified for E-43?",
       "expected": "3 litres."
     },
     {
@@ -37,23 +37,23 @@
       "kind": "pdf",
       "sha256": "20b19f21ed8c34df9d0b7f88bfcb41aa4e29b784fa7baf97e0213fcd3562d5eb",
       "bytes": 34510,
-      "question": "Какие коды указаны на текстовой и отсканированной страницах?",
-      "expected": "E-42 и E-43; нужны обе страницы."
+      "question": "Which codes appear on the text and scanned pages?",
+      "expected": "E-42 and E-43; both pages are needed."
     },
     {
       "path": "pdf/tables.pdf",
       "kind": "pdf",
       "sha256": "5992cc4f197dd9efa6e4236d8f60cd68cbe162d35fae0459269a87d42d1169a2",
       "bytes": 1779,
-      "question": "Какой момент затяжки и код ошибки у A-100/B?",
-      "expected": "12 Nm и E-42 в одной строке таблицы."
+      "question": "What torque and error code belong to A-100/B?",
+      "expected": "12 Nm and E-42 in the same table row."
     },
     {
       "path": "media/label.png",
       "kind": "image",
       "sha256": "ea9970e8fe3bf301c91a9be0d30c4abec16fe4c0ab261ff749232534602a5aaf",
       "bytes": 11883,
-      "question": "Что указано на сервисной табличке AX-100?",
+      "question": "What does the AX-100 service label show?",
       "expected": "ERROR E-42, TORQUE 12 Nm."
     },
     {
@@ -61,7 +61,7 @@
       "kind": "audio",
       "sha256": "59dfb9a4acb36fe2a2affc14bacbee2920ff435cb13cc314a08c13f66ba7860e",
       "bytes": 352078,
-      "question": "Какой призыв содержится в записи?",
+      "question": "What appeal is made in the recording?",
       "expected": "Ask not what your country can do for you; ask what you can do for your country."
     },
     {
@@ -69,8 +69,8 @@
       "kind": "video",
       "sha256": "b6597ce3d4e8ec6b3ed2c8ec24b56a35df97fb912901e5039db5b7ab05e0a5c2",
       "bytes": 124420,
-      "question": "Что видно и что слышно в видео?",
-      "expected": "Табличка MODEL AX-100, ERROR E-42, TORQUE 12 Nm и речь ask not ... country. Видео статично; тест движения не предусмотрен."
+      "question": "What can you see and hear in the video?",
+      "expected": "A label showing MODEL AX-100, ERROR E-42, TORQUE 12 Nm, and the ask not ... country speech. The video is static and does not test motion understanding."
     }
   ]
 }

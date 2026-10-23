@@ -68,9 +68,10 @@ export function DocumentFind({
   }, [open]);
   if (!open) return null;
   return (
-    <section className="document-find" aria-label="Поиск в материале">
+    <section className="document-find" aria-label={'Find in material'}>
       <p className="muted">
-        Ищет точное слово, фразу или код в тексте этой версии, как Ctrl+F. Модель AI не вызывается.
+        Finds an exact word, phrase, or code in this version's text, like Ctrl+F. No AI model is
+        called.
       </p>
       <form
         className="document-find-form"
@@ -82,7 +83,7 @@ export function DocumentFind({
         }}
       >
         <label>
-          Найти текст в материале
+          Find text in material
           <input
             type="search"
             ref={input}
@@ -90,11 +91,11 @@ export function DocumentFind({
             maxLength={200}
             required
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Слово, фраза или код"
+            placeholder={'Word, phrase, or code'}
           />
         </label>
         <button type="submit" disabled={!query.trim() || results.loading}>
-          Найти
+          Find
         </button>
       </form>
       {submitted && (
@@ -108,15 +109,15 @@ export function DocumentFind({
               <>
                 <p>
                   {results.data.total
-                    ? `Найдено совпадений: ${results.data.total}${results.data.limited ? ' и более. Уточните запрос.' : ''}`
-                    : 'Совпадений нет. Попробуйте другое слово или фразу.'}
+                    ? `Matches found: ${results.data.total}${results.data.limited ? ' or more. Refine your query.' : ''}`
+                    : 'No matches. Try another word or phrase.'}
                 </p>
                 {results.data.items.map((match) => (
                   <Button
                     key={match.page + ':' + match.offset}
                     onClick={() => select(match, submitted)}
                   >
-                    <strong>Страница / сегмент {match.page}</strong>
+                    <strong>Page / segment {match.page}</strong>
                     <span>…{match.snippet}…</span>
                   </Button>
                 ))}

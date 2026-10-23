@@ -8,11 +8,11 @@ export const WorkspaceNavigation = observer(function WorkspaceNavigation() {
     user = app.session.user;
   if (!user) return null;
   const company =
-    app.session.tenants.find((tenant) => tenant.id === user.tenant)?.name ?? 'Компания';
+    app.session.tenants.find((tenant) => tenant.id === user.tenant)?.name ?? 'Company';
   return (
-    <nav className="workspace-navigation" aria-label="Рабочее пространство">
+    <nav className="workspace-navigation" aria-label={'Workspace'}>
       <div className="workspace-nav nav-company">
-        <p className="nav-label">Компания · {company}</p>
+        <p className="nav-label">Company · {company}</p>
         {(['chat', 'documents'] as const).map((view) => (
           <button
             key={view}
@@ -20,7 +20,7 @@ export const WorkspaceNavigation = observer(function WorkspaceNavigation() {
             onClick={() => app.navigate(view)}
           >
             <Icon name={view} />
-            <span>{view === 'chat' ? 'Диалоги' : 'База знаний'}</span>
+            <span>{view === 'chat' ? 'Conversations' : 'Knowledge base'}</span>
           </button>
         ))}
         {adminGroups(user)

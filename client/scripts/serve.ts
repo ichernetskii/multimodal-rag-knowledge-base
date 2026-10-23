@@ -5,7 +5,9 @@ const server = createClientServer({
 });
 const port = readPort(process.env.CLIENT_PORT, 8080),
   host = process.env.CLIENT_HOST ?? '127.0.0.1';
-server.listen(port, host, () => console.log(`Local RAG client: http://${host}:${port}`));
+server.listen(port, host, () =>
+  console.log(`Multimodal RAG Knowledge Base client: http://${host}:${port}`),
+);
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, () => {
     server.closeAllConnections();

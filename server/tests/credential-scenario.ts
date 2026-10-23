@@ -40,7 +40,7 @@ export async function credentialScenario(
       res.end(
         'data: ' +
           JSON.stringify({
-            choices: [{ delta: { content: 'Verified' } }],
+            choices: [{ delta: { content: 'Verified' }, finish_reason: 'stop' }],
             usage: { prompt_tokens: 5, completion_tokens: 1 },
           }) +
           '\n\ndata: [DONE]\n\n',
@@ -114,7 +114,7 @@ export async function credentialScenario(
         revision: saved.revision,
         value: '',
       }),
-      /печатных/u,
+      /printable/u,
     );
 
     await app.s.db.tenant(user.tenant, user.id, async () => {
@@ -182,7 +182,7 @@ export async function credentialScenario(
         revision: saved.revision,
         value: first,
       }),
-      /изменена/u,
+      /changed/u,
     );
     const off = await call('secrets.save', {
       id: alias,
@@ -274,13 +274,13 @@ export async function credentialScenario(
         enabled: latest.enabled,
         revision: latest.revision,
       }),
-      /другого поставщика/u,
+      /different provider/u,
     );
     await assert.rejects(
       call('models.save', {
         profile: { ...p1, id: randomUUID(), revision: 0, secretRef: 'missing-key' },
       }),
-      /сохранённый ключ/u,
+      /saved key/u,
     );
     await assert.rejects(
       call('models.save', {
@@ -292,14 +292,14 @@ export async function credentialScenario(
           endpoint: 'https://generativelanguage.googleapis.com',
         },
       }),
-      /того же поставщика/u,
+      /same provider/u,
     );
     assert.ok(!JSON.stringify(await call('secrets.audit', {})).includes(first));
     await call('models.delete', { id: p1.id, revision: p1.revision });
     p1 = undefined;
     await assert.rejects(
       call('secrets.delete', { id: alias, revision: latest.revision }),
-      /используется/u,
+      /is used/u,
       'An unseen company reference must still prevent deletion.',
     );
     await call('models.delete', { id: p2.id, revision: p2.revision }, other);
@@ -316,7 +316,7 @@ export async function credentialScenario(
     assert.ok(recreated.revision > latest.revision);
     await assert.rejects(
       call('secrets.delete', { id: alias, revision: latest.revision }),
-      /изменена/u,
+      /changed/u,
       'Recreating an alias must not allow a stale editor to delete its replacement.',
     );
   } finally {

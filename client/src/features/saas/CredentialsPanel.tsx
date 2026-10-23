@@ -10,15 +10,15 @@ import { Badge, Loading } from '../../shared/ui/Feedback';
 export const credentialProviders = {
   google: 'Google Gemini',
   anthropic: 'Anthropic Claude',
-  'openai-compatible': 'Сервер с OpenAI API',
+  'openai-compatible': 'OpenAI-compatible server',
 } as const;
 const auditNames: Record<CredentialAudit['action'], string> = {
-  created: 'Добавлен',
-  updated: 'Изменены параметры',
-  rotated: 'Заменено значение',
-  enabled: 'Включён',
-  disabled: 'Отключён',
-  deleted: 'Удалён',
+  created: 'Added',
+  updated: 'Settings changed',
+  rotated: 'Value rotated',
+  enabled: 'Enabled',
+  disabled: 'Disabled',
+  deleted: 'Deleted',
 };
 export function CredentialsPanel({
   credentials,
@@ -55,8 +55,8 @@ export function CredentialsPanel({
     <section className="panel admin-credentials">
       <div className="section-heading">
         <div>
-          <h2>API-ключи платформы</h2>
-          <p>Общие для всех компаний. Доступ к управлению есть только у владельца платформы.</p>
+          <h2>Platform API keys</h2>
+          <p>Shared across all companies. Only the platform owner can manage them.</p>
         </div>
         <div className="actions">
           <Button
@@ -65,7 +65,7 @@ export function CredentialsPanel({
               audit.reload();
             }}
           >
-            Обновить реестр
+            Refresh registry
           </Button>
           <Button
             className="primary"
@@ -73,26 +73,26 @@ export function CredentialsPanel({
               if (editKey('new')) setDeleting(null);
             }}
           >
-            + Добавить API-ключ
+            + Add API key
           </Button>
         </div>
       </div>
       <p>
-        Значения зашифрованы на сервере и после сохранения не показываются. Добавление, замена и
-        отключение применяются к новым вызовам API и воркеров без перезапуска.
+        Values are encrypted on the server and never shown after saving. Additions, rotations, and
+        disabling apply to new API and worker calls without a restart.
       </p>
       {error && <Loading error={error} retry={reload} />}
       {editing && (
         <div className="admin-credential-form">
           <div className="section-heading">
-            <h3>{old ? 'Изменить ключ «' + old.label + '»' : 'Добавить API-ключ'}</h3>
-            <Button onClick={() => editKey(null)}>Закрыть</Button>
+            <h3>{old ? 'Edit key “' + old.label + '»' : 'Add API key'}</h3>
+            <Button onClick={() => editKey(null)}>Close</Button>
           </div>
           <Form
             protectChanges
             autoComplete="off"
             key={old ? old.id + ':' + old.revision : 'new'}
-            label={old ? 'Сохранить изменения ключа' : 'Сохранить API-ключ'}
+            label={old ? 'Save key changes' : 'Save API key'}
             submit={async (f) => {
               const value = text(f, 'apiCredentialValue');
               await api('secrets.save', {
@@ -111,33 +111,35 @@ export function CredentialsPanel({
               changed();
               app.notify(
                 old
-                  ? 'Изменения ключа применены. Перезапуск не нужен.'
-                  : 'API-ключ сохранён. Теперь выберите его в подключении модели.',
+                  ? 'Key changes applied. No restart required.'
+                  : 'API key saved. You can now select it in a model connection.',
               );
             }}
           >
             <div className="form-grid">
               <Field
-                label="Название ключа"
+                label={'Key name'}
                 name="credentialLabel"
                 value={old?.label}
                 required
                 maxLength={120}
-                hint="Например, Google · основной. Сам ключ сюда не вставляйте."
+                hint={'For example, Google · primary. Do not paste the secret here.'}
               />
               <Field
-                label="Идентификатор ключа"
+                label={'Key identifier'}
                 name="credentialId"
                 value={old?.id}
                 required
                 readOnly={!!old}
                 maxLength={64}
                 autoComplete="off"
-                hint="Латинские строчные буквы, цифры, _ и -. Например, google или google-production."
+                hint={
+                  'Lowercase letters, numbers, _ and -. For example, google or google-production.'
+                }
               />
             </div>
             <label>
-              Поставщик ключа
+              Key provider
               <select name="provider" defaultValue={old?.provider ?? 'google'} disabled={!!old}>
                 {Object.entries(credentialProviders).map(([id, name]) => (
                   <option key={id} value={id}>
@@ -148,7 +150,7 @@ export function CredentialsPanel({
             </label>
             {old && <input type="hidden" name="provider" value={old.provider} />}
             <Field
-              label={old ? 'Новое значение API-ключа' : 'Значение API-ключа'}
+              label={old ? 'New API key value' : 'API key value'}
               name="apiCredentialValue"
               type="password"
               autoComplete="new-password"
@@ -159,13 +161,13 @@ export function CredentialsPanel({
               minLength={8}
               hint={
                 old
-                  ? 'Оставьте пустым, чтобы сохранить текущее значение. Для замены вставьте новый ключ; старое значение не возвращается.'
-                  : 'Вставьте ключ, полученный у поставщика. Он будет отправлен только нашему серверу и сохранён в зашифрованном виде.'
+                  ? 'Leave empty to keep the current value. Paste a new key to rotate it; the old value is never returned.'
+                  : 'Paste the key from your provider. It is sent only to our server and stored encrypted.'
               }
             />
             <Check
               name="enabled"
-              label="Разрешить новые вызовы с этим ключом"
+              label={'Allow new calls with this key'}
               checked={old?.enabled ?? true}
             />
           </Form>
@@ -173,36 +175,34 @@ export function CredentialsPanel({
       )}
       {!credentials.length && !loading && !error && (
         <p className="info-callout">
-          Внешние API-ключи пока не добавлены. Ollama и встроенный Whisper работают без них.
+          No external API keys yet. Ollama and built-in Whisper work without them.
         </p>
       )}
       {loading && !credentials.length && !error && <Loading />}
       {Boolean(credentials.length) && (
         <div className="credential-list">
           {credentials.map((c) => (
-            <article className="credential-card" key={c.id} aria-label={'API-ключ: ' + c.label}>
+            <article className="credential-card" key={c.id} aria-label={'API key: ' + c.label}>
               <div className="section-heading">
                 <div>
                   <h3>{c.label}</h3>
                   <code>{c.id}</code>
                 </div>
                 <Badge tone={c.enabled ? 'success' : 'neutral'}>
-                  {c.enabled ? 'Включён' : 'Отключён'}
+                  {c.enabled ? 'Enabled' : 'Disabled'}
                 </Badge>
               </div>
               <p>
-                {credentialProviders[c.provider]} · {c.uses} профилей во всех компаниях
+                {credentialProviders[c.provider]} · {c.uses} profiles across all companies
               </p>
-              <p className="muted">
-                Значение скрыто · изменён {new Date(c.updated).toLocaleString()}
-              </p>
+              <p className="muted">Value hidden · changed {new Date(c.updated).toLocaleString()}</p>
               <div className="actions">
                 <Button
                   onClick={() => {
                     if (editKey(c)) setDeleting(null);
                   }}
                 >
-                  Изменить / заменить
+                  Edit / rotate
                 </Button>
                 <Button
                   onClick={async () => {
@@ -216,26 +216,26 @@ export function CredentialsPanel({
                     changed();
                     app.notify(
                       c.enabled
-                        ? 'Ключ отключён для новых вызовов всех компаний.'
-                        : 'Ключ включён для новых вызовов.',
+                        ? 'Key disabled for new calls across all companies.'
+                        : 'Key enabled for new calls.',
                     );
                   }}
                 >
-                  {c.enabled ? 'Отключить' : 'Включить'}
+                  {c.enabled ? 'Disable' : 'Enable'}
                 </Button>
                 <Button
                   className="danger"
                   disabled={c.uses > 0}
                   title={
                     c.uses
-                      ? 'Сначала смените ключ во всех использующих его профилях'
-                      : 'Удалить из зашифрованного хранилища'
+                      ? 'First change the key in every profile using it'
+                      : 'Delete from encrypted storage'
                   }
                   onClick={() => {
                     if (editKey(null)) setDeleting(c);
                   }}
                 >
-                  Удалить
+                  Delete
                 </Button>
               </div>
             </article>
@@ -243,44 +243,44 @@ export function CredentialsPanel({
         </div>
       )}
       {deleting && (
-        <div className="info-callout" role="alertdialog" aria-label="Удаление API-ключа">
-          <strong>Удалить ключ «{deleting.label}»?</strong>
+        <div className="info-callout" role="alertdialog" aria-label={'Delete API key'}>
+          <strong>Delete key “{deleting.label}»?</strong>
           <p>
-            Восстановить его значение из админки будет невозможно. Удаление из этой системы не
-            отзывает ключ у поставщика.
+            Its value cannot be recovered from the admin UI. Deleting it here does not revoke it
+            with the provider.
           </p>
           <div className="actions">
-            <Button onClick={() => setDeleting(null)}>Отмена</Button>
+            <Button onClick={() => setDeleting(null)}>Cancel</Button>
             <Button
               className="danger"
               onClick={async () => {
                 await api('secrets.delete', { id: deleting.id, revision: deleting.revision });
                 setDeleting(null);
                 changed();
-                app.notify('Ключ удалён.');
+                app.notify('Key deleted.');
               }}
             >
-              Подтвердить удаление
+              Confirm deletion
             </Button>
           </div>
         </div>
       )}
       <p className="muted">
-        Чтобы удалить используемый ключ, сначала выберите другой в связанных профилях моделей.
-        Отключение останавливает новые обращения к поставщику; уже отправленные запросы могут
-        завершиться. Для проверки ключа выберите его в подключении и проверьте доступность модели.
+        To delete a referenced key, first select another key in its model profiles. Disabling stops
+        new provider calls; requests already sent may finish. To test a key, select it in a
+        connection and check model availability.
       </p>
       <details className="admin-details">
-        <summary>Журнал изменений API-ключей</summary>
+        <summary>API key activity</summary>
         {audit.error && <Loading error={audit.error} retry={audit.reload} />}
         <div className="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Когда</th>
-                <th>Ключ</th>
-                <th>Действие</th>
-                <th>Кто</th>
+                <th>When</th>
+                <th>Key</th>
+                <th>Action</th>
+                <th>Who</th>
               </tr>
             </thead>
             <tbody>
@@ -291,7 +291,7 @@ export function CredentialsPanel({
                     <code>{a.credential}</code>
                   </td>
                   <td>
-                    {auditNames[a.action]} · {a.enabled ? 'включён' : 'отключён'}
+                    {auditNames[a.action]} · {a.enabled ? 'enabled' : 'disabled'}
                   </td>
                   <td>{a.actorLogin}</td>
                 </tr>
@@ -299,17 +299,17 @@ export function CredentialsPanel({
             </tbody>
           </table>
         </div>
-        {audit.data && !audit.data.items.length && <p className="muted">Изменений пока нет.</p>}
+        {audit.data && !audit.data.items.length && <p className="muted">No changes yet.</p>}
         <div className="admin-pagination">
           <Button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-            Назад
+            Previous
           </Button>
-          <span>Страница {page}</span>
+          <span>Page {page}</span>
           <Button
             disabled={!audit.data || page * audit.data.pageSize >= audit.data.total}
             onClick={() => setPage((p) => p + 1)}
           >
-            Далее
+            Next
           </Button>
         </div>
       </details>

@@ -10,9 +10,9 @@ export const KnowledgeBaseSelector = observer(function KnowledgeBaseSelector({
   const app = useApplication();
   return (
     <label className="scope-selector">
-      База знаний
+      Knowledge base
       <select value={value} onChange={(event) => onChange(event.target.value)}>
-        <option value="">Все доступные</option>
+        <option value="">All available</option>
         {app.bases.items.map((base) => (
           <option key={base.id} value={base.id}>
             {base.name}

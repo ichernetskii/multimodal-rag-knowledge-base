@@ -48,7 +48,7 @@ function AccessEditor({
   );
   const label = (id: string) =>
     id.startsWith('group:')
-      ? 'Группа: ' + (groups.find((g) => g.id === id.slice(6))?.name ?? id.slice(6))
+      ? 'Group: ' + (groups.find((g) => g.id === id.slice(6))?.name ?? id.slice(6))
       : (users.data?.items.find((u) => u.id === id)?.login ??
         names.data?.find((u) => u.id === id)?.login ??
         id);
@@ -62,20 +62,20 @@ function AccessEditor({
     <label key={id} className="access-row">
       <span>{name}</span>
       <select
-        aria-label={'Доступ: ' + name}
+        aria-label={'Access: ' + name}
         value={grants.find((g) => g.subject === id)?.access ?? ''}
         onChange={(e) => change(id, e.target.value)}
       >
-        <option value="">Нет доступа</option>
-        <option value="read">Просмотр</option>
-        <option value="edit">Редактирование</option>
+        <option value="">No access</option>
+        <option value="read">Read</option>
+        <option value="edit">Edit</option>
       </select>
     </label>
   );
   return (
     <>
-      <p className="eyebrow">БАЗА ЗНАНИЙ</p>
-      <h2>{collection ? 'Название и доступ' : 'Новая база знаний'}</h2>
+      <p className="eyebrow">KNOWLEDGE BASE</p>
+      <h2>{collection ? 'Name & access' : 'New knowledge base'}</h2>
       <Form
         protectChanges
         submit={async (f) => {
@@ -87,26 +87,26 @@ function AccessEditor({
           done();
         }}
       >
-        <Field label="Название" name="name" value={collection?.name} required />
+        <Field label={'Name'} name="name" value={collection?.name} required />
         <section className="form-section">
-          <h3>Назначенный доступ</h3>
+          <h3>Assigned access</h3>
           <p className="muted">
-            Администраторы имеют доступ ко всем общим базам. Изменения прав сразу учитываются
-            сервером и кешем.
+            Administrators can access all shared knowledge bases. Permission changes take effect
+            immediately on the server and in caches.
           </p>
           {grants.length ? (
             grants.map((g) => row(g.subject, label(g.subject)))
           ) : (
-            <p className="empty-inline">Доступ ещё никому не назначен.</p>
+            <p className="empty-inline">No access has been assigned yet.</p>
           )}
         </section>
         <section className="form-section">
-          <h3>Добавить пользователей и группы</h3>
+          <h3>Add people &amp; groups</h3>
           <label className="field">
-            <span>Поиск пользователей</span>
+            <span>Find people</span>
             <input
               type="search"
-              placeholder="Логин…"
+              placeholder={'Username…'}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -129,22 +129,22 @@ function AccessEditor({
               loading={users.loading}
             />
           )}
-          <h4>Группы</h4>
+          <h4>Groups</h4>
           {groups
             .filter((g) => !grants.some((grant) => grant.subject === 'group:' + g.id))
             .map((g) => row('group:' + g.id, g.name))}
-          {!groups.length && <p className="muted">Создайте группы в разделе «Пользователи».</p>}
+          {!groups.length && <p className="muted">Create groups in the Users section.</p>}
         </section>
       </Form>
       {collection && (
         <Button
           onClick={async () => {
-            if (!window.confirm('Удалить базу знаний и все её документы?')) return;
+            if (!window.confirm('Delete this knowledge base and all its documents?')) return;
             await api('collections.delete', { id: collection.id, revision: collection.revision });
             done();
           }}
         >
-          Удалить базу знаний
+          Delete knowledge base
         </Button>
       )}
     </>
@@ -170,7 +170,7 @@ export function Collections() {
           modal(null);
           load.reload();
           void app.execute(() => app.bases.refresh());
-          app.notify('База знаний и права доступа сохранены.');
+          app.notify('Knowledge base and permissions saved.');
         }}
       />,
     );
@@ -180,27 +180,27 @@ export function Collections() {
   return (
     <>
       <PageHeader
-        eyebrow="ОРГАНИЗАЦИЯ ДОКУМЕНТОВ"
-        title="Базы и доступ"
-        description="Объединяйте документы по задачам и управляйте доступом пользователей и групп."
+        eyebrow={'ORGANIZE DOCUMENTS'}
+        title={'Knowledge bases & access'}
+        description={'Group documents by purpose and manage access for people and groups.'}
         actions={
           <Button className="primary" onClick={() => edit()}>
-            + База знаний
+            + Knowledge base
           </Button>
         }
       />
       <div className="filter-bar standalone">
         <label className="search-field">
-          <span className="sr-only">Найти базу знаний</span>
+          <span className="sr-only">Find a knowledge base</span>
           <input
             type="search"
-            placeholder="Найти базу знаний…"
+            placeholder={'Find a knowledge base…'}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
         <span className="muted">
-          {quantity(load.data?.collections.length ?? 0, 'база', 'базы', 'баз')}
+          {quantity(load.data?.collections.length ?? 0, 'knowledge base', 'knowledge bases')}
         </span>
       </div>
       {load.error && <Loading error={load.error} retry={load.reload} />}{' '}
@@ -212,35 +212,30 @@ export function Collections() {
             <section key={c.id} className="panel collection-card">
               <div className="collection-card-top">
                 <span className="collection-symbol">▤</span>
-                <Badge>{quantity(c.documentCount, 'документ', 'документа', 'документов')}</Badge>
+                <Badge>{quantity(c.documentCount, 'document', 'documents')}</Badge>
               </div>
               <h2>{c.name}</h2>
               <p>
                 {c.grants.length
-                  ? quantity(
-                      c.grants.length,
-                      'назначение доступа',
-                      'назначения доступа',
-                      'назначений доступа',
-                    )
-                  : 'Доступ только у администраторов'}
+                  ? quantity(c.grants.length, 'access grant', 'access grants')
+                  : 'Administrators only'}
               </p>
               <div className="collection-access">
                 {c.grants.slice(0, 4).map((g) => (
                   <span
                     className="access-avatar"
                     key={g.subject}
-                    title={g.subject.startsWith('group:') ? 'Группа' : 'Пользователь'}
+                    title={g.subject.startsWith('group:') ? 'Group' : 'Member'}
                   >
-                    {g.subject.startsWith('group:') ? 'Г' : 'П'}
+                    {g.subject.startsWith('group:') ? 'G' : 'U'}
                   </span>
                 ))}
                 {c.grants.length > 4 && <span>+{c.grants.length - 4}</span>}
               </div>
               <div className="card-footer">
-                <Button onClick={() => edit(c)}>Название и права</Button>
+                <Button onClick={() => edit(c)}>Name &amp; permissions</Button>
                 <Button onClick={() => modal(<Upload collection={c.id} after={load.reload} />)}>
-                  Загрузить
+                  Upload
                 </Button>
               </div>
             </section>
@@ -249,24 +244,24 @@ export function Collections() {
       ) : (
         <section className="panel">
           <EmptyState
-            title={query ? 'Совпадений нет' : 'Создайте первую базу знаний'}
+            title={query ? 'No matches' : 'Create your first knowledge base'}
             description={
               query
-                ? 'Попробуйте другое название.'
-                : 'Назначьте доступ и загрузите документы для поиска и ответов.'
+                ? 'Try another name.'
+                : 'Assign access and upload documents for search and answers.'
             }
           >
             <Button className="primary" onClick={() => edit()}>
-              + База знаний
+              + Knowledge base
             </Button>
           </EmptyState>
         </section>
       )}
       <div className="info-callout">
-        <strong>Личные вложения хранятся отдельно</strong>
+        <strong>Private attachments are stored separately</strong>
         <p>
-          Документы, прикреплённые к диалогу, доступны только его владельцу и не публикуются в этих
-          базах.
+          Documents attached to a conversation are private to its owner and are not published in
+          these knowledge bases.
         </p>
       </div>
     </>

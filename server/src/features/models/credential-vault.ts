@@ -56,13 +56,13 @@ export class CredentialVault {
         ['google', 'anthropic', 'openai-compatible'].includes(provider) &&
         typeof p.enabled === 'boolean',
       'INVALID_INPUT',
-      'Укажите идентификатор, название, поставщика и состояние ключа.',
+      "Provide the key's ID, name, provider, and status.",
     );
     const value = p.value;
     requireValue(
       value === undefined || (typeof value === 'string' && /^[\x21-\x7e]{8,8192}$/u.test(value)),
       'INVALID_CREDENTIAL',
-      'Ключ должен содержать от 8 до 8192 печатных ASCII-символов без пробелов и переносов строк.',
+      'The key must contain 8 to 8192 printable ASCII characters without spaces or line breaks.',
     );
     return this.db.transaction(async () => {
       await this.lock();
@@ -75,24 +75,24 @@ export class CredentialVault {
         requireValue(
           provider === old.provider,
           'CREDENTIAL_PROVIDER_IMMUTABLE',
-          'Для другого поставщика создайте отдельный ключ.',
+          'Create a separate key for a different provider.',
           409,
         );
       } else {
         requireValue(
           number(p, 'revision') === 0,
           'REVISION_CONFLICT',
-          'Ключ был удалён. Обновите список.',
+          'This key was deleted. Refresh the list.',
           409,
         );
-        requireValue(typeof value === 'string', 'CREDENTIAL_REQUIRED', 'Введите API-ключ.');
+        requireValue(typeof value === 'string', 'CREDENTIAL_REQUIRED', 'Enter an API key.');
         const [count] = await this.db.query<{ count: string }>(
           'SELECT count(*) FROM ai_credentials',
         );
         requireValue(
           Number(count?.count) < 200,
           'CREDENTIAL_LIMIT',
-          'Можно сохранить не более 200 ключей платформы.',
+          'The platform can store up to 200 keys.',
           409,
         );
       }
@@ -148,7 +148,7 @@ export class CredentialVault {
         'SELECT * FROM ai_credentials WHERE id=$1 FOR UPDATE',
         [id],
       );
-      requireValue(old, 'NOT_FOUND', 'Ключ не найден.', 404);
+      requireValue(old, 'NOT_FOUND', 'Key not found.', 404);
       revision(p, old);
       const [uses] = await this.db.query<{ count: string }>(
         'SELECT credential_references($1) AS count',
@@ -157,7 +157,7 @@ export class CredentialVault {
       requireValue(
         Number(uses?.count) === 0,
         'CREDENTIAL_IN_USE',
-        'Ключ используется в профилях моделей. Сначала выберите для них другой ключ. Для немедленной остановки новых вызовов отключите ключ.',
+        'This key is used by model profiles. Select another key for those profiles first. To immediately stop new calls, disable the key.',
         409,
       );
       await this.db.query('DELETE FROM ai_credentials WHERE id=$1', [id]);
@@ -177,7 +177,7 @@ export class CredentialVault {
         pageSize >= 1 &&
         pageSize <= 100,
       'INVALID_INPUT',
-      'Некорректная страница журнала.',
+      'Invalid log page.',
     );
     const items = await this.db.query<CredentialAudit>(
       'SELECT id,credential,action,enabled,actor,actor_login AS "actorLogin",created::float8 FROM credential_audits ORDER BY created DESC,id LIMIT $1 OFFSET $2',
@@ -192,7 +192,7 @@ export class CredentialVault {
       requireValue(
         !p.enabled || !['google', 'anthropic'].includes(p.provider),
         'CREDENTIAL_REQUIRED',
-        'Выберите включённый API-ключ владельца платформы.',
+        'Select an enabled API key managed by the platform owner.',
         409,
       );
       return;
@@ -204,13 +204,13 @@ export class CredentialVault {
     requireValue(
       row && row.provider === p.provider,
       'CREDENTIAL_REQUIRED',
-      'Выберите сохранённый ключ того же поставщика.',
+      'Select a saved key for the same provider.',
       409,
     );
     requireValue(
       !p.enabled || row.enabled,
       'CREDENTIAL_DISABLED',
-      'Ключ отключён владельцем платформы.',
+      'The platform owner disabled this key.',
       409,
     );
   }
@@ -220,7 +220,7 @@ export class CredentialVault {
       requireValue(
         !['google', 'anthropic'].includes(p.provider),
         'PROVIDER_SECRET_MISSING',
-        'API-ключ не настроен. Владелец платформы может добавить его в разделе «AI-подключения и ключи».',
+        'API key is not configured. The platform owner can add it under “AI connections and keys”.',
         503,
       );
       return '';
@@ -231,13 +231,13 @@ export class CredentialVault {
     requireValue(
       row && row.provider === p.provider,
       'PROVIDER_SECRET_MISSING',
-      'API-ключ не настроен. Обратитесь к владельцу платформы.',
+      'API key is not configured. Contact the platform owner.',
       503,
     );
     requireValue(
       row.enabled,
       'CREDENTIAL_DISABLED',
-      'API-ключ отключён владельцем платформы.',
+      'The platform owner disabled this API key.',
       503,
     );
     return this.cipher.open(row.id, row.provider, row);

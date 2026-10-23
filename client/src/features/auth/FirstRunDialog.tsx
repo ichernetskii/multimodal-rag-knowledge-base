@@ -15,14 +15,14 @@ export function Welcome({ finished }: { finished: () => void }) {
     [collection, setCollection] = useState('');
   return (
     <>
-      <h2>Первый запуск · 2 / 3</h2>
-      <p>Проверка моделей и оборудования</p>
+      <h2>First run · 2 / 3</h2>
+      <p>Check models &amp; hardware</p>
       {load.data ? (
         <>
           <p>
-            {load.data.hardware.cores} ядер ·{' '}
-            {Math.round(load.data.hardware.totalMemory / 1024 ** 3)} ГиБ RAM ·{' '}
-            {Math.round(load.data.freeBytes / 1024 ** 3)} ГиБ свободно
+            {load.data.hardware.cores} cores ·{' '}
+            {Math.round(load.data.hardware.totalMemory / 1024 ** 3)} GiB RAM ·{' '}
+            {Math.round(load.data.freeBytes / 1024 ** 3)} GiB free
           </p>
           <p
             className={
@@ -31,8 +31,8 @@ export function Welcome({ finished }: { finished: () => void }) {
                 : 'warning'
             }
           >
-            Поиск: {load.data.dependencies.embedding ? 'готов' : 'недоступен'}; генерация:{' '}
-            {load.data.dependencies.generation ? 'готова' : 'недоступна'}
+            Search: {load.data.dependencies.embedding ? 'ready' : 'unavailable'}; generation:{' '}
+            {load.data.dependencies.generation ? 'ready' : 'unavailable'}
           </p>
         </>
       ) : (
@@ -42,13 +42,13 @@ export function Welcome({ finished }: { finished: () => void }) {
         <Upload
           collection={collection}
           after={() => {
-            app.notify('Этап 3 / 3: дождитесь индексации и задайте контрольный вопрос.');
+            app.notify('Step 3 / 3: wait for indexing, then ask a test question.');
             finished();
           }}
         />
       ) : (
         <Form
-          label="Создать первую базу"
+          label={'Create first knowledge base'}
           submit={async (f) => {
             const c = await api('collections.save', {
               name: text(f, 'name'),
@@ -58,10 +58,10 @@ export function Welcome({ finished }: { finished: () => void }) {
             setCollection(c.id);
           }}
         >
-          <Field label="Первая база знаний" name="name" value="Документы" required />
+          <Field label={'First knowledge base'} name="name" value={'Documents'} required />
         </Form>
       )}
-      <Button onClick={finished}>Перейти к библиотеке</Button>
+      <Button onClick={finished}>Open library</Button>
     </>
   );
 }

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useApplication } from '../../shared/lib/application-context';
 import { defaultAdminTab, type AdminSection } from './admin-sections';
 export const money = (micros: number) =>
-  new Intl.NumberFormat('ru-RU', {
+  new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: micros > 0 && micros < 10000 ? 6 : 2,

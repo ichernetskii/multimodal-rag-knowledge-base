@@ -22,7 +22,7 @@ import { terminal } from '../src/contracts/public.js';
 void test(
   'SaaS: durable jobs, multipart S3, citations, tenant/ACL isolation, backup and restore',
   { skip: process.env.RUN_INTEGRATION !== '1', timeout: 300000 },
-  async () => {
+  async (t) => {
     process.loadEnvFile(new URL('../../.env', import.meta.url));
     const config = loadDeployment({
       ...process.env,
@@ -67,6 +67,20 @@ void test(
     };
     const server = createHttpServer(app);
     try {
+      const failedName = 'Failed company creation ' + suffix;
+      const audit = t.mock.method(app.s.identity, 'audit', async () => {
+        throw new Error('Simulated audit write failure');
+      });
+      try {
+        await assert.rejects(call('tenants.create', { name: failedName }), /Simulated audit/u);
+      } finally {
+        audit.mock.restore();
+      }
+      assert.equal(
+        (await app.s.db.query('SELECT id FROM tenants WHERE name=$1', [failedName])).length,
+        0,
+        'Failed company creation must roll back the company, membership, and profiles together.',
+      );
       await app.s.queue.runWorker();
       await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
       const address = server.address();
@@ -77,6 +91,16 @@ void test(
         body: '{}',
       });
       assert.equal(unauthorized.status, 401);
+      for (const scope of [[], '', 42, true])
+        for (const action of ['search', 'documents.list'])
+          await assert.rejects(
+            app.execute(
+              action,
+              { ...(action === 'search' ? { question: 'Invalid scope' } : {}), scope },
+              user,
+            ),
+            { code: 'INVALID_INPUT' },
+          );
       await credentialScenario(app, config, user, other, origin, account.token);
       await billingScenario(app, user, other);
       await transcriptionScenario(app, user);
@@ -131,7 +155,7 @@ void test(
           revision: detail.document.revision,
           state: 'published',
         }),
-        /Сначала откройте документ/u,
+        /Open the document/u,
       );
       await assert.rejects(
         call('documents.publish', {
@@ -188,7 +212,7 @@ void test(
           page: 1,
           text: 'stale change',
         }),
-        /изменена/u,
+        /changed/u,
       );
       Object.assign(detail.document, corrected);
       await wait(

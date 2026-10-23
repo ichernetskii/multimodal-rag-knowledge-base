@@ -1,6 +1,6 @@
 import type { Services } from '../../application/services.js';
 import type { DocumentListItem, DocumentRecord, Job, Principal } from '../../contracts/public.js';
-import { number, string, type Input } from '../../shared/input.js';
+import { number, string, object, type Input } from '../../shared/input.js';
 import { requireValue } from '../../shared/errors.js';
 import type { Documents } from './saas-documents.js';
 
@@ -22,7 +22,7 @@ export class DocumentCatalog {
       'INVALID_INPUT',
       'Invalid material list page.',
     );
-    const selection = await this.documents.scope(user, (input.scope ?? {}) as Input);
+    const selection = await this.documents.scope(user, object(input, 'scope'));
     const collections = await this.documents.allowedCollections(user);
     const editable = collections
       .filter(

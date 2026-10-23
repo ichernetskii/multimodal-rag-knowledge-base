@@ -49,7 +49,7 @@ await isolatedDatabase(async (app, config) => {
   };
   try {
     await app.s.queue.runWorker();
-    await call('tenants.create', { name: 'Пустая компания B' });
+    await call('tenants.create', { name: 'Empty company B' });
     const members = [];
     for (const role of ['admin', 'editor', 'user'] as const)
       members.push(
@@ -60,7 +60,7 @@ await isolatedDatabase(async (app, config) => {
         }),
       );
     const base = await call('collections.save', {
-      name: 'Учебные материалы',
+      name: 'Sample materials',
       grants: members.map((member) => ({
         subject: member.id,
         access: member.role === 'editor' ? ('edit' as const) : ('read' as const),
@@ -109,7 +109,7 @@ await isolatedDatabase(async (app, config) => {
       console.log(
         'Fixture: ' +
           name +
-          (publish ? ' · опубликован' : failure ? ' · ошибка обработки' : ' · на проверке'),
+          (publish ? ' · published' : failure ? ' · processing failed' : ' · awaiting review'),
       );
     };
     const manifest = JSON.parse(
@@ -127,15 +127,17 @@ await isolatedDatabase(async (app, config) => {
     const reference = Array.from(
       { length: 120 },
       (_, index) =>
-        `${index + 1}. Раздел универсального справочника\n\nПроверьте номер заявки, актуальность документа и ответственного сотрудника. Результат проверки запишите в журнал. Не подменяйте измерения предположениями.\n\n${[15, 17, 78, 102].includes(index) ? 'Код P-204 означает запрос дополнительной проверки. Код используется в учебном примере.' : 'Следуйте утверждённой процедуре и сохраните подтверждающие материалы.'}\n\n`,
+        `${index + 1}. Universal reference guide section Check the request number, document validity, and responsible team member. Record the verification in the log. Do not replace measurements with assumptions.
+
+${[15, 17, 78, 102].includes(index) ? 'Code P-204 requests an additional review. This code is used in the sample.' : 'Follow the approved procedure and keep supporting evidence.'}\n\n`,
     ).join('\n');
     await mkdir('.artifacts/verification', { recursive: true });
     await writeFile('.artifacts/verification/long-reference.txt', reference);
-    await upload('Длинный учебный справочник.txt', Buffer.from(reference), false);
-    await upload('Повреждённый файл.pdf', Buffer.from('Invalid PDF fixture.'), false, true);
+    await upload('Long reference guide.txt', Buffer.from(reference), false);
+    await upload('Damaged file.pdf', Buffer.from('Invalid PDF fixture.'), false, true);
     await call('secrets.save', {
       id: 'qa-disabled',
-      label: 'Учебный отключённый ключ',
+      label: 'Disabled sample key',
       provider: 'google',
       enabled: false,
       value: 'qa-only-invalid-key-value',

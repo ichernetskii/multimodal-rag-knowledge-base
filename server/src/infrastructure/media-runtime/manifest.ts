@@ -44,7 +44,7 @@ export function cmakeAsset(
   const sha256 = sums[system];
   if (!sha256)
     throw new Error(
-      'Нативная подготовка поддерживает macOS/Linux x64/arm64. Для Windows используйте Docker/WSL2.',
+      'Native preparation supports macOS/Linux x64/arm64. Use Docker/WSL2 on Windows.',
     );
   return {
     url: `https://github.com/Kitware/CMake/releases/download/v4.4.4/cmake-4.4.4-${system}.tar.gz`,

@@ -31,26 +31,26 @@ export const TurnView = observer(function TurnView({
     <article className="turn">
       <div className="question">{t.question}</div>
       <span className={'status ' + t.status} role="status">
-        {t.redacted ? 'Доступ к источникам отозван' : statuses[t.status]}
+        {t.redacted ? 'Access to sources revoked' : statuses[t.status]}
       </span>
       {job?.error && !t.redacted && (
         <p className="error">
-          {typeof job.result.message === 'string' ? job.result.message : 'Техническая ошибка'} ·{' '}
+          {typeof job.result.message === 'string' ? job.result.message : 'Technical error'} ·{' '}
           {job.error} · {job.diagnostic}
         </p>
       )}
       <Markdown
-        text={answer || (terminal.has(t.status) ? 'Ответ не завершён.' : 'Задание выполняется…')}
+        text={answer || (terminal.has(t.status) ? 'Answer incomplete.' : 'Job in progress…')}
         sources={t.sources}
         onSource={(s) => modal(<Source source={s} />)}
       />
       {!!t.sources.length && (
         <div className="sources">
-          <strong>Источники</strong>
+          <strong>Sources</strong>
           {t.sources.map((s) => (
             <Button key={s.chunk} onClick={() => modal(<Source source={s} />)}>
               [{s.id}] {s.name} · {s.section} ·{' '}
-              {s.media?.startMs === undefined ? `стр. ${s.page}` : mediaTime(s.media.startMs)}
+              {s.media?.startMs === undefined ? `p. ${s.page}` : mediaTime(s.media.startMs)}
             </Button>
           ))}
         </div>
@@ -61,31 +61,31 @@ export const TurnView = observer(function TurnView({
           onClick={async () => {
             if (!navigator.clipboard)
               throw new Error(
-                'Копирование доступно через HTTPS или localhost. Выделите текст ответа для ручного копирования.',
+                'Copying requires HTTPS or localhost. Select the answer text to copy it manually.',
               );
             await navigator.clipboard.writeText(answer);
-            app.notify('Ответ скопирован.');
+            app.notify('Answer copied.');
           }}
         >
-          Копировать
+          Copy
         </Button>
         <Button
           onClick={() =>
             modal(
               <>
-                <h2>Новая версия вопроса</h2>
+                <h2>New question version</h2>
                 <p>
-                  Предыдущий результат сохранится. Следующие сообщения продолжат выбранную версию.
+                  The previous result stays saved. New messages will continue the selected version.
                 </p>
                 <Form
-                  label="Создать версию"
+                  label={'Create version'}
                   submit={async (f) => {
                     await app.chat.send(text(f, 'question'), t.id);
                     modal(null);
                   }}
                 >
                   <Field
-                    label="Вопрос"
+                    label={'Question'}
                     name="question"
                     type="textarea"
                     value={t.question}
@@ -96,12 +96,12 @@ export const TurnView = observer(function TurnView({
             )
           }
         >
-          Редактировать вопрос
+          Edit question
         </Button>
         <Button onClick={() => app.chat.send(t.question, t.id)} disabled={app.chat.busy}>
-          Повторить
+          Retry
         </Button>
-        <Button onClick={() => modal(<Feedback turn={t} />)}>Оценить / ошибка</Button>
+        <Button onClick={() => modal(<Feedback turn={t} />)}>Rate / report issue</Button>
         {!terminal.has(t.status) && (
           <Button
             onClick={async () => {
@@ -109,7 +109,7 @@ export const TurnView = observer(function TurnView({
               await app.chat.refreshChat();
             }}
           >
-            Отменить
+            Cancel
           </Button>
         )}
         {versions > 1 && (
@@ -124,7 +124,7 @@ export const TurnView = observer(function TurnView({
               )
             }
           >
-            Версии вопроса · {versions}
+            Question versions · {versions}
           </Button>
         )}
       </div>

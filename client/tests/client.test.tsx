@@ -43,12 +43,14 @@ const job: Job = {
   settings: '',
 };
 beforeEach(() => {
-  const values = new Map<string, string>();
-  vi.stubGlobal('localStorage', {
-    getItem: (k: string) => values.get(k) ?? null,
-    setItem: (k: string, v: string) => values.set(k, v),
-    removeItem: (k: string) => values.delete(k),
-  });
+  for (const name of ['localStorage', 'sessionStorage']) {
+    const values = new Map<string, string>();
+    vi.stubGlobal(name, {
+      getItem: (k: string) => values.get(k) ?? null,
+      setItem: (k: string, v: string) => values.set(k, v),
+      removeItem: (k: string) => values.delete(k),
+    });
+  }
 });
 afterEach(() => {
   vi.unstubAllGlobals();

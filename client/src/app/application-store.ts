@@ -48,7 +48,7 @@ export class ApplicationStore {
             ? error.message
             : typeof error === 'object' && error && 'message' in error
               ? String(error.message)
-              : 'Ошибка потока',
+              : 'Stream error',
         );
         void this.execute(() => this.chat.refreshChat());
       },
@@ -160,7 +160,7 @@ export class ApplicationStore {
   };
   handleError(error: unknown, notify = true) {
     if (notify)
-      this.notice = error instanceof Error ? error.message : 'Не удалось выполнить действие.';
+      this.notice = error instanceof Error ? error.message : 'Could not complete the action.';
     if (error instanceof ApiError && error.status === 401 && error.code !== 'AUTH_FAILED')
       this.session.signedOut();
   }

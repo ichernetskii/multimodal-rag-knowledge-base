@@ -65,6 +65,23 @@ async function run(args: string[], input?: string) {
   });
 }
 const compose = (args: string[], input?: string) => run([...base, ...args], input);
+async function waitForApiReadiness() {
+  let lastStatus = 'not reachable';
+  for (const deadline = Date.now() + 60000; Date.now() < deadline;) {
+    try {
+      const response = await fetch(origin + '/health/ready', {
+        signal: AbortSignal.timeout(2000),
+      });
+      await response.body?.cancel();
+      if (response.ok) return;
+      lastStatus = 'HTTP ' + response.status;
+    } catch (error) {
+      lastStatus = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  throw new Error('API did not become ready after restart: ' + lastStatus);
+}
 async function step(name: string, work: () => Promise<void>) {
   const start = performance.now();
   await work();
@@ -196,6 +213,7 @@ try {
     const accepted = await api('answers.create', input);
     assert.equal((await api('answers.create', input)).job.id, accepted.job.id);
     await compose(['restart', 'api']);
+    await waitForApiReadiness();
     await compose(['start', 'worker-answers']);
     await wait(accepted.job.id);
     const response = await fetch(origin + '/api/events/' + accepted.job.id, {
@@ -289,7 +307,7 @@ try {
         child.once('exit', (code) => (code === 0 ? done() : reject(new Error(output))));
       });
       const imported = (await api('collections.list', {})).find((collection) =>
-        collection.name.startsWith('Учебная база · '),
+        collection.name.startsWith('Sample knowledge base · '),
       );
       assert.ok(imported);
       assert.equal(imported.documentCount, 9);

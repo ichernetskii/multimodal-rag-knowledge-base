@@ -1,18 +1,21 @@
-# Клиент
+# Web client
 
-React + Vite + TypeScript + MobX. `src/app` собирает приложение и передаёт хранилища через provider; `src/features` содержит отдельные функции; `src/shared` содержит общие UI, HTTP-клиент и генерируемые DTO.
+The React, Vite, TypeScript, and MobX client for **Multimodal RAG Knowledge Base**. `src/app` composes the application and stores; `src/features` contains workflows; `src/shared` contains UI components, the HTTP client, and generated contracts.
+
+Run these commands from the repository root:
 
 ```sh
-# Из корня проекта:
 yarn dev:client
 yarn build:client
 yarn workspace @local-rag/client test
 ```
 
-API/SSE в разработке проксируются Vite на сервер. В production используются локальные assets без CDN. Контракт генерируется командой `yarn contracts:generate`; изменения выполняются в серверном `contracts/public.ts`. [Архитектура](../docs/ARCHITECTURE.md), [разработка](../docs/DEVELOPMENT.md).
+Vite proxies API/SSE requests to the server in development. Production assets are bundled locally without a CDN. Run `yarn contracts:generate` after editing `server/src/contracts/public.ts`; the browser never imports server implementations.
 
-`yarn start:client` запускает самостоятельный Node gateway на 8080 после сборки. В контейнере assets обслуживает nginx; серверные модели и зависимости в образ клиента не входят. Настройки Vite/gateway описаны в [CONFIGURATION.md](../docs/CONFIGURATION.md#клиент), TLS и службы — в [OPERATIONS.md](../docs/OPERATIONS.md). Поведение чата и админки — в [USAGE.md](../docs/USAGE.md).
+`yarn start:client` serves the production build through the Node gateway on port 8080. The container uses nginx. See [configuration](../docs/CONFIGURATION.md#client), [development](../docs/DEVELOPMENT.md), and [deployment](../docs/OPERATIONS.md).
 
-Навигация и её права определены в `src/features/admin/admin-sections.ts`; проверки меню не заменяют авторизацию сервера. Профили компании и общий реестр ключей имеют разные области действия. Удалённая/недоступная текущая модель показывается явно и не заменяется первым вариантом списка. Состояние активного поискового индекса и проверка доступности модели показываются отдельно.
+Navigation scopes and permissions live in `src/features/admin/admin-sections.ts`. Company settings, company model connections, and the platform credential vault have explicit scopes. Menu visibility complements server authorization. An unavailable selected model is shown explicitly; the client does not silently select another model. Model availability and active index status are separate.
 
-[Прототип новой админки и критерии реализации](../docs/ADMIN-UX.md) описывают будущую структуру AI и базы знаний. Прототип не является подключённой React-страницей и не меняет текущие контракты или роли.
+See [application usage](../docs/USAGE.md) and [admin workflows](../docs/ADMIN-UX.md) for the implemented workspace, review, document reader, and role boundaries.
+
+[Russian README](README.ru.md)

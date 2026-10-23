@@ -1,36 +1,37 @@
-# Рефакторинг и сопровождение
+# Maintenance and code organization
 
-Новая админка реализована поверх публичного API. Клиент не импортирует серверные сервисы. В проекте остаётся один текущий контракт и формат БД; устаревшие разделы навигации и адаптеры не сохраняются. Текущие результаты проверок описаны в [VERIFICATION](VERIFICATION.md), исторические отчёты не выданы за новые прогоны.
+The admin uses the public API. Client code never imports server services. There is one current contract and database format, with no compatibility adapters. See [verification](VERIFICATION.md) for reproducible checks.
 
-## Что изменено
+## Main boundaries
 
-| Проблема                                                                    | Изменение                                                                                                           |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Разделы компании и платформы смешивались, меню менялось при входе в админку | Постоянные подписанные группы, явная область в заголовке, выбор компании только на её страницах                     |
-| Подключения, назначения и ключи выглядели как одна сущность                 | Назначения по задачам, профили компании с группами размещения, общий операторский реестр ключей                     |
-| Опубликованную обработку нельзя было исправить без новой загрузки           | documents.revise создаёт отдельную review-версию с независимыми копиями файлов; старый поиск работает до публикации |
-| Большая форма профиля содержалась в странице каталога                       | Выделены ModelProfileEditor и каталог возможностей; доступные задачи/входы зависят от адаптера                      |
-| Материалы, доступ, папки и качество были разрозненными разделами            | Единый workspace базы знаний с вкладками по правам                                                                  |
-| Читатель загружал полные тексты всех версий                                 | document-reader, summaries и bounded windows; поиск с точными позициями и исправление диапазона                     |
-| Список документов делал запросы версий/заданий для каждой строки            | document-catalog с фиксированным числом запросов и индексами metadata/recent jobs                                   |
-| Черновики и пути папок оставались видимы после отзыва edit                  | Единая серверная проверка документа/версии и фильтрация connector metadata                                          |
-| Личный длинный файл целиком попадал в контекст                              | Используются индексированные фрагменты, релевантный найденный фрагмент имеет приоритет                              |
-| Ограничение числа медиа выкидывало и подготовленный текст                   | Ограничены двоичные входы, готовые описания/расшифровки сохраняются в контексте                                     |
-| Поиск продолжался после смены компании/закрытия страницы                    | AbortSignal проходит до ad hoc поиска; durable задания сохраняются отдельно                                         |
-| Несохранённая правка терялась при переходах                                 | Единый реестр dirty-форм без значений, защита перехода/вкладки/компании/диалога                                     |
-| Restore пытался вставлять generated columns                                 | Копия текущего формата экспортирует только writable columns и проверяет их при restore                              |
-| Старый FFmpeg выглядел работоспособным, но видео падало                     | Проверяется receipt текущего runtime и наличие libx264; причина и установка показаны оператору                      |
-| Тесты зависели от состояния рабочей БД                                      | Изолированные БД и S3 bucket с уникальным именем и очисткой собственных ресурсов                                    |
-| Изменения приложения инвалидировали медленную apt-стадию сборки медиа       | Самостоятельная media-build стадия с закреплённым базовым образом                                                   |
+| Area                                  | Responsibility                                                             |
+| ------------------------------------- | -------------------------------------------------------------------------- |
+| `client/src/app`                      | Composition, stores, scoped navigation, unsaved-form registry              |
+| `client/src/features`                 | Knowledge workspace, reader/find, model editor, company/platform workflows |
+| `server/src/application`              | Public action validation and dispatch                                      |
+| `server/src/features/knowledge-bases` | Grants, batched counts, transactional base mutations                       |
+| `server/src/features/documents`       | Metadata catalog, bounded reader, safe review/correction versions          |
+| `server/src/features/operations`      | Retention, garbage collection, operational workflows                       |
+| `server/resources/extraction`         | Required Python/Swift runtime helpers                                      |
+| `tooling`                             | Development, build, configuration, and isolated verification commands      |
+| `examples/knowledge-base`             | Fixed multimodal inputs and checksummed manifest                           |
 
-## Структура и очистка
+Document lists fetch metadata with bounded query counts instead of loading every version/transcript. Reading and comparing use text windows. UTF-16 range corrections preserve untouched content. Personal attachments supply relevant indexed fragments rather than entire long pages.
 
-Удалён заменённый OverviewPage и стили старых карточек/разворачиваемой навигации. Удалены собственные промежуточные Docker-ресурсы и прерванная временная сборка медиатулов объёмом 418 МиБ. Новые роли/вкладки описаны в одном admin-sections. Публичные изменения синхронизированы между сервером, клиентом, CLI, тестами и API-документацией. Устаревшие маршруты не дублируют текущие.
+Correction versions copy originals and derivatives independently. Storage, revision, current access, and job-attempt fences protect writes. Current publication/index remains active until the candidate succeeds. OCR/ASR/description generation is not repeated just to correct text. Video previews use a poster inside the player instead of displaying the same frame twice.
 
-Исходные учебные материалы всех модальностей находятся в `examples/knowledge-base`, проверяются манифестом и импортируются через API. Одноразовые большие/повреждённые файлы создаёт тестовый workspace в игнорируемом `.artifacts/verification`. Поддерживаемые команды находятся в `tooling`, необходимые Python/Swift декодеры — в `server/resources/extraction`; каталог `server/scripts` не нужен.
+Provider credentials belong to the encrypted platform vault. Tenant backups cannot rewind keys, prices, usage, or owner entitlements. Company settings and deployment resource limits are separate.
 
-Управляемые media/OCR caches, веса Whisper и Python venv — рабочие зависимости, они не удаляются как мусор. Исторические отчёты с доказательствами сохраняются. Рабочая БД с предыдущей схемой не изменяется автоматически: для проверки новой схемы используются отдельные ресурсы. Несовместимые копии отклоняются, миграций и преобразования старых данных нет.
+## Publication hygiene
 
-## Практика дальнейших изменений
+Public documentation and the application interface use English. Each README has a Russian `README.ru.md` counterpart, including the [main introduction](../README.ru.md). Existing package scopes, CLI storage paths, and Compose project identifiers remain stable technical identifiers; the product/repository name is Multimodal RAG Knowledge Base.
 
-Проверять права на уровне выдачи фрагмента/версии/asset, а не только видимость кнопки. Для больших данных держать HTTP-ответы ограниченными; метаданные не должны повторно передавать полные расшифровки. При смене модели поиска строить кандидат и включать его явно после проверки. Изменения ключей не должны попадать в tenant backup или сбрасывать расходы компании. Платные провайдеры требуют отдельной проверки качества/биллинга; TEST AI проверяет протокол и сценарии.
+Private `.env` files, credentials, runtime caches, weights, databases, uploads, snapshots, generated logs, and historical internal reports stay outside tracked source. `.gitignore` and `.dockerignore` enforce these boundaries. Curated real-app screenshots use disposable sample data.
+
+The old `server/scripts`, duplicate sample directories, replaced navigation, and old API adapters are not needed. Managed runtimes, model weights, and Python environments are working local dependencies, not disposable source clutter. Removing tracked historical reports does not remove them from Git history; history is scanned separately for secrets.
+
+## Changing the product
+
+Keep authorization at every version/fragment/asset boundary. Keep HTTP responses bounded. Build and explicitly activate a candidate when changing embedding space. Preserve diagnostic reasons rather than reporting a failed dependency as ready. Check real provider behavior separately from deterministic TEST AI infrastructure scenarios.
+
+Use isolated databases and buckets for integration/browser verification; never reset a working installation merely to run tests. Incompatible formats are rejected. Recreate only disposable development/test resources instead of adding migrations for unreleased schemas.

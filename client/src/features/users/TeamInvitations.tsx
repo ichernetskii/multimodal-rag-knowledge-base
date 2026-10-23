@@ -11,10 +11,13 @@ export function TeamInvitations() {
     [link, setLink] = useState('');
   return (
     <section className="panel">
-      <h2>Пригласить сотрудника</h2>
-      <p>Создайте одноразовую ссылку и передайте её сотруднику. Он самостоятельно задаст пароль.</p>
+      <h2>Invite a team member</h2>
+      <p>
+        Create a single-use link and share it with your team member. They will set their own
+        password.
+      </p>
       <Form
-        label="Создать приглашение"
+        label={'Create invitation'}
         submit={async (f) => {
           const invitation = await api('invitations.create', {
             login: text(f, 'login'),
@@ -25,9 +28,9 @@ export function TeamInvitations() {
         }}
       >
         <div className="form-grid">
-          <Field label="Логин приглашённого" name="login" required />
+          <Field label={'Invited username'} name="login" required />
           <Select
-            label="Роль приглашённого"
+            label={'Invited role'}
             name="role"
             value="user"
             options={Object.entries(roleNames)}
@@ -36,29 +39,29 @@ export function TeamInvitations() {
       </Form>
       {link && (
         <div className="info-callout" role="status">
-          <strong>Ссылка готова. Сохраните её: повторно она не показывается.</strong>
+          <strong>Your link is ready. Save it now: it will not be shown again.</strong>
           <label>
-            Ссылка приглашения
+            Invitation link
             <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} />
           </label>
           <p>
-            Каждый, кто получит эту ссылку, сможет принять приглашение. Передавайте её только
-            нужному сотруднику.
+            Anyone with this link can accept the invitation. Share it only with the intended team
+            member.
           </p>
         </div>
       )}
       {load.error && <Loading error={load.error} retry={load.reload} />}
       {Boolean(load.data?.length) && (
         <details className="admin-details">
-          <summary>Приглашения ({load.data?.length})</summary>
+          <summary>Invitations ({load.data?.length})</summary>
           <div className="table-wrap">
             <table>
               <thead>
                 <tr>
-                  <th>Логин</th>
-                  <th>Роль</th>
-                  <th>Состояние</th>
-                  <th>Действие</th>
+                  <th>Username</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -68,10 +71,10 @@ export function TeamInvitations() {
                     <td>{roleNames[i.role]}</td>
                     <td>
                       {i.used
-                        ? 'Принято'
+                        ? 'Accepted'
                         : i.expires < Date.now()
-                          ? 'Истекло'
-                          : 'До ' + new Date(i.expires).toLocaleString()}
+                          ? 'Expired'
+                          : 'Until ' + new Date(i.expires).toLocaleString()}
                     </td>
                     <td>
                       {!i.used && (
@@ -81,7 +84,7 @@ export function TeamInvitations() {
                             load.reload();
                           }}
                         >
-                          Отозвать
+                          Revoke
                         </Button>
                       )}
                     </td>

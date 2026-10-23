@@ -9,10 +9,10 @@ import { ModelAvailability } from '../saas/ModelAvailability';
 import { Limits } from '../settings/SettingsPage';
 import { AdminLink, money } from './AdminUI';
 const indexStates = {
-  building: 'Строится',
-  ready: 'Готов к переключению',
-  active: 'Используется в поиске',
-  failed: 'Построение не удалось',
+  building: 'Building',
+  ready: 'Ready to activate',
+  active: 'Active for search',
+  failed: 'Build failed',
 } as const;
 export function Indexes() {
   const app = useApplication(),
@@ -30,43 +30,40 @@ export function Indexes() {
     <>
       <div className="section-heading">
         <div>
-          <h2>Модель поиска и индекс</h2>
-          <p>
-            При замене модели сначала строится новый индекс, затем вы включаете его. Текущий поиск
-            продолжает работать.
-          </p>
+          <h2>Search model &amp; index</h2>
+          <p>Build a new index before switching models. Your current search remains available.</p>
         </div>
       </div>
       <section className="panel">
         <div className="section-heading">
           <div>
-            <h2>Сейчас в поиске</h2>
+            <h2>Currently used for search</h2>
             <p>
               {models.loading || settings.loading
-                ? 'Загрузка модели…'
-                : (active?.name ?? 'Модель поиска недоступна')}{' '}
+                ? 'Loading model…'
+                : (active?.name ?? 'Search model unavailable')}{' '}
               {active && <code>{active.model}</code>}
             </p>
           </div>
           <Badge tone={activeIndex ? 'success' : 'neutral'}>
             {indexes.loading
-              ? 'Проверяем индекс…'
+              ? 'Checking index…'
               : indexes.error
-                ? 'Состояние индекса неизвестно'
+                ? 'Index status unknown'
                 : activeIndex
-                  ? 'Индекс активен'
-                  : 'Поиск ещё не подготовлен'}
+                  ? 'Index active'
+                  : 'Search is not ready yet'}
           </Badge>
         </div>
         <p>
-          Обычное добавление документов обновляет активный индекс автоматически. Перестроение нужно
-          при смене модели поиска.
+          New documents update the active index automatically. Rebuild when changing the search
+          model.
         </p>
         {active && <ModelAvailability profile={active} />}
         {!indexes.loading && !indexes.error && !activeIndex && (
           <p className="info-callout">
-            Опубликуйте первый материал или постройте индекс ниже. До завершения индексации
-            материалы не участвуют в поиске.
+            Publish your first material or build an index below. Materials become searchable after
+            indexing completes.
           </p>
         )}
       </section>
@@ -76,28 +73,27 @@ export function Indexes() {
         </p>
       )}
       <section className="panel">
-        <h2>Подготовить другой индекс</h2>
+        <h2>Prepare a different index</h2>
         <ol className="admin-steps">
-          <li>Выберите доступную модель поиска.</li>
-          <li>Дождитесь завершения построения — текущий поиск продолжит работать.</li>
-          <li>Проверьте результат и нажмите «Использовать в поиске».</li>
+          <li>Choose an available search model.</li>
+          <li>Wait for the build to finish. Your current search remains available.</li>
+          <li>Review the result, then select Use for search.</li>
         </ol>
         <p>
-          Если новой модели нужен текст, недостающие описания и расшифровки подготовятся
-          автоматически. Уже готовый текст сохранится. Описания создаёт модель ответов с поддержкой
-          изображений, расшифровки — выбранный Whisper или Google Gemini. Внешние вызовы учитываются
-          в бюджете компании. Проверьте подготовленный текст в материалах перед включением нового
-          поиска.
+          If the new model needs text, missing descriptions and transcripts are prepared
+          automatically. Existing text is preserved. The image-capable answer model creates
+          descriptions; your selected Whisper or Google Gemini profile transcribes speech. External
+          calls count toward the company budget. Review the prepared text before activating the new
+          search index.
         </p>
         {models.error && <Loading error={models.error} retry={models.reload} />}
         {models.data && !choices.length && (
           <p className="info-callout">
-            Нет разрешённых моделей поиска. Обратитесь к владельцу платформы для настройки
-            AI-подключения.
+            No approved search models. Ask the platform owner to configure an AI connection.
           </p>
         )}
         <Form
-          label="Построить новый индекс"
+          label={'Build new index'}
           disabled={!profile}
           submit={async () => {
             if (!profile) return;
@@ -105,11 +101,11 @@ export function Indexes() {
             app.jobs.upsert(job);
             app.jobs.watch(job);
             indexes.reload();
-            setMessage('Индекс строится. Список ниже обновляется автоматически.');
+            setMessage('Index build in progress. The list below refreshes automatically.');
           }}
         >
           <label>
-            Модель поиска
+            Search model
             <select
               value={profile?.id ?? ''}
               onChange={(e) => setSelected(e.target.value)}
@@ -127,14 +123,14 @@ export function Indexes() {
       </section>
       <section className="panel">
         <div className="section-heading">
-          <h2>Индексы компании</h2>
-          <Button onClick={indexes.reload}>Обновить</Button>
+          <h2>Company indexes</h2>
+          <Button onClick={indexes.reload}>Refresh</Button>
         </div>
         {indexes.error && <Loading error={indexes.error} retry={indexes.reload} />}
         {indexes.data?.length === 0 && (
           <EmptyState
-            title="Отдельных индексов пока нет"
-            description="Добавьте документы или подготовьте новый индекс с выбранной моделью."
+            title={'No separate indexes yet'}
+            description={'Add documents or prepare a new index with the selected model.'}
           />
         )}
         <div className="admin-index-list">
@@ -142,10 +138,10 @@ export function Indexes() {
             <article className="admin-index" key={i.id}>
               <div>
                 <strong>
-                  {models.data?.find((p) => p.id === i.profile)?.name ?? 'Модель поиска'}
+                  {models.data?.find((p) => p.id === i.profile)?.name ?? 'Search model'}
                 </strong>
                 <p>
-                  {new Date(i.created).toLocaleString()} · {i.documents} документов при построении
+                  {new Date(i.created).toLocaleString()} · {i.documents} documents at build time
                 </p>
                 <Badge
                   tone={
@@ -161,7 +157,7 @@ export function Indexes() {
                   {indexStates[i.state]}
                 </Badge>
                 <details>
-                  <summary>Технический идентификатор</summary>
+                  <summary>Technical identifier</summary>
                   <code>{i.id}</code>
                 </details>
               </div>
@@ -173,22 +169,22 @@ export function Indexes() {
                       await api('indexes.activate', { id: i.id });
                       indexes.reload();
                       settings.reload();
-                      setMessage('Поиск переключён на выбранный индекс.');
+                      setMessage('The selected search index is now active.');
                     }}
                   >
-                    Использовать в поиске
+                    Use for search
                   </Button>
                   {models.data && !models.data.find((p) => p.id === i.profile)?.enabled && (
                     <p className="muted">
-                      Профиль модели выключен. Владелец платформы должен разрешить его перед
-                      переключением.
+                      This model profile is disabled. The platform owner must enable it before
+                      activation.
                     </p>
                   )}
                 </div>
               )}
               {i.state === 'failed' && (
                 <AdminLink to="maintenance" tab="jobs">
-                  Посмотреть ошибку задания
+                  View job error
                 </AdminLink>
               )}
             </article>
@@ -206,9 +202,9 @@ export function Usage() {
   return (
     <>
       <PageHeader
-        title="Расходы и лимиты"
-        description="Бюджет, использование моделей и доступные ресурсы выбранной компании."
-        actions={<Button onClick={() => usage.reload()}>Обновить</Button>}
+        title={'Usage & limits'}
+        description={'Budget, model usage, and resources for the selected company.'}
+        actions={<Button onClick={() => usage.reload()}>Refresh</Button>}
       />
       {!value ? (
         <Loading error={usage.error} retry={usage.reload} />
@@ -216,54 +212,54 @@ export function Usage() {
         <>
           <div className="metrics-grid">
             <Metric
-              label="Расходы за месяц"
+              label={'Monthly spending'}
               value={money(value.spentMicros)}
               detail={value.month}
             />
             <Metric
-              label="Бюджет AI"
+              label={'AI budget'}
               value={money(value.budgetMicros)}
-              detail="Предельные расходы компании"
+              detail={'Company spending limit'}
             />
             <Metric
-              label="В резерве"
+              label={'Reserved'}
               value={money(value.reservedMicros)}
-              detail="Незавершённые вызовы моделей"
+              detail={'Model calls awaiting completion'}
             />
             <Metric
-              label="Файлы"
-              value={(value.storageBytes / 1024 ** 2).toFixed(1) + ' МиБ'}
-              detail="Оригиналы и производные материалы"
+              label={'Files'}
+              value={(value.storageBytes / 1024 ** 2).toFixed(1) + ' MiB'}
+              detail={'Original and derived materials'}
             />
           </div>
           {value.uncertainMicros > 0 && (
             <p role="alert" className="info-callout">
-              Есть попытки с неподтверждённым результатом на {money(value.uncertainMicros)}. Перед
-              повтором проверьте использование у поставщика AI.
+              Some attempts have an unconfirmed result totaling {money(value.uncertainMicros)}.
+              Check your AI provider usage before retrying.
             </p>
           )}
           <section className="panel">
-            <h2>Использование моделей</h2>
+            <h2>Model usage</h2>
             <p>
-              Стоимость — оценка по настроенным тарифам. Локальные вызовы не оплачиваются поставщику
-              API, но используют ресурсы вашего сервера.
+              Costs are estimates based on configured prices. Local calls have no API provider
+              charge but use your server resources.
             </p>
             <div className="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>Модель</th>
-                    <th>Вызовы</th>
-                    <th>Токены: вход / выход</th>
-                    <th>Вход по модальностям</th>
-                    <th>Расходы</th>
+                    <th>Model</th>
+                    <th>Calls</th>
+                    <th>Tokens: input / output</th>
+                    <th>Input by modality</th>
+                    <th>Cost</th>
                   </tr>
                 </thead>
                 <tbody>
                   {value.calls.map((c) => (
                     <tr key={c.profile}>
                       <td>
-                        {models.data?.find((p) => p.id === c.profile)?.name ?? 'Профиль модели'}
+                        {models.data?.find((p) => p.id === c.profile)?.name ?? 'Model profile'}
                       </td>
                       <td>{c.calls}</td>
                       <td>
@@ -272,25 +268,25 @@ export function Usage() {
                       <td>
                         {(
                           [
-                            ['text', 'Текст'],
-                            ['image', 'Изображения'],
-                            ['audio', 'Аудио'],
-                            ['video', 'Видео'],
-                            ['unattributed', 'Без разбивки'],
+                            ['text', 'Text'],
+                            ['image', 'Images'],
+                            ['audio', 'Audio'],
+                            ['video', 'Video'],
+                            ['unattributed', 'No breakdown'],
                           ] as const
                         ).map(
                           ([kind, label]) =>
                             c.modalities[kind].tokens > 0 && (
                               <div key={kind}>
-                                {label}: {c.modalities[kind].tokens} ток. ·{' '}
+                                {label}: {c.modalities[kind].tokens} tokens ·{' '}
                                 {money(c.modalities[kind].costMicros)}
                               </div>
                             ),
                         )}
                         {c.estimatedCalls > 0 && (
                           <p className="muted">
-                            Оценочных вызовов: {c.estimatedCalls}. Уточняйте итоговый счёт у
-                            поставщика.
+                            Estimated calls: {c.estimatedCalls}. Check the final invoice with your
+                            provider.
                           </p>
                         )}
                       </td>
@@ -300,37 +296,37 @@ export function Usage() {
                 </tbody>
               </table>
             </div>
-            {!value.calls.length && <p className="muted">За этот месяц вызовов пока нет.</p>}
+            {!value.calls.length && <p className="muted">No model calls this month.</p>}
           </section>
         </>
       )}
       <Limits onSaved={usage.reload} />
       <details className="panel admin-details">
-        <summary>Обслуживание кеша</summary>
+        <summary>Cache maintenance</summary>
         <p>
-          Используйте после диагностики. Обновления материалов и прав сбрасывают соответствующий кеш
-          автоматически.
+          Use after troubleshooting. Material and permission changes invalidate the relevant cache
+          automatically.
         </p>
         <Button
           onClick={async () => {
             await api('cache.clear');
-            app.notify('Кеш поиска и ответов компании сброшен.');
+            app.notify('Company search and answer caches cleared.');
           }}
         >
-          Сбросить кеш компании
+          Clear company cache
         </Button>
       </details>
     </>
   );
 }
 const actionNames: Record<string, string> = {
-  'documents.upload': 'Загрузка документа',
-  'documents.delete': 'Удаление документа',
-  'collections.save': 'Изменение базы знаний',
-  'models.save': 'Изменение AI-подключения',
-  'settings.save': 'Изменение настроек',
-  'tenants.create': 'Создание компании',
-  'indexes.activate': 'Переключение поискового индекса',
+  'documents.upload': 'Document upload',
+  'documents.delete': 'Document deletion',
+  'collections.save': 'Knowledge base change',
+  'models.save': 'AI connection change',
+  'settings.save': 'Settings change',
+  'tenants.create': 'Company creation',
+  'indexes.activate': 'Search index activation',
 };
 export function Audit() {
   const [page, setPage] = useState(1),
@@ -338,9 +334,9 @@ export function Audit() {
   return (
     <>
       <PageHeader
-        title="Журнал действий"
-        description="Действия и изменения в выбранной компании. Данные других компаний сюда не попадают."
-        actions={<Button onClick={load.reload}>Обновить</Button>}
+        title={'Activity log'}
+        description={'Actions and changes in the selected company. Other companies are excluded.'}
+        actions={<Button onClick={load.reload}>Refresh</Button>}
       />
       <section className="panel">
         {!load.data ? (
@@ -351,9 +347,9 @@ export function Audit() {
               <table>
                 <thead>
                   <tr>
-                    <th>Когда</th>
-                    <th>Что произошло</th>
-                    <th>Подробности</th>
+                    <th>When</th>
+                    <th>What happened</th>
+                    <th>Details</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -363,15 +359,15 @@ export function Audit() {
                       <td>{actionNames[item.action] ?? item.action}</td>
                       <td>
                         <details>
-                          <summary>Идентификаторы</summary>
+                          <summary>Identifiers</summary>
                           <p>
-                            Действие: <code>{item.action}</code>
+                            Action: <code>{item.action}</code>
                           </p>
                           <p>
-                            Участник: <code>{item.actor}</code>
+                            Member: <code>{item.actor}</code>
                           </p>
                           <p>
-                            Объект: <code>{item.target || '—'}</code>
+                            Object: <code>{item.target || '—'}</code>
                           </p>
                         </details>
                       </td>
@@ -382,17 +378,17 @@ export function Audit() {
             </div>
             {!load.data.items.length && (
               <EmptyState
-                title="Журнал пока пуст"
-                description="Здесь появятся изменения документов, доступа и настроек."
+                title={'No activity yet'}
+                description={'Document, access, and settings changes will appear here.'}
               />
             )}
             <div className="admin-pagination">
               <Button disabled={page === 1} onClick={() => setPage((p) => p - 1)}>
-                Назад
+                Previous
               </Button>
-              <span>Страница {page}</span>
+              <span>Page {page}</span>
               <Button disabled={page * 25 >= load.data.total} onClick={() => setPage((p) => p + 1)}>
-                Далее
+                Next
               </Button>
             </div>
           </>

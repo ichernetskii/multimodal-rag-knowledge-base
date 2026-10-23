@@ -17,6 +17,19 @@ const json = (value: unknown): Record<string, unknown> =>
     : {};
 const count = (value: unknown) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.max(0, value) : 0;
+// Endpoint approval applies to this URL only; never forward credentials or input to a redirect.
+const providerFetch = (url: string, init: RequestInit) =>
+  fetch(url, { ...init, redirect: 'manual' });
+function requireCompletion(complete: boolean, transcription = false) {
+  requireValue(
+    complete,
+    transcription ? 'TRANSCRIPTION_INCOMPLETE' : 'GENERATION_INCOMPLETE',
+    transcription
+      ? 'The provider did not complete the transcript. Check the output limit or split the recording into shorter segments.'
+      : 'The model did not complete its answer. Check the output limit and provider connection, then retry.',
+    502,
+  );
+}
 async function checked(response: Response) {
   if (!response.ok) {
     const status = response.status;
@@ -98,7 +111,7 @@ export class GoogleAdapter implements AIAdapter {
     signal: AbortSignal,
     onText: (t: string) => void,
   ) {
-    const r = await fetch(this.url(p, 'streamGenerateContent') + '?alt=sse', {
+    const r = await providerFetch(this.url(p, 'streamGenerateContent') + '?alt=sse', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.key },
       signal,
@@ -115,21 +128,16 @@ export class GoogleAdapter implements AIAdapter {
       }),
     });
     const result = usage();
-    let transcriptFinished = false;
+    let finished = false;
     for await (const event of records(r, true, signal)) {
       const candidates = event.candidates as
         | { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[]
         | undefined;
       for (const part of candidates?.[0]?.content?.parts ?? [])
         if (part.text && !part.thought) onText(part.text);
-      if (p.role === 'transcription' && candidates?.[0]?.finishReason) {
-        requireValue(
-          candidates[0].finishReason === 'STOP',
-          'TRANSCRIPTION_INCOMPLETE',
-          'Google did not complete the transcript. Check the output limit or split the recording into shorter segments.',
-          502,
-        );
-        transcriptFinished = true;
+      if (candidates?.[0]?.finishReason) {
+        requireCompletion(candidates[0].finishReason === 'STOP', p.role === 'transcription');
+        finished = true;
       }
       const u = json(event.usageMetadata);
       result.input = count(u.promptTokenCount) || result.input;
@@ -143,12 +151,7 @@ export class GoogleAdapter implements AIAdapter {
       if (event.error)
         throw new AppError('PROVIDER_RESPONSE', 'Provider reported a generation error.', 502);
     }
-    requireValue(
-      p.role !== 'transcription' || transcriptFinished,
-      'TRANSCRIPTION_INCOMPLETE',
-      'Google closed the response before confirming a complete transcript.',
-      502,
-    );
+    requireCompletion(finished, p.role === 'transcription');
     if (!result.input) {
       result.input = p.contextTokens;
       result.output = p.maxOutputTokens;
@@ -158,7 +161,7 @@ export class GoogleAdapter implements AIAdapter {
   }
   async embed(p: ModelProfile, input: AIInput[], signal: AbortSignal) {
     const r = await checked(
-      await fetch(this.url(p, 'embedContent'), {
+      await providerFetch(this.url(p, 'embedContent'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': this.key },
         signal,
@@ -181,7 +184,7 @@ export class GoogleAdapter implements AIAdapter {
   }
   async health(p: ModelProfile, signal: AbortSignal) {
     await checked(
-      await fetch(`${p.endpoint}/v1beta/models/${encodeURIComponent(p.model)}`, {
+      await providerFetch(`${p.endpoint}/v1beta/models/${encodeURIComponent(p.model)}`, {
         headers: { 'x-goog-api-key': this.key },
         signal,
       }),
@@ -208,7 +211,7 @@ export class AnthropicAdapter implements AIAdapter {
             },
           },
     );
-    const r = await fetch(p.endpoint + '/v1/messages', {
+    const r = await providerFetch(p.endpoint + '/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -231,16 +234,22 @@ export class AnthropicAdapter implements AIAdapter {
       }),
     });
     const result = usage();
+    let stopped = false,
+      reason = '';
     for await (const e of records(r, true, signal)) {
       if (e.type === 'error')
         throw new AppError('PROVIDER_RESPONSE', 'Provider reported a generation error.', 502);
       const delta = json(e.delta);
+      if (e.type === 'message_delta' && typeof delta.stop_reason === 'string')
+        reason = delta.stop_reason;
+      if (e.type === 'message_stop') stopped = true;
       if (delta.type === 'text_delta' && typeof delta.text === 'string') onText(delta.text);
       const u = json(e.type === 'message_start' ? json(e.message).usage : e.usage);
       result.input = count(u.input_tokens) || result.input;
       result.output = count(u.output_tokens) || result.output;
       result.cached = count(u.cache_read_input_tokens) || result.cached;
     }
+    requireCompletion(stopped && ['end_turn', 'stop_sequence'].includes(reason));
     return result;
   }
   embed(): Promise<{ vector: number[]; usage: Usage }> {
@@ -250,7 +259,7 @@ export class AnthropicAdapter implements AIAdapter {
   }
   async health(p: ModelProfile, signal: AbortSignal) {
     await checked(
-      await fetch(p.endpoint + '/v1/models', {
+      await providerFetch(p.endpoint + '/v1/models', {
         headers: { 'x-api-key': this.key, 'anthropic-version': '2023-06-01' },
         signal,
       }),
@@ -309,7 +318,7 @@ export class CompatibleAdapter implements AIAdapter {
             { role: 'user', content },
           ],
         };
-    const r = await fetch(p.endpoint + (this.ollama ? '/api/chat' : '/chat/completions'), {
+    const r = await providerFetch(p.endpoint + (this.ollama ? '/api/chat' : '/chat/completions'), {
       method: 'POST',
       signal,
       headers: {
@@ -319,16 +328,23 @@ export class CompatibleAdapter implements AIAdapter {
       body: JSON.stringify(body),
     });
     const result = usage();
+    let finished = false;
     for await (const e of records(r, !this.ollama, signal)) {
       if (e.error)
         throw new AppError('PROVIDER_RESPONSE', 'Provider reported a generation error.', 502);
-      const choices = e.choices as { delta?: { content?: string } }[] | undefined;
+      const choices = e.choices as
+        { delta?: { content?: string }; finish_reason?: string | null }[] | undefined;
+      if (this.ollama ? e.done === true : choices?.[0]?.finish_reason != null) {
+        requireCompletion((this.ollama ? e.done_reason : choices?.[0]?.finish_reason) === 'stop');
+        finished = true;
+      }
       const value = this.ollama ? json(e.message).content : choices?.[0]?.delta?.content;
       if (typeof value === 'string') onText(value);
       const u = json(e.usage);
       result.input = count(this.ollama ? e.prompt_eval_count : u.prompt_tokens) || result.input;
       result.output = count(this.ollama ? e.eval_count : u.completion_tokens) || result.output;
     }
+    requireCompletion(finished);
     return result;
   }
   async embed(p: ModelProfile, input: AIInput[], signal: AbortSignal) {
@@ -338,7 +354,7 @@ export class CompatibleAdapter implements AIAdapter {
       'This embedding endpoint accepts text.',
     );
     const r = await checked(
-      await fetch(p.endpoint + (this.ollama ? '/api/embed' : '/embeddings'), {
+      await providerFetch(p.endpoint + (this.ollama ? '/api/embed' : '/embeddings'), {
         method: 'POST',
         signal,
         headers: {
@@ -372,7 +388,7 @@ export class CompatibleAdapter implements AIAdapter {
   }
   async health(p: ModelProfile, signal: AbortSignal) {
     if (this.ollama) {
-      const response = await fetch(p.endpoint + '/api/show', {
+      const response = await providerFetch(p.endpoint + '/api/show', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: p.model }),
@@ -382,7 +398,7 @@ export class CompatibleAdapter implements AIAdapter {
         await response.body?.cancel();
         throw new AppError(
           'MODEL_NOT_INSTALLED',
-          `Модель ${p.model} не загружена в Ollama. Загрузите её на сервере командой ollama pull ${p.model}.`,
+          `Model ${p.model} is not installed in Ollama. Install it on the server with ollama pull ${p.model}.`,
           409,
         );
       }
@@ -391,13 +407,13 @@ export class CompatibleAdapter implements AIAdapter {
       requireValue(
         capabilities.includes(p.role === 'embedding' ? 'embedding' : 'completion'),
         'MODEL_CAPABILITY',
-        'Загруженная модель не поддерживает выбранную задачу.',
+        'The installed model does not support the selected task.',
         409,
       );
       requireValue(
         !p.input.includes('image') || capabilities.includes('vision'),
         'MODEL_CAPABILITY',
-        'Загруженная модель не поддерживает изображения.',
+        'The installed model does not support images.',
         409,
       );
       if (p.role === 'embedding') {
@@ -407,13 +423,13 @@ export class CompatibleAdapter implements AIAdapter {
         requireValue(
           typeof dimensions === 'number' && p.dimensions <= dimensions,
           'MODEL_DIMENSIONS',
-          'Размерность embedding-профиля не соответствует загруженной модели.',
+          'The embedding profile dimension does not match the installed model.',
           409,
         );
       }
     } else {
       const response = await checked(
-        await fetch(p.endpoint + '/models', {
+        await providerFetch(p.endpoint + '/models', {
           headers: this.key ? { Authorization: 'Bearer ' + this.key } : {},
           signal,
         }),
@@ -422,7 +438,7 @@ export class CompatibleAdapter implements AIAdapter {
       requireValue(
         Array.isArray(result.data) && result.data.some((value) => json(value).id === p.model),
         'MODEL_NOT_INSTALLED',
-        'Модель отсутствует в каталоге выбранного сервера.',
+        "The model is not in the selected server's catalog.",
         409,
       );
     }

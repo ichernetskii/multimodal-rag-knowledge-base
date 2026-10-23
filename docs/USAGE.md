@@ -1,87 +1,84 @@
-# Работа с приложением
+# Using the application
 
-Войдите и выберите компанию в шапке. Список содержит только компании, в которых у вас есть действующее членство. Название компании над страницей показывает область работы. В общих разделах «API-ключи» и «Состояние системы» выбор компании скрывается: изменения относятся ко всей платформе. Меню остаётся постоянным. В подвале показаны область работы, ваш логин и настоящая роль; демонстрационного переключателя ролей нет.
+Sign in and select a company in the header. Only active memberships are listed. The company name above the page identifies the scope. Platform pages hide the company selector and display **All companies**. Navigation stays in place; the footer shows your account and actual role. There is no demo role switcher.
 
-## Начать работу
+## First workflow
 
-1. Администратор создаёт базу в «База знаний → Базы и доступ» и назначает доступ сотрудникам или группам. Пустой список разрешений оставляет базу доступной администраторам.
-2. В «AI и модели → Назначение моделей» администратор выбирает разрешённые модели ответа и распознавания записей. Там же находится управление моделью поиска. Подключения настраивает владелец платформы.
-3. Редактор с правом изменения базы загружает файлы во вкладке «Материалы». Обработка выполняется в очереди; окно можно закрыть.
-4. Откройте «Проверить и опубликовать», сверьте результат с оригиналом, исправьте ошибки обработки, отметьте подтверждение сверки и нажмите «Опубликовать и включить в поиск».
-5. Дождитесь успешной индексации. Материал станет доступен в поиске и ответах сотрудникам с разрешением на базу.
+1. A company administrator creates a base under **Knowledge base → Knowledge bases and access**, then grants access to users or groups. Without grants, the base is accessible to company administrators.
+2. Under **AI & models → Model assignments**, choose permitted answer and transcription profiles. Prepare and activate the search model separately. The platform owner configures connections.
+3. An editor with edit access uploads files in **Materials**. Processing runs as a durable job; the page can be closed.
+4. Open the material for review, compare the result with the original, correct extraction errors, acknowledge the review, and publish.
+5. Wait for indexing. Search and answers can now use the material for people with access to its base.
 
-Для знакомства используйте [учебный корпус](../examples/knowledge-base/README.md): после входа через CLI выполните `yarn demo:import`. Он создаёт отдельную базу с текстом, PDF, сканом, таблицей, изображением, аудио и видео. Материалы остаются на проверке. Приложение подходит для любых областей знаний; учебные названия оборудования не ограничивают тематику ваших данных.
+Try the [sample corpus](../examples/knowledge-base/README.md) with `yarn demo:import` after CLI login and company selection. It creates a separate base containing text, PDFs, scans, tables, an image, audio, and video. Materials initially await review. The sample's equipment terminology does not limit the product to a particular industry.
 
-## Роли и области управления
+## Roles and scopes
 
-| Право                         | Доступ                                                                                                               |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Пользователь                  | Диалоги, опубликованные материалы разрешённых баз, собственные личные вложения                                       |
-| Редактор                      | Дополнительно — загрузка, проверка, исправление и публикация в базах с правом изменения; подключение своих папок     |
-| Администратор компании        | Все общие базы компании, команда, разрешённые модели, расходы, задания, копии и параметры компании                   |
-| Владелец платформы (operator) | Отдельное право: общие API-ключи, диагностика, создание/приостановка компаний, подключения моделей и увеличение квот |
+| Permission                  | Scope                                                                                                                    |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| User                        | Conversations, published materials in permitted bases, own personal attachments                                          |
+| Editor                      | Also upload, review, correct, publish, and connect folders for bases with edit access                                    |
+| Company administrator       | Company bases, team, grants, model assignments, costs, jobs, backups, and settings                                       |
+| Platform owner (`operator`) | Separate permission: shared provider keys, diagnostics, company lifecycle, model connections, and increased entitlements |
 
-Роль admin действует в компании и не назначает владельца платформы. Само право operator не открывает чужие личные диалоги и вложения. Обычный читатель не видит черновики, исключённые материалы или непроверенную замену опубликованной версии. Редактор без права изменения базы имеет права читателя этой базы. Отзыв права изменения закрывает её черновики и подключённые редактором папки.
+The `admin` role applies within a company and cannot appoint a platform owner. Operator permission does not grant access to other people's private chats or attachments. Readers cannot see drafts, excluded materials, or unpublished replacements. Editors without edit access have reader permissions for that base. Revoking edit access hides its drafts and folder connector metadata.
 
-| Раздел компании  | Вкладки и задачи                                                                              |
-| ---------------- | --------------------------------------------------------------------------------------------- |
-| База знаний      | Материалы; базы и доступ; подключённые папки; качество ответов. Набор вкладок зависит от прав |
-| AI и модели      | Назначение моделей; подключённые модели — владельцу платформы                                 |
-| Команда и доступ | Участники, приглашения и группы компании                                                      |
-| Расходы и лимиты | Бюджет AI, расход по моделям и модальностям, хранение и квоты                                 |
-| Обслуживание     | Задания; резервные копии; журнал действий; обработка и хранение                               |
+| Company section | Tasks                                                              |
+| --------------- | ------------------------------------------------------------------ |
+| Knowledge base  | Materials, knowledge bases and access, folder sync, answer quality |
+| AI & models     | Assignments; connected models for the platform owner               |
+| Team & access   | Members, invitations, groups                                       |
+| Usage & limits  | AI budget, usage by model/modality, storage, quotas                |
+| Maintenance     | Jobs, backups, audit log, processing and retention settings        |
 
-В постоянной группе платформы находятся «API-ключи» и «Состояние системы». Во вкладке «Компании» состояния системы владелец создаёт компании и приостанавливает доступ. Для работы в компании используйте выбор компании в шапке рабочего раздела.
+Platform navigation contains **API keys** and **System health**. The company management tab creates, renames, and suspends companies. Use the header selector on company pages to work within a membership.
 
-## Материалы и длинные тексты
+## Materials and long documents
 
-Фильтр «Найти по названию» меняет список файлов. Отдельный блок «Найти в содержимом базы знаний» ищет слова и смысл в опубликованных доступных материалах; он не генерирует ответ. Облачная модель поиска может расходовать бюджет. Поиск можно остановить; смена базы отменяет текущий запрос и скрывает прежние результаты.
+The filename filter changes the material list. Content search finds words and meaning in accessible published materials without generating an answer. A cloud embedding model may consume budget. Search can be cancelled; changing the knowledge base cancels the request and clears old results.
 
-«Найти в этом документе» внутри открытого материала ищет точное слово, фразу или код только в выбранной версии. Это аналог Ctrl+F, без вызова AI и без расходов. Совпадения показывают страницу/сегмент и окружающий текст; нажатие открывает нужное место с подсветкой. Ctrl+F или ⌘F открывает это поле, пока открыто окно материала. Для слишком широкого запроса отображается предел 10 000 совпадений и предложение уточнить запрос.
+**Find in this document** looks for a literal word, phrase, or code in the selected version. It works like Ctrl+F without AI or cost. Results show the page/segment and surrounding text; selecting one opens the match with highlighting. Ctrl+F or ⌘F opens this field while the reader is active. Broad searches stop at 10,000 matches and ask for a narrower query.
 
-Длинный текст загружается частями по 12 000 символов. Кнопки «Предыдущий/следующий фрагмент текста» переходят между частями одной страницы; выбор страницы/сегмента находится отдельно. Обработанное изображение, звук или видео можно сверить с оригиналом рядом. Сравнение версий также загружает небольшие фрагменты.
+Long text loads in windows of up to 12,000 characters. Previous/next text controls move within the same page; the page/segment selector is separate. Media previews can be checked alongside extracted text. Version comparison also uses bounded windows.
 
-До публикации кнопка «Исправить текст обработки» позволяет поправить OCR, описание или расшифровку. В длинной странице изменяется только открытый фрагмент; остальной текст и исходный файл сохраняются. После сохранения подтвердите сверку заново. Опубликованную версию исправляют загрузкой новой версии: старые цитаты должны сохранять своё происхождение. Если новая версия ещё обрабатывается, читатель продолжает видеть прежнюю опубликованную версию, а редактор открывает новую для проверки.
+Before publication, edit the processing text to correct OCR, descriptions, or transcripts. Only the open range changes; the rest of the page and original file remain intact. Review must be acknowledged again after an edit.
 
-Личные вложения находятся в своём диалоге и не появляются в общей библиотеке компании. Даже администратор компании не получает к ним доступ. В списке вложений есть страницы; для следующего вопроса можно выбрать до трёх основных файлов.
+For a published error, choose **Create correction version**. The server copies the original and derivatives into an independent review version without repeating OCR, transcription, or paid description generation. Edit and publish that candidate. Search continues using the published version until successful publication/indexing. Finish any existing candidate first. Storage or copy failures are visible in the job.
 
-## Модели и распознавание записей
+Personal attachments stay in their conversation. They never enter the company's shared library, including for administrators. Attachment lists are paginated; up to three main files can be selected for the next question.
 
-На вкладке назначений независимо выбираются ответы, поиск и распознавание записей. Модель ответа также создаёт необходимые описания изображений, если поддерживает изображения. Модель поиска строит поисковые представления; её замена требует подготовки нового индекса. Сначала дождитесь построения, проверьте материалы и результаты, затем нажмите «Использовать в поиске». До этого работает прежний индекс. Изменение корпуса во время построения требует повторной подготовки.
+## Models and speech recognition
 
-Если новой текстовой модели поиска не хватает описания или расшифровки, система подготовит его при построении индекса и сохранит вместе с версией. Уже сохранённый текст не пересоздаётся при каждом выборе модели. Для описаний нужна назначенная модель ответа с поддержкой изображений, для звука — выбранный Whisper или Google Gemini. Ошибка подготовки оставляет старый поиск активным. Подробности о текстовом и мультимодальном пути — в [MEDIA](MEDIA.md).
+Answer, search, and recording transcription profiles are assigned independently. The answer model also generates image descriptions when required and supported. Changing the search model builds a candidate index: wait, inspect the materials/results, then activate it. The previous index remains active until then. A corpus change during a build requires rebuilding.
 
-«Распознавание записей» превращает речь из загруженного аудио и звуковой дорожки видео в текст. Whisper small выполняет это на сервере установки; Google Gemini получает звук через API. Это отдельная задача от поиска по самому аудио. При мультимодальном поиске расшифровка необязательна; для текстового поиска она нужна. Голосовой ввод поискового вопроса через микрофон не реализован.
+A new text index automatically prepares missing descriptions or transcripts with the company's selected processing models. Saved text is reused when switching models. Missing credentials, unavailable models, or insufficient budget produce a job error and leave current search active. See [multimodal processing](MEDIA.md).
 
-Владелец добавляет Google-профиль кнопкой «Google-расшифровка» на вкладке подключений, выбирает ключ, задаёт тариф, разрешает использование и проверяет доступность. Затем администратор назначает профиль для распознавания записей. Локальный Whisper выбирается в том же назначении. Смена назначения применяется к новым заданиям; уже сохранённые расшифровки остаются прежними.
+Recording transcription converts speech in uploaded audio/video into text. Whisper small runs on the installation server; Google Gemini receives audio through its API. Transcription is optional for native audio retrieval and required for text embeddings. Microphone dictation of search questions is not implemented.
 
-## Подключения и API-ключи
+The owner creates a Google transcription profile in connections, selects a Google key, sets current prices/limits, enables it, and checks availability. The administrator then assigns it for recording transcription. Local Whisper is chosen through the same assignment. A change affects new jobs; existing transcripts remain saved.
 
-Подключённые модели принадлежат выбранной компании. Группа «На вашем сервере» содержит Ollama и встроенный Whisper. У Ollama задаются адрес сервера и имя уже загруженной модели; сохранение профиля не устанавливает веса. Whisper small встроен в серверный образ, языки и потоки CPU находятся в обработке компании. Группа «Через внешний API» содержит Google, Anthropic и совместимые серверы; совместимый API может обслуживаться и вашим собственным сервером.
+## Connections and provider keys
 
-Форма показывает допустимые для адаптера задачи и входы. Отметки модальностей должны соответствовать настоящей модели; галочка не добавляет новую возможность. Адрес должен быть разрешён конфигурацией установки. В раскрываемых параметрах находятся контекст, размер входа, длительность, параллельность и таймаут. Для внешнего API отдельно задаётся тариф. Если модель поиска уже использована индексом, меняйте её через копию профиля и новый индекс.
+Model profiles belong to the selected company. **On your server** groups Ollama and Whisper. Ollama needs the server URL and an already installed model; saving a profile does not install weights. Whisper small is bundled in the server image; language/CPU settings belong to company processing. **External API** groups Google, Anthropic, and compatible endpoints. A compatible API can also run on your own server. **Development & verification** contains deterministic TEST AI profiles.
 
-Общие ключи добавляются в «Платформа → API-ключи». Значение зашифровано на сервере и после сохранения не показывается. В подключении выбирается ключ соответствующего поставщика. Замена и отключение действуют на новые вызовы всех использующих его компаний без перезапуска. Пустое поле замены сохраняет прежнее значение. Для удаления сначала смените ключ во всех использующих профилях, включая выключенные. Удаление в приложении не отзывает ключ у поставщика; изменения записываются в журнал ключей.
+The editor offers only tasks and input types implemented by the adapter. Capability checkboxes must match the actual model. Endpoints must be allowed by deployment configuration. Advanced settings cover context, input size/duration, concurrency, timeouts, rate limits, and prices. Clone an embedding profile already used by an index instead of changing its semantic identity.
 
-Четыре входные ставки задаются в USD за миллион токенов: текст, изображения, аудио и видео. Для PDF используются текст и изображения. Резерв бюджета выделяется до запроса, затем уточняется по использованию поставщика. Неизвестный результат вызова сохраняет резерв; перед повтором проверьте расход у поставщика. Изменение тарифов не пересчитывает прошлые расходы. Локальные модели используют ресурсы сервера. TEST AI обозначен явно и служит проверке приложения; качество настоящих ответов проверяйте с выбранным реальным провайдером.
+Provider keys live under **Platform → API keys**. Values are encrypted and never returned after saving. Connections reference a key from the same provider. Rotation/disable applies to subsequent API and worker calls without a restart; in-flight calls can finish. A blank replacement keeps the saved value. Delete only after removing all profile references. Deleting a key here does not revoke it at the provider. Audits exclude values.
 
-## Обслуживание и ошибки
+## Maintenance and errors
 
-В «Заданиях» видны очередь, этап, причина ошибки и диагностический идентификатор. Повтор создаёт отдельную попытку. Состояние обработки и допустимый повтор доступны также внутри материала. «Резервные копии» создают, проверяют и восстанавливают данные одной компании; реестр общих ключей в них не входит. Текущие расходы и операторские ограничения не откатываются. Параметры файлов, OCR/ASR, сроки хранения, расписание копий и паузы находятся в «Обработка и хранение».
+Company maintenance includes jobs, current-format backups, audit, processing/retention, and queue pauses. System health checks shared dependencies and workers; refresh performs the check directly.
 
-Владелец проверяет PostgreSQL, S3, Redis, обработчики и установленные инструменты в «Состоянии системы» одной кнопкой «Обновить проверку». Redis — восстанавливаемый кеш; задания сохраняются в PostgreSQL. Общие параметры контейнеров, секрет мастер-ключа и разрешённые адреса API относятся к [конфигурации развёртывания](CONFIGURATION.md).
+| Symptom                         | Next step                                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Material awaits review          | Compare with the original, correct text, acknowledge, publish                                     |
+| No key or disabled profile      | Ask the platform owner to configure the connection                                                |
+| Ollama model unavailable        | Install it on the configured model server, then recheck                                           |
+| Candidate index cannot activate | Wait for completion; rebuild after corpus changes                                                 |
+| Job queued                      | Check company pauses, budget, and limits; owner checks workers                                    |
+| Uncertain provider outcome      | Inspect provider usage before explicitly retrying                                                 |
+| Save conflict                   | Reload the current revision and reapply the edit                                                  |
+| Incomplete model answer         | Check the output limit and provider connection, then explicitly retry; a new call may cost money. |
+| Provider HTTP redirect rejected | Ask the owner to configure the final approved model endpoint.                                     |
 
-| Проблема                        | Действие                                                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Материал не находится           | Проверьте публикацию, завершение индексации, выбранную базу и права                                          |
-| Ошибка OCR или расшифровки      | Сверьте оригинал, исправьте текст до публикации; при ошибке исходника загрузите новую версию                 |
-| Модель недоступна               | Прочитайте причину в назначении; владелец проверяет подключение, ключ, модель на сервере и разрешённый адрес |
-| Модель исчезла из списка        | Выберите разрешённый профиль; недоступная прежняя модель обозначается явно                                   |
-| Новый поиск не включается       | Дождитесь готовности; после изменения корпуса постройте индекс заново                                        |
-| Задание ожидает                 | Проверьте паузы, лимиты и бюджет компании; владелец проверяет обработчики                                    |
-| Неизвестен итог внешнего вызова | Проверьте использование у поставщика до отдельного ручного повтора                                           |
-| Конфликт сохранения             | Другой пользователь изменил запись. Обновите данные и повторите правку на актуальной версии                  |
-
-Несохранённые формы защищены при переходах, смене компании и закрытии окна. Отзыв прав или завершение сессии закрывают прежние данные независимо от несохранённой формы.
-
-Для ошибки в уже опубликованном тексте откройте материал и нажмите «Создать версию для исправлений». Система сохранит отдельные копии оригинала и медиафрагментов, затем предложит проверку и исправление. Повторного OCR, распознавания речи или платного описания не будет. До публикации изменений поиск использует прежнюю версию. Если есть другая версия на обработке/проверке, сначала завершите её. При нехватке места потребуется изменить лимит хранения компании; сбой копирования виден как задание с возможностью повтора.
+Errors include diagnostic IDs without exposing provider responses or other companies' data. Unsaved forms are protected during navigation, tab/company changes, and dialog closure. Revoked access or an ended session clears protected data regardless of unsaved edits.

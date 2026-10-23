@@ -21,7 +21,7 @@ export function Markdown({
               className="citation"
               key={i}
               onClick={() => onSource(source)}
-              aria-label={`Источник ${source.id}: ${source.name}, страница ${source.page}`}
+              aria-label={`Source ${source.id}: ${source.name}, page ${source.page}`}
             >
               {part}
             </button>

@@ -34,9 +34,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { failed: boolean
   render() {
     return this.state.failed ? (
       <div className="empty-state">
-        <h1>Не удалось открыть интерфейс</h1>
-        <p>Обновите страницу, чтобы загрузить актуальную сборку.</p>
-        <button onClick={() => window.location.reload()}>Обновить страницу</button>
+        <h1>Could not open the application</h1>
+        <p>Refresh the page to load the latest version.</p>
+        <button onClick={() => window.location.reload()}>Refresh page</button>
       </div>
     ) : (
       this.props.children
@@ -131,9 +131,9 @@ const Shell = observer(function Shell() {
   if (app.session.phase === 'error')
     return (
       <main id="main" className="auth">
-        <h1>Сервер недоступен</h1>
-        <p>Не удалось подключиться к рабочему пространству. Повторяем попытки автоматически.</p>
-        <Button onClick={() => app.boot()}>Повторить подключение</Button>
+        <h1>Server unavailable</h1>
+        <p>Could not connect to the workspace. Retrying automatically.</p>
+        <Button onClick={() => app.boot()}>Reconnect</Button>
       </main>
     );
   if (app.session.phase !== 'ready' || !app.session.user) return <Auth />;
@@ -142,21 +142,21 @@ const Shell = observer(function Shell() {
       app.view === 'admin'
         ? adminNames[app.navigation.section]
         : app.view === 'documents'
-          ? 'База знаний'
-          : 'Диалоги';
+          ? 'Knowledge base'
+          : 'Conversations';
   const platform =
     app.view === 'admin' && adminSections[app.navigation.section].scope === 'platform';
-  const company = app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Компания';
+  const company = app.session.tenants.find((t) => t.id === user.tenant)?.name ?? 'Company';
   return (
     <div className={'app-shell' + (sidebar ? ' sidebar-open' : '')}>
       {sidebar && (
         <button
           className="sidebar-backdrop"
-          aria-label="Закрыть меню"
+          aria-label={'Close menu'}
           onClick={() => setSidebar(false)}
         />
       )}
-      <aside id="sidebar" className="app-sidebar" ref={sidebarRef} aria-label="Навигация">
+      <aside id="sidebar" className="app-sidebar" ref={sidebarRef} aria-label={'Navigation'}>
         <a
           className="brand"
           href="/chat"
@@ -169,7 +169,7 @@ const Shell = observer(function Shell() {
             <Icon name="documents" size={23} />
           </span>
           <span>
-            Knowledge Workspace<small>БАЗА ЗНАНИЙ КОМПАНИИ</small>
+            Multimodal RAG<small>KNOWLEDGE BASE</small>
           </span>
         </a>
         <WorkspaceNavigation />
@@ -182,20 +182,20 @@ const Shell = observer(function Shell() {
         )}
         <div className="sidebar-footer">
           <div className="local-indicator">
-            <span /> {platform ? 'Вся платформа' : company}
+            <span /> {platform ? 'Platform' : company}
           </div>
           <div className="account-row">
             <button className="account-button" onClick={() => modal(<Account />)}>
               <span className="avatar">{user.login.slice(0, 2).toUpperCase()}</span>
               <span>
                 <strong>{user.login}</strong>
-                <small>{user.operator ? 'Владелец платформы' : roleNames[user.role]}</small>
+                <small>{user.operator ? 'Platform owner' : roleNames[user.role]}</small>
               </span>
             </button>
             <Button
               className="icon-button"
-              aria-label="Выйти"
-              title="Выйти"
+              aria-label={'Sign out'}
+              title={'Sign out'}
               onClick={() => app.session.logout()}
             >
               <Icon name="logout" size={18} />
@@ -206,13 +206,13 @@ const Shell = observer(function Shell() {
       <div className="workspace" inert={sidebar && mobile}>
         {!app.session.connected && (
           <div className="reconnect-banner" role="status">
-            Нет связи с сервером. Переподключение выполняется автоматически.
+            Connection lost. Reconnecting automatically.
           </div>
         )}
         <header className="workspace-header">
           <button
             className="icon-button menu-toggle"
-            aria-label="Открыть меню"
+            aria-label={'Open menu'}
             aria-expanded={sidebar}
             aria-controls="sidebar"
             onClick={() => setSidebar(!sidebar)}
@@ -220,19 +220,19 @@ const Shell = observer(function Shell() {
             <Icon name="menu" />
           </button>
           <div className="breadcrumb">
-            <span>{platform ? 'Вся платформа' : company}</span>
+            <span>{platform ? 'Platform' : company}</span>
             <Icon name="arrow" size={14} />
             <strong>{title}</strong>
           </div>
           {platform ? (
             <span className="workspace-tag">
-              <Icon name="shield" size={14} /> Все компании
+              <Icon name="shield" size={14} /> All companies
             </span>
           ) : (
             <label className="tenant-selector header-tenant-selector">
-              <span>Компания</span>
+              <span>Company</span>
               <select
-                aria-label="Компания"
+                aria-label={'Company'}
                 value={user.tenant}
                 onChange={(event) => void app.execute(() => app.switchCompany(event.target.value))}
               >
@@ -282,7 +282,7 @@ const Notice = observer(function Notice() {
   return (
     <div id="notice" role="status" aria-live="polite" className={app.notice ? 'visible' : ''}>
       {app.notice}
-      <button aria-label="Скрыть уведомление" onClick={() => app.notify('')}>
+      <button aria-label={'Dismiss notification'} onClick={() => app.notify('')}>
         ×
       </button>
     </div>

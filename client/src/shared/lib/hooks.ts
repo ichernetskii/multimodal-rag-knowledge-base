@@ -36,7 +36,7 @@ export function useLoad<T>(
       })
       .catch((e: unknown) => {
         if (!controller.signal.aborted) {
-          setError(e instanceof Error ? e.message : 'Ошибка загрузки');
+          setError(e instanceof Error ? e.message : 'Loading failed');
           app.handleError(e, false);
         }
       })

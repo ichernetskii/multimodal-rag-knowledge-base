@@ -10,7 +10,7 @@ export function EditDocument({ doc, after }: { doc: DocumentRecord; after: () =>
   const modal = useModal();
   return (
     <>
-      <h2>Изменить документ</h2>
+      <h2>Edit document</h2>
       <Form
         submit={async (f) => {
           await api('documents.update', {
@@ -23,30 +23,30 @@ export function EditDocument({ doc, after }: { doc: DocumentRecord; after: () =>
           after();
         }}
       >
-        <Field label="Название" name="name" value={doc.name} />
+        <Field label={'Name'} name="name" value={doc.name} />
         <Select
-          label="Состояние"
+          label={'Status'}
           name="state"
           value={doc.state}
           options={[
-            ...(doc.activeVersion ? [['published', 'Опубликован'] as [string, string]] : []),
-            ['excluded', 'Исключён'],
-            ['archived', 'Архив'],
-            ['draft', 'Черновик'],
+            ...(doc.activeVersion ? [['published', 'Published'] as [string, string]] : []),
+            ['excluded', 'Excluded'],
+            ['archived', 'Archive'],
+            ['draft', 'Draft'],
           ]}
         />
       </Form>
       {!doc.activeVersion && (
         <div className="info-callout">
           <p>
-            Чтобы документ появился в поиске, сначала проверьте обработанную версию и запустите
-            публикацию. Индексация автоматически изменит состояние на «Опубликован».
+            Review the processed version and publish it before it appears in search. Indexing
+            automatically changes its status to Published.
           </p>
           <Button
             className="primary"
             onClick={() => modal(<DocumentView id={doc.id} after={after} />)}
           >
-            Проверить и опубликовать
+            Review &amp; publish
           </Button>
         </div>
       )}

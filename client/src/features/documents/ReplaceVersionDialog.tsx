@@ -11,14 +11,14 @@ export function ReplaceDocument({ doc, after }: { doc: DocumentRecord; after: ()
   const limits = useLoad((signal) => api('documents.limits', {}, { signal }));
   return (
     <>
-      <h2>Новая версия {doc.name}</h2>
+      <h2>New version {doc.name}</h2>
       <Form
-        label="Загрузить"
+        label={'Upload'}
         submit={async (f) => {
           const file = f.get('file');
-          if (!(file instanceof File) || !file.size) throw new Error('Выберите файл.');
+          if (!(file instanceof File) || !file.size) throw new Error('Choose a file.');
           const limits = await api('documents.limits');
-          if (file.size > limits.maxBytes) throw new Error('Превышение лимита файла.');
+          if (file.size > limits.maxBytes) throw new Error('File size limit exceeded.');
           const r = await uploadFile(file, {
             document: doc.id,
             revision: doc.revision,
@@ -31,11 +31,11 @@ export function ReplaceDocument({ doc, after }: { doc: DocumentRecord; after: ()
           }
           modal(null);
           after();
-          app.notify('Предыдущая версия доступна до публикации новой.');
+          app.notify('The previous version stays available until the new one is published.');
         }}
       >
         <label>
-          Файл
+          File
           <input
             type="file"
             name="file"

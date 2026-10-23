@@ -17,7 +17,7 @@ export function mediaCommand(name: 'ffmpeg' | 'ffprobe' | 'whisper') {
   } catch {
     throw new AppError(
       'MEDIA_TOOL_UNAVAILABLE',
-      'Медиатулы не установлены. Выполните yarn prepare:media или пересоберите серверный Docker-образ.',
+      'Media tools are not installed. Run yarn prepare:media or rebuild the server Docker image.',
       503,
     );
   }
@@ -28,7 +28,7 @@ export function mediaCommand(name: 'ffmpeg' | 'ffprobe' | 'whisper') {
   )
     throw new AppError(
       'MEDIA_RUNTIME_OUTDATED',
-      'Версия медиатулов не соответствует приложению. Выполните yarn prepare:media или пересоберите серверный Docker-образ.',
+      'The media tools version does not match the application. Run yarn prepare:media or rebuild the server Docker image.',
       503,
     );
   return managedMediaCommand(name);
@@ -66,7 +66,7 @@ export function mediaProcess(
       reject(
         new AppError(
           'MEDIA_TOOL_UNAVAILABLE',
-          'Не удалось запустить FFmpeg/whisper.cpp. Проверьте диагностику сервера.',
+          'Could not start FFmpeg/whisper.cpp. Check server diagnostics.',
           503,
         ),
       );
@@ -77,16 +77,18 @@ export function mediaProcess(
         reject(
           new AppError(
             'MEDIA_CANCELLED_OR_TIMEOUT',
-            'Обработка медиа отменена или превысила лимит времени.',
+            'Media processing was cancelled or timed out.',
           ),
         );
       else if (exceeded)
-        reject(new AppError('MEDIA_OUTPUT_LIMIT', 'Превышен лимит вывода обработчика медиа.'));
+        reject(
+          new AppError('MEDIA_OUTPUT_LIMIT', 'The media processor output limit was exceeded.'),
+        );
       else if (code !== 0)
         reject(
           new AppError(
             'MEDIA_DECODE_FAILED',
-            'Не удалось прочитать медиа или выполнить расшифровку. Проверьте формат файла, модель Whisper и язык.',
+            'Could not read the media or transcribe speech. Check the file format, Whisper model, and language.',
           ),
         );
       else resolve(Buffer.concat(parts).toString('utf8'));

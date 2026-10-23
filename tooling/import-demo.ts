@@ -24,7 +24,7 @@ if (args.includes('--help')) {
   }
   const api = new ApiClient(await credentials());
   const collection = await api.action('collections.save', {
-    name: 'Учебная база · ' + new Date().toISOString(),
+    name: 'Sample knowledge base · ' + new Date().toISOString(),
     grants: [],
   });
   console.log('Company: ' + api.config.tenant + '; knowledge base: ' + collection.id);

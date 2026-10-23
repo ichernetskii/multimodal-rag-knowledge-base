@@ -15,7 +15,7 @@ void test('encrypted credentials use fresh nonces and authenticate the alias and
     ['other', 'google'],
     ['google', 'anthropic'],
   ] as const)
-    assert.throws(() => cipher.open(id, provider, sealed), /Не удалось открыть ключ/u);
+    assert.throws(() => cipher.open(id, provider, sealed), /Could not decrypt the key/u);
 });
 void test('tampering or the wrong master key fails without revealing plaintext or crypto details', () => {
   const sealed = cipher.seal('google', 'google', 'synthetic-sensitive-value');
@@ -23,11 +23,11 @@ void test('tampering or the wrong master key fails without revealing plaintext o
   damaged[0] = damaged[0]! ^ 1;
   assert.throws(
     () => cipher.open('google', 'google', { ...sealed, ciphertext: damaged }),
-    /Не удалось открыть ключ/u,
+    /Could not decrypt the key/u,
   );
   assert.throws(
     () => new CredentialCipher('b2'.repeat(32)).open('google', 'google', sealed),
-    /Не удалось открыть ключ/u,
+    /Could not decrypt the key/u,
   );
 });
 void test('a missing, malformed or zero encryption key is rejected in development as well as production', () => {

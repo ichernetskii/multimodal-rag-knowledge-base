@@ -15,19 +15,21 @@ export function Backups() {
   return (
     <>
       <PageHeader
-        title="Резервные копии компании"
-        description="Согласованные данные PostgreSQL и отдельные копии файлов S3. Восстановление затрагивает выбранную компанию."
+        title={'Company backups'}
+        description={
+          'Consistent PostgreSQL data and independent S3 file copies. Restore affects only the selected company.'
+        }
         actions={
           <Button
             onClick={async () => {
               const job = await api('backup.create');
               app.jobs.upsert(job);
               app.jobs.watch(job);
-              app.notify('Создание копии поставлено в очередь.');
+              app.notify('Backup queued.');
               load.reload();
             }}
           >
-            Создать копию
+            Create backup
           </Button>
         }
       />
@@ -36,10 +38,10 @@ export function Backups() {
         <table>
           <thead>
             <tr>
-              <th>Создана</th>
-              <th>Размер</th>
-              <th>Проверена</th>
-              <th>Действия</th>
+              <th>Created</th>
+              <th>Size</th>
+              <th>Verified</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -50,26 +52,26 @@ export function Backups() {
                   <br />
                   <code>{b.id}</code>
                 </td>
-                <td>{(b.bytes / 1024 ** 2).toFixed(1)} МиБ</td>
-                <td>{b.verified ? 'Да' : 'Ещё нет'}</td>
+                <td>{(b.bytes / 1024 ** 2).toFixed(1)} MiB</td>
+                <td>{b.verified ? 'Yes' : 'Not yet'}</td>
                 <td>
                   <Button
                     onClick={async () => {
                       const r = await api('backup.verify', { id: b.id });
-                      app.notify('Проверка: ' + r.integrity);
+                      app.notify('Verification: ' + r.integrity);
                     }}
                   >
-                    Проверить
+                    Verify
                   </Button>
                   <Button
                     disabled={!b.verified}
                     onClick={() =>
                       modal(
                         <>
-                          <h2>Восстановить компанию?</h2>
+                          <h2>Restore this company?</h2>
                           <p>
-                            Текущие данные выбранной компании будут заменены этой копией.
-                            Выполняющиеся задания остановятся. Другие компании продолжат работать.
+                            This backup will replace the selected company's current data. Running
+                            jobs will stop. Other companies will continue working.
                           </p>
                           <Button
                             className="danger"
@@ -78,23 +80,23 @@ export function Backups() {
                               app.jobs.upsert(job);
                               app.jobs.watch(job);
                               modal(null);
-                              app.notify('Восстановление поставлено в очередь.');
+                              app.notify('Restore queued.');
                             }}
                           >
-                            Восстановить
+                            Restore
                           </Button>
                         </>,
                       )
                     }
                   >
-                    Восстановить
+                    Restore
                   </Button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {load.data?.length === 0 && <p>Копий пока нет.</p>}
+        {load.data?.length === 0 && <p>No backups yet.</p>}
       </section>
     </>
   );

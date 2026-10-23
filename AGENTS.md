@@ -1,23 +1,23 @@
-# Правила разработки
+# Development rules
 
-Проект находится на этапе разработки. Публичного релиза ещё не было.
+The project is under development and has not had a public release.
 
-## Обратная совместимость
+## Backward compatibility
 
-- Не поддерживать обратную совместимость между изменениями проекта.
-- Не добавлять адаптеры прежнего API, устаревшие поля, алиасы команд, преобразования старых форматов и миграции ради совместимости.
-- При изменении архитектуры, контрактов или схемы данных менять, удалять и пересоздавать соответствующие части проекта целиком.
-- Поддерживать один актуальный контракт API, формат конфигурации и схему данных. Удалять заменённые реализации и неиспользуемый код.
-- Несовместимые данные и резервные копии отклонять с понятной ошибкой, без автоматического преобразования. В тестовых базах, окружениях разработки и других временных ресурсах проекта удалять несовместимый формат и пересоздавать актуальный, а не добавлять преобразования старых данных.
-- Если в коде обнаружены механизмы обратной совместимости, удалять их и оставлять одну актуальную реализацию.
-- Обновлять клиент, сервер, CLI, тесты и документацию вместе, чтобы они соответствовали текущей реализации.
-- После первого публичного релиза пересмотреть эти инструкции: заново определить требования к сохранению данных, миграциям и совместимости выпущенных контрактов.
+- Do not maintain backward compatibility between project changes.
+- Do not add old API adapters, deprecated fields, command aliases, old-format conversions, or compatibility migrations.
+- When architecture, contracts, or schemas change, replace, remove, and recreate the affected parts together.
+- Maintain one current API contract, configuration format, and database schema. Remove replaced implementations and unused code.
+- Reject incompatible data and backups with a clear error, without automatic conversion. In test databases, development environments, and other temporary project resources, recreate the current format rather than converting old data.
+- Remove compatibility mechanisms found in the code and retain one current implementation.
+- Update the client, server, CLI, tests, and documentation together.
+- Revisit these rules after the first public release: define data preservation, migration, and compatibility requirements for released contracts.
 
-Это правило не отменяет проверки целостности, прав доступа, корректного резервного копирования и восстановления копий текущего формата. Оно также не разрешает удалять данные вне проекта или внешние ресурсы без соответствующего запроса пользователя.
+These rules do not waive integrity checks, access controls, or correct backup and restoration of the current format. They do not authorize deleting data outside the project or external resources without an appropriate user request.
 
-## Структура
+## Structure
 
-- `client/` содержит клиент на React, Vite и TypeScript.
-- `server/` содержит сервер, фоновые задания и CLI.
-- Клиент обращается к серверу через публичный API; он не импортирует серверную реализацию.
-- Инфраструктура разработки, развёртывания и документация находятся вне исходного кода клиента и сервера.
+- `client/` contains the React, Vite, and TypeScript client.
+- `server/` contains the API, background jobs, and CLI.
+- The client uses the public server API and never imports server implementations.
+- Development infrastructure, deployment, and documentation live outside client and server source code.

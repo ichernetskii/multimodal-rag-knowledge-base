@@ -28,7 +28,7 @@ export function Connections() {
   };
   const operator = Boolean(app.session.user?.operator);
   const company =
-    app.session.tenants.find((t) => t.id === app.session.user?.tenant)?.name ?? 'компании';
+    app.session.tenants.find((t) => t.id === app.session.user?.tenant)?.name ?? 'company';
   if (editing)
     return (
       <ModelProfileEditor
@@ -48,52 +48,59 @@ export function Connections() {
   return (
     <>
       <PageHeader
-        title="Подключённые модели"
+        title={'Connected models'}
         description={
-          'Профили моделей компании «' +
+          'Model profiles for company “' +
           company +
-          '». Общие API-ключи настраиваются отдельно в разделе платформы.'
+          '”. Shared API keys are configured separately in the platform section.'
         }
         actions={
           <>
             <Button className="primary" onClick={() => editProfile(createProfile())}>
-              + Подключить модель
+              + Connect model
             </Button>
             <Button onClick={() => editProfile(createProfile('google', 'transcription'))}>
-              + Google-расшифровка
+              + Google transcription
             </Button>
           </>
         }
       />
       <div className="info-callout">
-        Профили принадлежат этой компании.{' '}
-        <AdminLink to="credentials">API-ключи платформы →</AdminLink>
+        Profiles belong to this company. <AdminLink to="credentials">Platform API keys →</AdminLink>
       </div>
       <section className="panel">
-        <h2>Профили моделей</h2>
+        <h2>Model profiles</h2>
         <p>
-          Для внешних моделей выберите ключ из реестра платформы. Администраторы компаний не видят
-          значения ключей и не могут менять подключения. Профиль TEST AI предназначен для разработки
-          и проверок.
+          For external models, choose a key from the platform registry. Company administrators
+          cannot see key values or change connections. TEST AI is for development and verification.
         </p>
         <p>
-          Разрешение профиля не устанавливает модель и не запускает Ollama. Доступность проверяется
-          с сервера автоматически при открытии раздела; проверка не генерирует платный ответ.
+          Enabling a profile does not install the model or start Ollama. Availability is checked
+          from the server when you open this section; this check does not generate a paid answer.
         </p>
-        <Button onClick={() => setAvailabilityRefresh((n) => n + 1)}>Проверить все модели</Button>
+        <Button onClick={() => setAvailabilityRefresh((n) => n + 1)}>Check all models</Button>
         {models.error && <Loading error={models.error} retry={models.reload} />}
         {[
           {
+            kind: 'local',
             own: true,
-            title: 'На вашем сервере',
+            title: 'On your server',
             description:
-              'Whisper работает на сервере приложения. Ollama — по указанному адресу вашего сервера моделей.',
+              'Whisper runs on the application server. Ollama uses your configured model server address.',
           },
           {
+            kind: 'api',
             own: false,
-            title: 'Через внешний API',
+            title: 'External API',
             description:
-              'Google, Anthropic и серверы с совместимым API. Совместимый сервер может быть вашим собственным; его расположение определяется адресом.',
+              'Google, Anthropic, and compatible API servers. A compatible server can be self-hosted; its address determines where it runs.',
+          },
+          {
+            kind: 'test',
+            own: false,
+            title: 'Development & verification',
+            description:
+              'Deterministic checks run inside this application without external model calls or provider charges.',
           },
         ].map((group) => (
           <section className="model-provider-group" key={group.title}>
@@ -101,41 +108,49 @@ export function Connections() {
             <p className="muted">{group.description}</p>
             <div className="model-profiles">
               {models.data
-                ?.filter((p) => isOwnServer(p.provider) === group.own)
+                ?.filter((p) =>
+                  group.kind === 'test'
+                    ? p.provider === 'test'
+                    : p.provider !== 'test' && isOwnServer(p.provider) === group.own,
+                )
                 .map((p) => (
                   <article className="model-profile" key={p.id} aria-label={p.name}>
                     <h3>{p.name}</h3>
                     <Badge tone={isOwnServer(p.provider) ? 'success' : 'info'}>
-                      {isOwnServer(p.provider) ? 'Свой сервер' : 'Через API'}
+                      {p.provider === 'test'
+                        ? 'TEST AI'
+                        : isOwnServer(p.provider)
+                          ? 'Self-hosted'
+                          : 'API'}
                     </Badge>
                     <p>
-                      <code>{p.model}</code> · {p.enabled ? 'Разрешён' : 'Выключен'}
+                      <code>{p.model}</code> · {p.enabled ? 'Enabled' : 'Disabled'}
                     </p>
                     <p>
                       {providerNames[p.provider]} · {taskNames[p.role]}
                       <br />
-                      Вход: {p.input.map((m) => modalityNames[m]).join(', ')}
+                      Input: {p.input.map((m) => modalityNames[m]).join(', ')}
                     </p>
                     {needsCredential(p.provider) && (
                       <p>
-                        Ключ:{' '}
+                        Key:{' '}
                         <AdminLink to="credentials">
                           {keys.data?.find((key) => key.id === p.secretRef)?.label ??
-                            (p.secretRef || 'Не выбран')}
+                            (p.secretRef || 'Not selected')}
                         </AdminLink>
                         {' · '}
                         {keys.loading
-                          ? 'Проверяем…'
+                          ? 'Checking…'
                           : keys.error
-                            ? 'Состояние неизвестно'
+                            ? 'Status unknown'
                             : keys.data?.some((key) => key.id === p.secretRef && key.enabled)
-                              ? 'Включён'
-                              : 'Нужна настройка'}
+                              ? 'Enabled'
+                              : 'Setup required'}
                       </p>
                     )}
                     <ModelAvailability profile={p} refresh={availabilityRefresh} />
                     <div className="model-profile-actions">
-                      {operator && <Button onClick={() => editProfile(p)}>Изменить</Button>}
+                      {operator && <Button onClick={() => editProfile(p)}>Edit</Button>}
                       {operator && (
                         <Button
                           onClick={() =>
@@ -143,12 +158,12 @@ export function Connections() {
                               ...p,
                               id: crypto.randomUUID(),
                               revision: 0,
-                              name: p.name + ' — копия',
+                              name: p.name + ' — copy',
                               enabled: false,
                             })
                           }
                         >
-                          Копировать
+                          Copy
                         </Button>
                       )}
                       {operator && (
@@ -158,7 +173,7 @@ export function Connections() {
                             models.reload();
                           }}
                         >
-                          Удалить
+                          Delete
                         </Button>
                       )}
                     </div>

@@ -11,8 +11,10 @@ export const Models = observer(function Models() {
   ) : (
     <>
       <PageHeader
-        title="Назначение моделей"
-        description="Выберите, какие модели отвечают на вопросы, ищут материалы и распознают записи этой компании."
+        title={'Model assignments'}
+        description={
+          'Choose which models answer questions, search materials, and transcribe recordings for this company.'
+        }
       />
       <Assistant />
       <Indexes />

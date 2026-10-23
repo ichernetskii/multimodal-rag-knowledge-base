@@ -1,17 +1,38 @@
-# Проверки версии 7
+# Verification
 
-`yarn validate` checks documentation/action/script/environment contracts, generated client/server contract, TypeScript, ESLint, formatting, unit/component tests and production builds. Corpus integrity tests check the fixed inputs for all modalities. `yarn test:integration` exercises real PostgreSQL RLS, pg-boss, S3, source revocation, concurrent base renames and tenant backup/restore on development dependencies. `yarn test:docker` performs a clean deployment with actual bundled media tools, PDF/OCR, image/speech/video, durable queue/API restart, SSE, Redis loss and recovery.
+Run checks against the current checkout; old reports are not a substitute for a fresh pass.
 
-New Docker runs write `.artifacts/verification/docker.json`. This is generated, ignored output; inspect success and individual steps because a failed or incomplete record is not a release pass. [Earlier machine evidence](verification/saas-docker-2026-10-16.json) is historical. Infrastructure tests use TEST AI and make no paid provider requests. External model quality, provider billing and ARM64/M4 performance require their own checks; an Intel Docker pass does not establish them.
+| Command                 | Coverage                                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `yarn validate`         | Documentation links/action fields/scripts/environment reference, generated contracts, TypeScript, ESLint, formatting, server/client tests, production builds |
+| `yarn test:integration` | Isolated PostgreSQL/RLS, pg-boss, S3, access revocation, concurrent updates, reader/corrections, provider key vault, company backup/restore                  |
+| `yarn test:docker`      | Fresh deployment, bundled PDF/OCR/media/Whisper, all sample modalities, API/worker restart, SSE, Redis loss/recovery                                         |
+| `yarn test:workspace`   | Disposable browser workspace with real API/workers, sample corpus, long text, broken PDF, and all roles                                                      |
 
-The [acceptance report of 16 October](verification/saas-2026-10-16.md) links the completed integration, Docker, full installation recovery, CLI and browser checks, and records the running development installation and remaining deployment prerequisites.
+Integration/workspace checks require `yarn infra:up`. The browser workspace additionally needs `yarn build:client`, `yarn prepare:pdf`, and `yarn prepare:media` for native processing. It prints its random loopback URL and disposable credentials. Ctrl+C closes its servers and removes only its owned database/bucket. It never resets existing development or Docker application data.
 
-The subsequent [local AI report](verification/local-ai-2026-10-16.md) verifies real Docker Qwen3.5:4b, EmbeddingGemma and Whisper on text/photo/audio/video, server-side availability checks, Redis answer caching, offline reuse of weights and an answer after restarting Ollama. It supersedes the TEST-AI-only runtime status of the earlier acceptance report.
+TEST AI is deterministic and explicitly labelled. It checks infrastructure and workflows without paid model calls. PDF/OCR, Whisper, and video decoding are real. Evaluate actual answer/embedding quality separately with configured providers and [corpus questions](../examples/knowledge-base/manifest.json). Intel results do not establish ARM64 or GPU performance. Connection health does not establish answer quality or current provider pricing.
 
-The [admin UX report](verification/admin-ux-2026-10-16.md) records the task-based navigation, owner/company role boundaries, server-side authorization, API-key configuration, separate settings forms and desktop/mobile browser checks.
+Generated results belong in ignored `.artifacts/verification/` or `.artifacts/publication/`. Inspect exit status and every stage; incomplete output is not a pass. Historical internal reports are retained locally and excluded from publication. README screenshots are real browser captures from disposable sample data, not mockups.
 
-The [credential vault report](verification/credential-vault-2026-10-16.md) supersedes the environment-only key configuration: encrypted owner-managed credentials, live API/worker rotation, role/CSRF checks and backup isolation are verified.
+## Secret checks before publishing
 
-Obsolete SQLite-era temporary results and abandoned Docker attempts were removed. Curated SaaS reports and their linked evidence remain historical and are not rewritten as new passes. The [maintenance report](MAINTENANCE.md) records the present refactor, cleanup and verification scope; [admin UX](ADMIN-UX.md) describes the implemented React workspace. See [requirements](REQUIREMENTS.md) and [operations](OPERATIONS.md).
+Scan the complete Git history and current tracked source with Gitleaks. `.gitleaksignore` records one exact historical prose false positive. `.gitleaks.toml` extends all default rules and permits only an exact environment-variable reference and tokenizer signature in their source files; no general source paths or real credentials are suppressed. Also compare private local credential values against Git objects without printing the values. Keep `.env`, CLI credentials, databases, provider keys, snapshots, and runtime caches untracked. Review screenshots for private information.
 
-The current [workspace implementation report](verification/admin-workspace-2026-10-17.md) supersedes the prototype-only UI status and records bounded document reading, role checks, isolated test resources and current-format recovery. Run `yarn test:workspace` for an independent disposable browser environment; `yarn test:integration` creates its own database and S3 bucket instead of relying on seeded application data.
+CI runs validation, full-history secret scanning, and Docker acceptance. Local-only configuration is deliberately absent from Git; use `yarn configure` on a clean checkout. See [security guidance](../SECURITY.md).
+
+## Regression coverage from the project review
+
+| Failure checked                                                                              | Required behavior                                                 |
+| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| JSON `null`, primitives, arrays, and malformed syntax on HTTP routes                         | Bounded `400` errors before calling identity/application services |
+| Malformed percent-encoded session cookie                                                     | `401 UNAUTHENTICATED`, without a technical server error           |
+| Provider HTTP 307 on health, generation, or embeddings                                       | Reject without forwarding credentials or document input           |
+| Google, Anthropic, compatible API, or Ollama closes an unfinished stream / hits output limit | Fail explicitly; never mark or cache it as a complete answer      |
+| Failure writing the company-creation audit                                                   | Roll back company, membership, and initial profiles together      |
+| Invalid search/material-list scope                                                           | Reject before retrieval or provider work                          |
+| Missing English/Russian README companion                                                     | Fail documentation validation                                     |
+
+Stream fixtures follow the published [Gemini finish reasons](https://ai.google.dev/api/generate-content#FinishReason), [Anthropic event sequence](https://platform.claude.com/docs/en/build-with-claude/streaming), [Chat Completions finish reasons](https://developers.openai.com/api/reference/resources/chat/subresources/completions/streaming-events), and [Ollama completion fields](https://docs.ollama.com/api/chat). Provider tests include fragmented transport records, explicit successful completion, premature closure, and output-limit stops. Redirect checks use two real loopback HTTP servers and synthetic credentials.
+
+These checks cover protocol and workflow correctness. Paid provider accounts, semantic answer quality, public HTTPS/DNS, multi-host load, and ARM/GPU performance require installation-specific acceptance. The repository does not yet specify a project license; third-party runtime/sample licenses remain included.

@@ -24,7 +24,7 @@ export class TextDocumentParser implements DocumentParser {
     requireValue(
       document.text.length <= this.maxCharacters,
       'EXTRACTED_TEXT_LIMIT',
-      'Превышен лимит извлечённого текста.',
+      'The extracted text limit was exceeded.',
     );
     if (document.format === 'text')
       return document.text.trim()
@@ -77,7 +77,7 @@ export class TextDocumentParser implements DocumentParser {
         requireValue(
           outputCharacters <= this.maxCharacters,
           'EXTRACTED_TEXT_LIMIT',
-          'Текст с раскрытыми ссылками превышает лимит. Разделите документ или измените лимит.',
+          'Text with expanded links exceeds the limit. Split the document or adjust the limit.',
         );
         sections.push({
           ...current,
@@ -113,7 +113,7 @@ export class TextDocumentParser implements DocumentParser {
         outputCharacters + unused.reduce((length, item) => length + item.text.length + 1, 0) <=
           this.maxCharacters,
         'EXTRACTED_TEXT_LIMIT',
-        'Текст с раскрытыми ссылками превышает лимит.',
+        'Text with expanded links exceeds the limit.',
       );
     if (unused.length)
       sections.push({

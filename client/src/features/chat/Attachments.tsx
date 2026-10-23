@@ -24,10 +24,10 @@ export const Attachments = observer(function Attachments({
   if (!load.data?.items.length) return null;
   return (
     <details className="chat-attachments" open>
-      <summary>Вложения диалога · {load.data.total}</summary>
+      <summary>Conversation attachments · {load.data.total}</summary>
       <p className="muted">
-        Проверьте распознанный материал и опубликуйте. Отметьте до трёх вложений как основные
-        источники следующего вопроса. В ответ попадёт ограниченное число кадров.
+        Review and publish processed materials. Select up to three attachments as primary sources
+        for your next question. A limited number of frames will be included in the answer.
       </p>
       {load.data.items.map((doc) => (
         <div className="actions" key={doc.id}>
@@ -45,10 +45,10 @@ export const Attachments = observer(function Attachments({
           </label>
           <Button onClick={() => modal(<DocumentView id={doc.id} after={load.reload} />)}>
             {doc.processing?.reviewRequired
-              ? 'Проверить и опубликовать'
+              ? 'Review & publish'
               : doc.state === 'published'
-                ? 'Просмотреть'
-                : 'Обработка / состояние'}
+                ? 'Preview'
+                : 'Processing / status'}
           </Button>
           {doc.processing?.error && <span role="status">{doc.processing.error}</span>}
         </div>

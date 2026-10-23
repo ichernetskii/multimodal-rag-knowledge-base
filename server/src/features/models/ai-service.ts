@@ -235,7 +235,7 @@ export class AIService {
       requireValue(
         !p.secretRef || this.config.environment !== 'production' || url.protocol === 'https:',
         'INSECURE_CREDENTIAL_ENDPOINT',
-        'Подключение с API-ключом в production требует HTTPS.',
+        'API key connections require HTTPS in production.',
       );
       requireValue(
         allowed.has(p.endpoint) && !url.username && !url.password && !url.search && !url.hash,
@@ -533,7 +533,7 @@ export class AIService {
         requireValue(
           p.model === 'small',
           'MODEL_NOT_INSTALLED',
-          'В образ встроена модель Whisper small. Выберите small.',
+          'The image includes Whisper small. Select small.',
         );
         const { access } = await import('node:fs/promises');
         const { defaultWhisperModel } = await import('../../config/media-runtime.js');
@@ -544,12 +544,12 @@ export class AIService {
         ok: true,
         message:
           p.provider === 'test'
-            ? 'TEST AI — проверочный провайдер, не настоящая модель.'
+            ? 'TEST AI is a verification provider, not a real model.'
             : p.provider === 'whisper'
-              ? 'Whisper small: программа и веса доступны в контейнере сервера.'
+              ? 'Whisper small: executable and weights are available on the server.'
               : p.provider === 'ollama'
-                ? `Ollama доступен, модель ${p.model} установлена и поддерживает выбранную задачу. Проверка не запускает генерацию.`
-                : 'Провайдер и выбранная модель доступны. Проверка не запускает генерацию.',
+                ? `Ollama is available; model ${p.model} is installed and supports the selected task. This check does not generate content.`
+                : 'The provider and selected model are available. This check does not generate content.',
       };
     } catch (e) {
       return {
@@ -558,10 +558,10 @@ export class AIService {
           e instanceof AppError
             ? e.message
             : p.provider === 'ollama'
-              ? `Нет соединения с Ollama. Проверьте запуск контейнера ollama и адрес подключения. Включение профиля не устанавливает и не запускает модель.`
+              ? 'Cannot connect to Ollama. Check the ollama container and connection URL. Enabling a profile does not install or start a model.'
               : p.provider === 'whisper'
-                ? 'Whisper недоступен: проверьте программу whisper.cpp и веса small внутри серверного образа.'
-                : 'Не удалось связаться с AI-провайдером. Проверьте адрес, сеть и серверные ключи.',
+                ? 'Whisper is unavailable: check the whisper.cpp executable and small weights in the server image.'
+                : 'Cannot reach the AI provider. Check its URL, network, and server credentials.',
       };
     }
   }

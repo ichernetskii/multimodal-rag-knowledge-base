@@ -12,7 +12,7 @@ export function Account() {
   const load = useLoad(() => api('sessions.list'));
   return (
     <>
-      <h2>Активные сессии</h2>
+      <h2>Active sessions</h2>
       {load.data?.map((s) => (
         <div className="card" key={s.id}>
           {new Date(s.created).toLocaleString()}
@@ -23,12 +23,12 @@ export function Account() {
               load.reload();
             }}
           >
-            Отозвать
+            Revoke
           </Button>
         </div>
       ))}
       {load.loading && <Loading error={load.error} />}
-      <h2>Сменить пароль</h2>
+      <h2>Change password</h2>
       <Form
         submit={async (f) => {
           await api('password.change', {
@@ -39,14 +39,14 @@ export function Account() {
         }}
       >
         <Field
-          label="Текущий пароль"
+          label={'Current password'}
           name="oldPassword"
           type="password"
           required
           minLength={1}
           autoComplete="current-password"
         />
-        <Field label="Новый пароль" name="password" type="password" required />
+        <Field label={'New password'} name="password" type="password" required />
       </Form>
     </>
   );

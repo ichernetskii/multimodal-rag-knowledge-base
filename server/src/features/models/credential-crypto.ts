@@ -52,7 +52,7 @@ export class CredentialCipher {
     } catch {
       throw new AppError(
         'CREDENTIAL_DECRYPTION_FAILED',
-        'Не удалось открыть ключ. Проверьте APP_ENCRYPTION_KEY установки или замените ключ через админку.',
+        "Could not decrypt the key. Check this installation's APP_ENCRYPTION_KEY or replace the key in the admin interface.",
         503,
       );
     }

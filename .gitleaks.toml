@@ -1,0 +1,14 @@
+title = "Multimodal RAG Knowledge Base secret scanning"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Environment variable reference and deterministic tokenizer signature"
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^env\.S3_SECRET_KEY$''', '''^utf8-byte-upper-bound-v1$''']
+paths = ['''server/src/config/saas-config\.ts$''', '''server/src/features/documents/saas-documents\.ts$''']

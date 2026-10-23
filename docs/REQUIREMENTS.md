@@ -1,19 +1,20 @@
-# Проверяемые требования
+# Requirements and scope
 
-1. Чистая установка создаёт PostgreSQL schema, pg-boss queues и закрытый S3 bucket; оператор создаётся только локальной административной командой.
-2. Компании изолированы по членству, RLS, поиску, файлам, кешу, заданиям, диалогам и резервным копиям. Личные данные остаются личными.
-3. Multipart upload возобновляется, сверяет размер/SHA и создаёт извлечение только после завершения. Публикация требует подтверждения проверки.
-4. Поиск сочетает vectors, FTS и технические обозначения. Каждый результат имеет неизменяемое происхождение. Отзыв прав немедленно закрывает новый поиск и историю.
-5. Принятое задание находится в PostgreSQL и pg-boss одной транзакцией. Есть idempotency, cancellation, attempt fencing, retry/backoff, worker recovery и понятный uncertain provider outcome.
-6. Generation/indexing/processing имеют отдельные deployment limits; компании и профили — дополнительные concurrency/rate/budget caps. При заполнении очереди вход ограничивается 429 до подтверждения приёма.
-7. Профили Google, Anthropic, Ollama, compatible API и Whisper имеют явные capabilities. Embedding-смена требует отдельного построения и атомарного переключения индекса.
-8. Redis можно потерять без потери бизнес-данных; кеш не обходит ACL и инвалидируется ревизиями. SSE reconnect не повторяет AI-вызов.
-9. Клиент, админка и CLI используют один контракт. CLI синхронизирует папку на своей машине, не заставляет SaaS читать путь клиента.
-10. Копии текущего формата сверяют HMAC/SHA и восстанавливают только целевую компанию. Whole-installation recovery восстанавливает PostgreSQL и локальное S3 согласованно.
-11. Dev workflow включает pinned Yarn, Compose dependencies, API/worker reload, client HMR, seed, guarded reset, проверки и CI. Production workflow включает private env, HTTPS ingress, закрытые зависимости, readiness и graceful stop.
-12. Несовместимые форматы отклоняются; старые данные и адаптеры не поддерживаются. Проверенные исторические отчёты остаются историей, а не актуальным подтверждением. Временные прогоны записываются в игнорируемый `.artifacts/`.
-13. Демонстрационная база имеет фиксированные входы всех пяти модальностей, SHA-256 и контрольные вопросы. Импорт проходит через публичный API, сохраняет обработку/ошибки и требует проверки до публикации. Тяжёлые декодеры проверяются в Docker, качество реального AI — отдельно от TEST AI.
-14. Конкурентные изменения базы знаний с одной revision дают один успех и конфликт, а не скрытую потерю изменений. Список баз не обходит ACL и считает документы одним пакетным запросом.
-15. [Админка](ADMIN-UX.md) использует постоянное меню с явными областями компании и платформы. Модели назначаются по задачам, подключения отделены от общего хранилища ключей. Материалы поддерживают проверку, исправление, поиск внутри длинного текста и публикацию с серверными правами. Проверки выполняются на реальном API; отчёты и ограничения указаны в [VERIFICATION](VERIFICATION.md).
+1. A clean installation creates PostgreSQL tables, pg-boss queues, and a private S3 bucket. The first operator is created only by an administrative CLI command.
+2. Company memberships, RLS, search, files, caches, jobs, chats, and backups are isolated. Personal data remains owner-only.
+3. Resumable multipart uploads verify length/SHA-256 before extraction. Publication requires explicit review acknowledgement.
+4. Retrieval combines vectors, full-text, and technical identifiers with immutable source provenance. Revocation applies to new search, historical answers, and assets.
+5. Job admission and pg-boss delivery commit together. Idempotency, cancellation, attempt fencing, retry/backoff, worker recovery, and uncertain external outcomes are visible.
+6. Generation, indexing, and processing have deployment limits. Company/profile concurrency, rates, and budgets add separate caps. Queue admission rejects excess work before acceptance.
+7. Google, Anthropic, Ollama, compatible APIs, and Whisper expose actual implemented capabilities. A new embedding space requires a candidate build and atomic activation.
+8. Redis loss cannot lose accepted jobs or bypass authorization. Revision keys invalidate caches; SSE reconnect does not repeat an AI call.
+9. Browser and CLI use one public contract. Folder sync reads the CLI computer through resumable API uploads, never a server-side path into a client disk.
+10. Current-format tenant backups verify HMAC/SHA and restore only the target company. Installation snapshots coordinate PostgreSQL and local S3 recovery.
+11. Development includes pinned Yarn, Compose dependencies, hot reload, seed, guarded reset, isolated verification, and CI. Production uses private configuration, HTTPS, readiness, and graceful shutdown.
+12. Incompatible data and backup formats fail clearly without migration. Generated evidence remains in ignored `.artifacts/`.
+13. Fixed samples cover all five modalities with hashes and expected facts. Heavy decoders run in Docker acceptance; real AI quality is evaluated separately from TEST AI.
+14. Concurrent writes check revisions rather than silently overwrite. Base lists enforce ACL and batch material counts.
+15. The [admin workspace](ADMIN-UX.md) separates company and platform scopes. Models are assigned by task; connections reference a separate key vault. Material review includes correction, bounded reading, literal find, and explicit publication.
+16. The published application interface and primary documentation are English. Real-app screenshots contain only disposable sample data, and local secrets remain untracked.
 
-Границы: это общий SaaS backend, а не готовая коммерческая биллинговая платформа. Приём платежей, SSO/SAML, корпоративные DLP/антивирус, live provider price discovery и управляемый облачный autoscaling не входят в текущий контракт. Не оценивайте качество AI по детерминированным инфраструктурным тестам.
+The current product is a self-hosted application foundation, not a complete commercial billing platform. Payments, SSO/SAML, enterprise DLP/antivirus, live price discovery, microphone question dictation, generated image output, and managed cloud autoscaling are outside the current contract. Deterministic infrastructure tests do not establish model quality.

@@ -26,23 +26,23 @@ export function ConversationVersions({
     );
   return (
     <>
-      <p className="eyebrow">ИСТОРИЯ ВОПРОСА</p>
-      <h2>Версии вопроса</h2>
+      <p className="eyebrow">QUESTION HISTORY</p>
+      <h2>Question versions</h2>
       <p className="muted">
-        Выбранный результат станет продолжением диалога. Остальные версии сохранятся.
+        The selected result becomes the conversation continuation. Other versions remain saved.
       </p>
       {load.error && <Loading error={load.error} retry={load.reload} />}{' '}
       {load.data ? (
         <>
           <Table
-            head={['Вопрос', 'Создан', 'Состояние', 'Выбор']}
+            head={['Question', 'Created', 'Status', 'Selection']}
             rowKeys={load.data.items.map((t) => t.id)}
             rows={load.data.items.map((turn) => [
               <strong>{turn.question}</strong>,
               date(turn.created),
               <Badge>{statuses[turn.status]}</Badge>,
               turn.id === selected ? (
-                <Badge tone="success">Выбрана</Badge>
+                <Badge tone="success">Selected</Badge>
               ) : (
                 <Button
                   onClick={async () => {
@@ -50,7 +50,7 @@ export function ConversationVersions({
                     modal(null);
                   }}
                 >
-                  Выбрать
+                  Select
                 </Button>
               ),
             ])}

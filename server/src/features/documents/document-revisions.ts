@@ -32,7 +32,7 @@ export class DocumentRevisions {
         requireValue(
           source?.document === document.id && source.state === 'ready',
           'VERSION_NOT_READY',
-          'Создать исправления можно из обработанной опубликованной версии.',
+          'Corrections can be created from a processed, published version.',
           409,
         );
         requireValue(
@@ -40,7 +40,7 @@ export class DocumentRevisions {
             document.id,
           ])),
           'REVIEW_PENDING',
-          'У материала уже есть версия для обработки или проверки. Завершите её перед созданием исправлений.',
+          'This material already has a version being processed or reviewed. Finish it before creating corrections.',
           409,
         );
         const original = await this.documents.asset(user, document.id, source.id);
@@ -115,7 +115,7 @@ export class DocumentRevisions {
         requireValue(
           Number(usage?.bytes ?? 0) + Number(source.bytes) <= settings.storageBytes,
           'STORAGE_QUOTA',
-          'Недостаточно места для версии исправлений. Увеличьте лимит хранения компании.',
+          "Not enough storage for a correction version. Increase the company's storage limit.",
           429,
         );
         signal?.throwIfAborted();
@@ -125,7 +125,7 @@ export class DocumentRevisions {
         requireValue(
           await this.s.db.get('version', version.id),
           'SOURCE_DELETED',
-          'Версия исправлений удалена.',
+          'Correction version deleted.',
           409,
         );
         await this.s.db.query('INSERT INTO assets VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [
@@ -159,7 +159,7 @@ export class DocumentRevisions {
         source?.document === document.id &&
         source.state === 'ready',
       'SOURCE_DELETED',
-      'Исходная версия для исправлений недоступна.',
+      'The source version for corrections is unavailable.',
       409,
     );
     const assets = await this.s.db.query<Asset>(
@@ -187,7 +187,7 @@ export class DocumentRevisions {
             result: {
               copied: index + 1,
               total: assets.length,
-              message: `Копирование файлов для исправлений: ${index + 1} из ${assets.length}. Повторного распознавания нет`,
+              message: `Copying files for corrections: ${index + 1} of ${assets.length}. Recognition is not run again`,
             },
           },
           attempt,
@@ -200,7 +200,7 @@ export class DocumentRevisions {
       requireValue(
         mapped,
         'ASSET_MISSING',
-        'Не найден исходный файл или медиафрагмент для исправлений.',
+        'The original file or media fragment for corrections was not found.',
         409,
       );
       return mapped;
@@ -236,7 +236,7 @@ export class DocumentRevisions {
       requireValue(
         await this.s.db.get('version', version.id),
         'SOURCE_DELETED',
-        'Версия исправлений удалена.',
+        'Correction version deleted.',
         409,
       );
       await this.s.db.put('version', { ...version, pages, state: 'review' });
